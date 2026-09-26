@@ -1,7 +1,8 @@
-import { ArrowRight, Music2 } from "lucide-react";
+import { ArrowRight, GraduationCap, Music2, Users } from "lucide-react";
 import { LinkButton } from "@/components/ui/button";
 import { CauseCard, ExampleMatch, Faq, FAQ_ITEMS, HoursTimeline, SafetyGrid, Steps, WhoItsFor } from "@/components/site/sections";
 import { getPublicConfig } from "@/lib/viewer";
+import { HeroPhoto, InstrumentStrip, TutorPhoto } from "@/components/site/photos";
 
 export default async function HomePage() {
   const config = await getPublicConfig();
@@ -21,16 +22,27 @@ export default async function HomePage() {
             </h1>
             <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-muted sm:text-lg">
               High school band and orchestra players teach middle schoolers one-on-one over Google Meet. Lessons are free, every match
-              starts with the instrument and the student’s level, and parents stay in the loop from the first message to the last lesson.
+              starts with the instrument and the student’s level, and a parent approves before anything happens.
             </p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <LinkButton href="/signup?role=family" size="lg">
-                Find a tutor for my student <ArrowRight className="size-4" />
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <LinkButton href="/signup?role=student" size="lg">
+                I’m a student — get free lessons <ArrowRight className="size-4" />
               </LinkButton>
               <LinkButton href="/signup?role=tutor" variant="secondary" size="lg">
                 <Music2 className="size-4" /> Volunteer as a tutor
               </LinkButton>
             </div>
+            <p className="mt-4 text-sm text-muted">
+              Parent?{" "}
+              <a href="/signup?role=family" className="font-medium text-pine-700 underline underline-offset-4">
+                Sign up for your child
+              </a>{" "}
+              or{" "}
+              <a href="/guardian" className="font-medium text-pine-700 underline underline-offset-4">
+                open your parent link
+              </a>
+              .
+            </p>
             <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[13.5px] text-ink-2">
               {["No cost, ever", "Lessons are never recorded", "Parent consent before any lesson"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
@@ -40,8 +52,8 @@ export default async function HomePage() {
               ))}
             </ul>
           </div>
-          <div className="animate-rise [animation-delay:120ms]">
-            <ExampleMatch />
+          <div className="animate-rise pb-6 [animation-delay:120ms] lg:pb-0">
+            <HeroPhoto />
           </div>
         </div>
       </section>
@@ -64,6 +76,20 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* Instruments */}
+      <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-2xl">
+            <p className="eyebrow">Every band & orchestra instrument</p>
+            <h2 className="display mt-3 text-4xl sm:text-5xl">Learn from someone who plays what you play.</h2>
+          </div>
+          <p className="max-w-sm text-[15px] leading-relaxed text-muted">
+            No tutor for your exact instrument yet? You’ll see tutors who play a closely related one — like sax for clarinet.
+          </p>
+        </div>
+        <InstrumentStrip />
+      </section>
+
       {/* Who it's for */}
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="mb-12 max-w-2xl">
@@ -84,7 +110,10 @@ export default async function HomePage() {
             The details <ArrowRight className="size-4" />
           </LinkButton>
         </div>
-        <Steps />
+        <div className="grid gap-10 lg:grid-cols-[1.6fr_1fr] lg:items-center">
+          <Steps />
+          <ExampleMatch />
+        </div>
       </section>
 
       {/* Safety */}
@@ -111,7 +140,8 @@ export default async function HomePage() {
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.5fr] lg:items-start">
           <div>
-            <p className="eyebrow">For tutors</p>
+            <TutorPhoto />
+            <p className="eyebrow mt-8">For tutors</p>
             <h2 className="display mt-3 text-4xl sm:text-5xl">Volunteer hours that actually mean something.</h2>
             <p className="mt-5 text-[16px] leading-relaxed text-muted">
               A lesson only counts after three different people agree it happened. That’s what makes the hours on your record credible —
@@ -142,7 +172,7 @@ export default async function HomePage() {
 
       {/* FAQ */}
       <section className="mx-auto max-w-4xl px-4 pb-24 sm:px-6">
-        <h2 className="display mb-8 text-4xl sm:text-5xl">Questions parents ask</h2>
+        <h2 className="display mb-8 text-4xl sm:text-5xl">Questions people ask</h2>
         <Faq items={FAQ_ITEMS} />
       </section>
 
@@ -153,15 +183,18 @@ export default async function HomePage() {
           <div className="relative">
             <h2 className="display mx-auto max-w-3xl text-4xl sm:text-6xl">Ready when you are.</h2>
             <p className="mx-auto mt-4 max-w-xl text-[16px] leading-relaxed text-ink-2">
-              Sign up takes a few minutes. Families get matched with a tutor; tutors get a real way to give back with the thing they’re
-              best at.
+              Sign-up takes a few minutes. Students get matched with a tutor; tutors get a real way to give back with the thing they’re best
+              at.
             </p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <LinkButton href="/signup?role=family" size="lg">
-                I’m a parent or guardian
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
+              <LinkButton href="/signup?role=student" size="lg">
+                <Music2 className="size-4" /> I’m a middle schooler
+              </LinkButton>
+              <LinkButton href="/signup?role=family" variant="secondary" size="lg">
+                <Users className="size-4" /> I’m a parent
               </LinkButton>
               <LinkButton href="/signup?role=tutor" variant="secondary" size="lg">
-                I’m a high school musician
+                <GraduationCap className="size-4" /> I’m a high school musician
               </LinkButton>
             </div>
           </div>

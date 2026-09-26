@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_login_attempts: {
+        Row: {
+          created_at: string
+          id: number
+          ip: string | null
+          ok: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          ip?: string | null
+          ok: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          ip?: string | null
+          ok?: boolean
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           admin_emails: string[]
@@ -256,6 +277,66 @@ export type Database = {
         }
         Relationships: []
       }
+      guardians: {
+        Row: {
+          account_id: string
+          created_at: string
+          email: string
+          id: string
+          invite_count: number
+          last_invited_at: string
+          last_viewed_at: string | null
+          name: string
+          student_id: string
+          token_expires_at: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          email: string
+          id?: string
+          invite_count?: number
+          last_invited_at?: string
+          last_viewed_at?: string | null
+          name: string
+          student_id: string
+          token_expires_at: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          invite_count?: number
+          last_invited_at?: string
+          last_viewed_at?: string | null
+          name?: string
+          student_id?: string
+          token_expires_at?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardians_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardians_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incidents: {
         Row: {
           admin_notes: string | null
@@ -265,6 +346,7 @@ export type Database = {
           id: string
           message_id: string | null
           reporter_id: string | null
+          reporter_label: string | null
           reporter_role: Database["public"]["Enums"]["user_role"] | null
           resolved_at: string | null
           resolved_by: string | null
@@ -283,6 +365,7 @@ export type Database = {
           id?: string
           message_id?: string | null
           reporter_id?: string | null
+          reporter_label?: string | null
           reporter_role?: Database["public"]["Enums"]["user_role"] | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -301,6 +384,7 @@ export type Database = {
           id?: string
           message_id?: string | null
           reporter_id?: string | null
+          reporter_label?: string | null
           reporter_role?: Database["public"]["Enums"]["user_role"] | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -391,6 +475,7 @@ export type Database = {
           hidden_by: string | null
           id: string
           kind: Database["public"]["Enums"]["message_kind"]
+          scanned_at: string | null
           sender_id: string | null
           session_id: string | null
           template_key: string | null
@@ -403,6 +488,7 @@ export type Database = {
           hidden_by?: string | null
           id?: string
           kind: Database["public"]["Enums"]["message_kind"]
+          scanned_at?: string | null
           sender_id?: string | null
           session_id?: string | null
           template_key?: string | null
@@ -415,6 +501,7 @@ export type Database = {
           hidden_by?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["message_kind"]
+          scanned_at?: string | null
           sender_id?: string | null
           session_id?: string | null
           template_key?: string | null
@@ -457,6 +544,128 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      moderation_flags: {
+        Row: {
+          author_id: string | null
+          auto_actions: string[]
+          category: string
+          created_at: string
+          evidence: Json
+          excerpt: string | null
+          id: number
+          message_id: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          run_id: number | null
+          score: number
+          severity: string
+          source_id: string
+          source_type: string
+          status: string
+          thread_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          auto_actions?: string[]
+          category: string
+          created_at?: string
+          evidence?: Json
+          excerpt?: string | null
+          id?: never
+          message_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          run_id?: number | null
+          score?: number
+          severity: string
+          source_id: string
+          source_type: string
+          status?: string
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          auto_actions?: string[]
+          category?: string
+          created_at?: string
+          evidence?: Json
+          excerpt?: string | null
+          id?: never
+          message_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          run_id?: number | null
+          score?: number
+          severity?: string
+          source_id?: string
+          source_type?: string
+          status?: string
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_flags_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_flags_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_flags_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "moderation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_flags_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moderation_runs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          flagged: number
+          id: number
+          scanned: number
+          source: string
+          started_at: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          flagged?: number
+          id?: never
+          scanned?: number
+          source: string
+          started_at?: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          flagged?: number
+          id?: never
+          scanned?: number
+          source?: string
+          started_at?: string
+        }
+        Relationships: []
       }
       partners: {
         Row: {
@@ -502,6 +711,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_kind: string | null
           adult_attested_at: string | null
           avatar_path: string | null
           created_at: string
@@ -520,6 +730,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_kind?: string | null
           adult_attested_at?: string | null
           avatar_path?: string | null
           created_at?: string
@@ -538,6 +749,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_kind?: string | null
           adult_attested_at?: string | null
           avatar_path?: string | null
           created_at?: string
@@ -793,6 +1005,7 @@ export type Database = {
           goals: string[]
           grade: number
           id: string
+          interests: string[]
           is_active: boolean
           learning_style: string | null
           notes: string | null
@@ -810,6 +1023,7 @@ export type Database = {
           goals?: string[]
           grade: number
           id?: string
+          interests?: string[]
           is_active?: boolean
           learning_style?: string | null
           notes?: string | null
@@ -827,6 +1041,7 @@ export type Database = {
           goals?: string[]
           grade?: number
           id?: string
+          interests?: string[]
           is_active?: boolean
           learning_style?: string | null
           notes?: string | null
@@ -949,6 +1164,55 @@ export type Database = {
           },
         ]
       }
+      tutor_offers: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          student_id: string
+          subject_id: string
+          tutor_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          student_id: string
+          subject_id: string
+          tutor_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          student_id?: string
+          subject_id?: string
+          tutor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_offers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_offers_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_offers_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tutor_profiles: {
         Row: {
           accepting_students: boolean
@@ -965,6 +1229,7 @@ export type Database = {
           guardian_email: string | null
           guardian_name: string | null
           guardian_phone: string | null
+          interests: string[]
           max_students: number
           meet_url: string | null
           school: string | null
@@ -993,6 +1258,7 @@ export type Database = {
           guardian_email?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
+          interests?: string[]
           max_students?: number
           meet_url?: string | null
           school?: string | null
@@ -1021,6 +1287,7 @@ export type Database = {
           guardian_email?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
+          interests?: string[]
           max_students?: number
           meet_url?: string | null
           school?: string | null
@@ -1102,6 +1369,25 @@ export type Database = {
     }
     Functions: {
       accept_terms: { Args: { p_kind: string }; Returns: undefined }
+      admin_cron_http: { Args: never; Returns: Json }
+      admin_activity: {
+        Args: { p_action?: string; p_before?: number; p_limit?: number }
+        Returns: {
+          action: string
+          actor_id: string
+          actor_kind: string
+          actor_name: string
+          created_at: string
+          data: Json
+          id: number
+          target_id: string
+          target_type: string
+        }[]
+      }
+      admin_erase_account: {
+        Args: { p_reason: string; p_user: string }
+        Returns: string
+      }
       admin_find_user: {
         Args: { p_email: string }
         Returns: {
@@ -1113,6 +1399,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
         }[]
       }
+      admin_health: { Args: never; Returns: Json }
       admin_hide_message: {
         Args: { p_hide: boolean; p_message: string }
         Returns: undefined
@@ -1131,6 +1418,30 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_list_flags: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: {
+          author_id: string
+          author_kind: string
+          author_name: string
+          auto_actions: string[]
+          category: string
+          created_at: string
+          evidence: Json
+          excerpt: string
+          id: number
+          message_hidden: boolean
+          message_id: string
+          review_note: string
+          reviewed_at: string
+          score: number
+          severity: string
+          source_id: string
+          source_type: string
+          status: string
+          thread_id: string
+        }[]
+      }
       admin_list_incidents: {
         Args: { p_status?: string }
         Returns: {
@@ -1142,13 +1453,18 @@ export type Database = {
           message_body: string
           message_id: string
           reporter_email: string
+          reporter_id: string
+          reporter_label: string
           reporter_name: string
           reporter_role: Database["public"]["Enums"]["user_role"]
           resolved_at: string
           session_id: string
           session_start: string
           status: Database["public"]["Enums"]["incident_status"]
+          student_family_id: string
+          student_id: string
           student_name: string
+          thread_id: string
           tutor_auto_paused: boolean
           tutor_id: string
           tutor_name: string
@@ -1170,6 +1486,22 @@ export type Database = {
           status: Database["public"]["Enums"]["session_status"]
           student_name: string
           subject_name: string
+          tutor_id: string
+          tutor_name: string
+        }[]
+      }
+      admin_list_threads: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: {
+          family_id: string
+          family_kind: string
+          family_name: string
+          hidden: number
+          id: string
+          last_message_at: string
+          messages: number
+          open_flags: number
+          student_name: string
           tutor_id: string
           tutor_name: string
         }[]
@@ -1201,7 +1533,36 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_login_allowed: { Args: { p_ip: string }; Returns: boolean }
+      admin_login_record: {
+        Args: { p_ip: string; p_ok: boolean }
+        Returns: undefined
+      }
       admin_overview: { Args: never; Returns: Json }
+      admin_people: {
+        Args: {
+          p_kind?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+        }
+        Returns: {
+          created_at: string
+          detail: string
+          email: string
+          full_name: string
+          id: string
+          kind: string
+          last_sign_in_at: string
+          lessons: number
+          onboarded: boolean
+          open_flags: number
+          open_reports: number
+          status: string
+          total_count: number
+        }[]
+      }
+      admin_person: { Args: { p_id: string }; Returns: Json }
       admin_retry_email: { Args: { p_id: number }; Returns: undefined }
       admin_set_current_partner: {
         Args: { p_partner: string }
@@ -1223,6 +1584,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_thread: { Args: { p_thread: string }; Returns: Json }
       admin_thread_messages: {
         Args: { p_thread: string }
         Returns: {
@@ -1234,6 +1596,10 @@ export type Database = {
           sender_id: string
           sender_name: string
         }[]
+      }
+      admin_update_flag: {
+        Args: { p_id: number; p_note?: string; p_status: string }
+        Returns: undefined
       }
       admin_update_incident: {
         Args: {
@@ -1291,6 +1657,14 @@ export type Database = {
         Args: { p_email: string; p_purpose: string; p_send_id?: number }
         Returns: undefined
       }
+      connected_student_kinds: {
+        Args: never
+        Returns: {
+          family_id: string
+          kind: string
+          student_id: string
+        }[]
+      }
       complete_onboarding: { Args: never; Returns: Json }
       confirm_session: {
         Args: { p_happened: boolean; p_note?: string; p_session: string }
@@ -1301,6 +1675,40 @@ export type Database = {
         Returns: undefined
       }
       get_public_config: { Args: never; Returns: Json }
+      guardian_delete_account: {
+        Args: { p_confirm: string; p_token: string }
+        Returns: string
+      }
+      guardian_report: {
+        Args: {
+          p_category: string
+          p_description: string
+          p_token: string
+          p_tutor?: string
+        }
+        Returns: string
+      }
+      guardian_request_link: { Args: { p_email: string }; Returns: undefined }
+      guardian_revoke: { Args: { p_token: string }; Returns: number }
+      guardian_sign_consent: {
+        Args: {
+          p_adult_guardian: boolean
+          p_free_no_payment: boolean
+          p_guardian_name: string
+          p_incident_process: boolean
+          p_messaging_monitoring: boolean
+          p_no_recording: boolean
+          p_online_only: boolean
+          p_phone: string
+          p_reachable: boolean
+          p_relationship: string
+          p_signature: string
+          p_token: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
+      guardian_view: { Args: { p_token: string }; Returns: Json }
       issue_email_code: {
         Args: {
           p_code_hash: string
@@ -1310,6 +1718,32 @@ export type Database = {
           p_ttl_minutes?: number
         }
         Returns: number
+      }
+      list_students_for_tutor: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_student?: string
+          p_subject_ids?: string[]
+        }
+        Returns: {
+          availability: string[]
+          connected: boolean
+          county: string
+          explain_style: string
+          first_name: string
+          goals: string[]
+          grade: number
+          interests: string[]
+          learning_style: string
+          offered_at: string
+          preferred_minutes: number
+          student_id: string
+          subjects: Json
+          total_count: number
+          tutor_count: number
+        }[]
       }
       list_tutors: {
         Args: {
@@ -1329,6 +1763,8 @@ export type Database = {
           display_name: string
           explain_style: string
           grade: number
+          interests: string[]
+          late_cancels_90d: number
           lessons_completed: number
           max_students: number
           school: string
@@ -1341,11 +1777,80 @@ export type Database = {
           verified_minutes: number
         }[]
       }
+      log_app_event: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_data?: Json
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: undefined
+      }
       log_session: {
         Args: { p_happened: boolean; p_note?: string; p_session: string }
         Returns: Database["public"]["Enums"]["session_status"]
       }
       mark_thread_read: { Args: { p_thread: string }; Returns: undefined }
+      moderation_apply: {
+        Args: { p_flags: Json; p_run: number; p_scanned: string[] }
+        Returns: number
+      }
+      moderation_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          id: string
+          sender_id: string
+          sender_kind: string
+          sender_side: string
+          student_id: string
+          thread_id: string
+          tutor_id: string
+        }[]
+      }
+      moderation_finish: {
+        Args: { p_error?: string; p_run: number }
+        Returns: undefined
+      }
+      moderation_other_texts: {
+        Args: { p_since: string }
+        Returns: {
+          author_id: string
+          body: string
+          source_id: string
+          source_type: string
+        }[]
+      }
+      moderation_start: { Args: { p_source: string }; Returns: number }
+      moderation_thread_context: {
+        Args: { p_days?: number; p_thread_ids: string[] }
+        Returns: {
+          body: string
+          created_at: string
+          id: string
+          sender_id: string
+          sender_side: string
+          thread_id: string
+        }[]
+      }
+      my_offers: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          note: string
+          student_id: string
+          student_name: string
+          subject_id: string
+          subject_name: string
+          thread_id: string
+          tutor_avatar: string
+          tutor_id: string
+          tutor_name: string
+        }[]
+      }
       my_sessions: {
         Args: { p_limit?: number; p_offset?: number; p_scope?: string }
         Returns: {
@@ -1533,6 +2038,14 @@ export type Database = {
         Returns: string
       }
       student_profile_for_tutor: { Args: { p_student: string }; Returns: Json }
+      student_set_guardian: {
+        Args: { p_email: string; p_name: string }
+        Returns: undefined
+      }
+      tutor_offer: {
+        Args: { p_note?: string; p_student: string; p_subject: string }
+        Returns: string
+      }
     }
     Enums: {
       incident_status: "open" | "reviewing" | "resolved"

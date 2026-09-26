@@ -7,27 +7,31 @@ export const metadata: Metadata = { title: "Safety & consent", description: "How
 const DETAILS: [string, React.ReactNode][] = [
   [
     "Parent consent is a hard gate",
-    "A family account belongs to a parent or guardian (18+). Before any lesson can be requested or any message sent, the parent signs a consent form for that specific student covering the online-only format, the no-recording policy, the reachable-parent requirement, and how concerns are handled. The database refuses lesson requests without it.",
+    "Middle schoolers can sign themselves up, but they must give a parent’s email — and until that parent opens the link and signs the consent form, the student can’t message anyone, request a lesson, or be seen by tutors. The database itself refuses. If no parent approves within 14 days, the account is deleted automatically. Parents can also sign up and add their child themselves. The consent covers the online-only format, the no-recording policy, the reachable-parent requirement, and how concerns are handled.",
   ],
   [
-    "Tutors are reviewed before families see them",
-    "Tutors are high schoolers in grades 9–12. Each one completes a skill questionnaire, signs the tutor agreement, and lists a parent or guardian — who we email to let them know. The program team approves each tutor before their profile appears. Skill levels are self-reported, and we say so on every profile.",
+    "Tutors are accountable from day one",
+    "Tutors are high schoolers in grades 9–12. Each one completes a skill questionnaire, signs the tutor agreement, and lists a parent or guardian — who we email to let them know. Their profile goes live once that’s done, and it comes down the moment a student or parent reports them or a serious safety flag is raised. Skill levels are self-reported, and we say so on every profile.",
   ],
   [
     "Contact stays on the platform",
-    "Families never see a tutor’s email, phone, or parent’s details, and tutors never see a family’s. Messages are quick replies by default; writing your own requires agreeing to the messaging guidelines, and the system blocks phone numbers, emails, links, social handles, outside apps, in-person plans, and inappropriate language. The parent’s account holds every conversation, and administrators can review messages.",
+    "Students and parents never see a tutor’s email, phone, or parent’s details, and tutors never see theirs. Messages are quick replies by default; writing your own requires agreeing to the messaging guidelines, and the system blocks phone numbers, emails, links, social handles, outside apps, in-person plans, and inappropriate language. Parents can read every message their child sends or receives, and administrators can review any conversation.",
+  ],
+  [
+    "Every message gets a second look",
+    "Beyond the blocking above, every message is checked by safety rules that run on our own servers — right after it’s sent and again every day. They look for grooming patterns like requests for secrecy, bullying, sexual content, pressure to move to another app, and signs a student may be in danger, and they see through tricks like spaced-out letters or look-alike characters. Anything serious is hidden and sent straight to the program team. No message is ever sent to an AI or any outside service.",
   ],
   [
     "Lessons are online, visible, and never recorded",
-    "Every lesson uses the tutor’s Google Meet link, which is only shown to a family once a lesson is booked. Lessons can only be scheduled between 8 AM and 10 PM Eastern. Nothing is recorded, and the site has no recording or video storage of any kind.",
+    "Every lesson uses the tutor’s Google Meet link, which is only shown once a lesson is booked, and the parent gets an email with the details. Lessons can only be scheduled between 8 AM and 10 PM Eastern. Nothing is recorded, and the site has no recording or video storage of any kind.",
   ],
   [
     "Reports are acted on immediately",
-    "Anyone can report a concern from any page of their dashboard, or flag a specific message. Reports go straight to the program team. A safety report from a family connected to a tutor pauses that tutor on the spot, cancels their upcoming lessons, and hides their profile until the report is reviewed.",
+    "Students, parents, and tutors can report a concern from any page of their dashboard, or flag a specific message — and parents can report from their private link without signing in. Reports go straight to the program team. A safety report from a student or parent connected to a tutor pauses that tutor on the spot, cancels their upcoming lessons, and hides their profile until the report is reviewed.",
   ],
   [
     "Hours can’t be faked",
-    "A lesson only counts if the tutor logs it, the family confirms it, and the nonprofit partner verifies it. If a family says a lesson didn’t happen, it’s flagged for review instead of counting.",
+    "A lesson only counts if the tutor logs it, the student’s side confirms it, and the nonprofit partner verifies it. If the student or parent says a lesson didn’t happen, it’s flagged for review instead of counting.",
   ],
 ];
 

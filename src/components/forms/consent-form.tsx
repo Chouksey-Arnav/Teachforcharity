@@ -24,7 +24,7 @@ export const CONSENT_ITEMS = (name: string) => [
   { title: "Free — no payments", body: "Lessons are free. We won’t pay or give gifts to a tutor. Donations to the partner nonprofit are optional and separate." },
   {
     title: "Messaging & volunteers",
-    body: "Messages stay on the platform, are filtered automatically, and may be reviewed by program admins. Tutors are high school volunteers whose skill levels are self-reported.",
+    body: "Messages stay on the platform, are filtered and checked automatically for safety (no AI services — our own software), and may be read by program admins. Tutors are high school volunteers whose skill levels are self-reported.",
   },
 ];
 
@@ -83,7 +83,7 @@ export function ConsentForm({ studentName, value, onChange }: { studentName: str
           <Link href="/legal/consent" target="_blank" className="underline underline-offset-2">
             consent terms
           </Link>
-          . We’ll email you a copy. You can withdraw consent anytime from your dashboard.
+          . We’ll email you a copy. You can withdraw consent anytime.
         </p>
       </div>
     </div>

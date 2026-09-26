@@ -138,12 +138,14 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
       return make(
         `Booked: ${str(p.subject)} lesson, ${str(p.when)}`,
         {
-          heading: "Your lesson is booked",
+          heading: role === "guardian" ? `${str(p.student_name)} booked a lesson` : "Your lesson is booked",
           paragraphs: [
             hi(p),
             role === "tutor"
               ? `You're teaching <strong>${esc(p.student_name)}</strong> ${esc(p.subject)}. Open your Meet a couple of minutes early.`
-              : `<strong>${esc(p.student_name)}</strong>'s ${esc(p.subject)} lesson with ${esc(p.other_name)} is confirmed.`,
+              : role === "guardian"
+                ? `For your records: <strong>${esc(p.student_name)}</strong> booked a ${esc(p.subject)} lesson with volunteer tutor ${esc(p.other_name)}. You can see every lesson and message on your private parent page (use the link from your approval email).`
+                : `<strong>${esc(p.student_name)}</strong>'s ${esc(p.subject)} lesson with ${esc(p.other_name)} is confirmed.`,
           ],
           details: [
             ["When", esc(p.when)],
@@ -253,8 +255,12 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           ["Signed", esc(p.signed_at)],
           ["Form version", esc(p.version)],
         ],
-        cta: { label: "View the full consent terms", href: link("/legal/consent") },
-        note: "You can withdraw consent at any time from your dashboard; any upcoming lessons will be cancelled.",
+        cta: p.portal_token
+          ? { label: "Open your parent page", href: link(`/guardian/${encodeURIComponent(str(p.portal_token))}`) }
+          : { label: "View the full consent terms", href: link("/legal/consent") },
+        note: p.portal_token
+          ? "Keep this email: the button opens your private parent page, where you can see every lesson and message and withdraw consent at any time. The link works for 30 days; you can always request a new one at " + esc(link("/guardian")) + "."
+          : "You can withdraw consent at any time from your dashboard; any upcoming lessons will be cancelled.",
       });
 
     case "tutor_guardian_notice":
@@ -274,7 +280,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
       return make(`New tutor to review: ${str(p.tutor_name)}`, {
         heading: "A tutor is waiting for approval",
         paragraphs: [`<strong>${esc(p.tutor_name)}</strong> (grade ${esc(p.grade)}, ${esc(p.school) || "school not listed"}) finished signing up.`],
-        cta: { label: "Review tutors", href: link("/dashboard/admin/tutors?status=pending") },
+        cta: { label: "Review tutors", href: link("/admin/people?kind=tutor") },
       });
 
     case "tutor_status_changed": {
@@ -282,7 +288,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
       const first = Boolean(p.first_approval);
       const copy: Record<string, [string, string]> = {
         active: first
-          ? ["You're approved to tutor", "Your profile is now visible to families. When a family requests a lesson, you'll get an email and see it on your dashboard."]
+          ? ["You're live as a tutor", "Your profile is now visible to students and families, and you can browse students and offer to teach. When someone requests a lesson, you'll get an email and see it on your dashboard."]
           : ["Your tutor profile is active again", "Families can find you and request lessons again."],
         paused: ["Your tutor profile is paused", "Your profile is hidden and upcoming lessons were cancelled while the program team reviews something. We'll be in touch."],
         removed: ["Your tutor profile was removed", "Your profile is no longer active in the program. If you think this is a mistake, please contact us."],
@@ -313,7 +319,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         heading: "A family said a lesson didn't happen",
         paragraphs: [`${esc(p.student_name)}'s family disputed a lesson logged by <strong>${esc(p.tutor_name)}</strong> on ${esc(p.when)}.`],
         details: p.note ? [["Family note", esc(p.note)]] : undefined,
-        cta: { label: "Review disputed lessons", href: link("/dashboard/admin/lessons?status=disputed") },
+        cta: { label: "Review disputed lessons", href: link("/admin/lessons?status=disputed") },
       });
 
     case "incident_reported":
@@ -323,7 +329,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           `A ${esc(p.reporter_role)} submitted a <strong>${esc(p.category)}</strong> report${p.tutor_name ? ` involving ${esc(p.tutor_name)}` : ""}.`,
           p.auto_paused ? "<strong>The tutor was paused automatically</strong> and their upcoming lessons were cancelled." : "",
         ].filter(Boolean),
-        cta: { label: "Open the report", href: link("/dashboard/admin/incidents") },
+        cta: { label: "Open the report", href: link("/admin/reports") },
         note: "Report details are only shown on the site.",
       });
 
@@ -363,6 +369,108 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         footer: `You’re getting this because this email address was entered on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If that wasn’t you, ignore this email — nothing will happen${reset ? " and your password stays the same" : ""}.`,
       });
     }
+
+    case "guardian_invite":
+    case "guardian_link": {
+      const url = link(`/guardian/${encodeURIComponent(str(p.token))}`);
+      const reminder = Boolean(p.reminder);
+      if (template === "guardian_link")
+        return make(`Your parent link for ${str(p.student_name)}`, {
+          heading: "Here's your new parent link",
+          paragraphs: [
+            hi(p),
+            `Use this private link to see ${esc(p.student_name)}'s lessons and messages, approve or withdraw consent, or report a concern. Earlier links no longer work.`,
+          ],
+          cta: { label: "Open your parent page", href: url },
+          note: "The link works for 30 days. Don’t forward it — anyone with it can see your child’s messages.",
+          footer: `You asked for this link on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If you didn’t, you can ignore this email.`,
+        });
+      return make(
+        reminder ? `Reminder: ${str(p.student_name)} is waiting for your OK` : `${str(p.student_name)} asked you to approve free music lessons`,
+        {
+          heading: reminder ? "Still waiting for your approval" : `${str(p.student_name)} wants free music lessons`,
+          paragraphs: [
+            hi(p),
+            `<strong>${esc(p.student_name)}</strong>${p.student_grade ? ` (grade ${esc(p.student_grade)})` : ""} signed up for ${esc(SITE.name)}, a free program where high school musicians teach middle schoolers one-on-one over Google Meet, and listed you as their parent or guardian.`,
+            "Nothing happens until you say yes. Until then, your child can't message anyone or book a lesson. The page below explains exactly how the program works and lets you approve (or not) in about two minutes.",
+          ],
+          cta: { label: "Review and decide", href: url },
+          note: `If you don’t approve within 14 days of sign-up, the account and everything in it is deleted automatically. This link works for 30 days and replaces any earlier link. If you don’t know who this is, ignore this email.${SITE.contactEmail ? ` Questions: ${esc(SITE.contactEmail)}` : ""}`,
+          footer: `You’re getting this because a student entered your email as their parent or guardian on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. We never share your email.`,
+        },
+      );
+    }
+
+    case "guardian_approved":
+      return make("Your parent approved your account 🎉", {
+        heading: "You're all set!",
+        paragraphs: [
+          hi(p),
+          `${esc(p.guardian_name) || "Your parent"} approved your account. You can now message tutors and request lessons.`,
+          "Remember: lessons are online only, never recorded, and a parent stays reachable during every lesson.",
+        ],
+        cta: { label: "See your tutor matches", href: link("/dashboard/tutors") },
+      });
+
+    case "student_account_expired":
+      return make("Your account was removed", {
+        heading: "Your account was removed",
+        paragraphs: [
+          hi(p),
+          "A parent or guardian didn't approve your account within 14 days, so we deleted it and everything you entered. You're welcome to sign up again anytime — just make sure your parent checks their email.",
+        ],
+        cta: { label: "Sign up again", href: link("/signup?role=student") },
+      });
+
+    case "tutor_offer":
+      return make(`${str(p.tutor_name)} offered to teach ${str(p.student_name)} ${str(p.subject)}`, {
+        heading: p.guardian ? `A tutor offered to teach ${str(p.student_name)}` : "A tutor wants to teach you",
+        paragraphs: [
+          hi(p),
+          p.guardian
+            ? `For your records: volunteer tutor <strong>${esc(p.tutor_name)}</strong> offered to teach ${esc(p.student_name)} ${esc(p.subject)} and started a conversation on the site. You can read it on your private parent page.`
+            : `<strong>${esc(p.tutor_name)}</strong> offered to teach ${esc(p.student_name)} ${esc(p.subject)}. Look at their profile, and if it feels like a good fit, request a lesson time.`,
+          ...(p.note ? [`Their note: “${esc(p.note)}”`] : []),
+        ],
+        cta: p.guardian
+          ? undefined
+          : { label: "View the offer", href: link(p.thread_id ? `/dashboard/messages/${encodeURIComponent(str(p.thread_id))}` : "/dashboard") },
+      });
+
+    case "safety_flag":
+      return make(`${p.severity === "critical" ? "URGENT: " : ""}Safety alert — ${str(p.category).replace(/_/g, " ")}`, {
+        heading: p.severity === "critical" ? "Critical safety alert — review now" : "Safety alert",
+        paragraphs: [
+          `The automatic safety scan flagged <strong>${esc(str(p.category).replace(/_/g, " "))}</strong> (${esc(p.severity)})${p.author_name ? ` written by ${esc(p.author_name)}` : ""}.`,
+          Array.isArray(p.actions) && p.actions.length
+            ? `Automatic actions taken: <strong>${esc((p.actions as string[]).join(", ").replace(/_/g, " "))}</strong>.`
+            : "No automatic action was taken — a person needs to look at it.",
+          p.category === "self_harm"
+            ? "<strong>This may be a student in distress.</strong> Contact the student's parent/guardian today. If there is immediate danger, call 911. The 988 Suicide & Crisis Lifeline can be reached by call or text at 988."
+            : "",
+        ].filter(Boolean),
+        cta: { label: "Open safety flags", href: link("/admin/safety") },
+        note: "Message contents are only shown in the admin console.",
+      });
+
+    case "student_account_deleted":
+      return make(p.guardian ? `${str(p.student_name)}'s account was deleted` : "Your account was deleted", {
+        heading: p.guardian ? "The account was deleted" : "Your account was deleted",
+        paragraphs: [
+          hi(p),
+          p.guardian
+            ? `As you asked, ${esc(p.student_name)}'s ${esc(SITE.name)} account was deleted. Their profile, messages, and your consent details were removed. Any upcoming lessons were cancelled.`
+            : "Your parent or guardian deleted your account. Your profile and messages were removed. If you think this is a mistake, talk to them.",
+        ],
+        note: "If a tutor needs a record of lessons that already happened for their volunteer hours, only the date and length are kept — no names or messages.",
+      });
+
+    case "account_deleted_by_guardian":
+      return make("A parent deleted a student account", {
+        heading: "A parent deleted a student account",
+        paragraphs: [`A parent/guardian (${esc(p.guardian_email)}) deleted their child's student account from their private link. Mode: <strong>${esc(p.mode)}</strong>.`],
+        cta: { label: "Open activity log", href: link("/admin/activity") },
+      });
 
     default:
       return null;

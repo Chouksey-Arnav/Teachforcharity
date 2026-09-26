@@ -17,6 +17,7 @@ export interface FamilyStudent {
   availability: string[];
   preferred_minutes: number;
   notes: string | null;
+  interests: string[];
   is_active: boolean;
   created_at: string;
   subjects: { subject_id: string; slug: string; name: string; family: string; level: Level; years_playing: number; in_school_program: boolean; has_instrument: boolean }[];
@@ -45,6 +46,7 @@ export async function getFamilyStudents(supabase: Supa, familyId: string, consen
       availability: s.availability,
       preferred_minutes: s.preferred_minutes,
       notes: s.notes,
+      interests: s.interests ?? [],
       is_active: s.is_active,
       created_at: s.created_at,
       subjects: (s.student_subjects ?? []).map((ss) => ({
@@ -72,6 +74,8 @@ export function toStudentProfile(s: FamilyStudent, currentTutorIds: string[] = [
     availability: s.availability,
     preferredMinutes: s.preferred_minutes,
     subjects: s.subjects.map((x) => ({ subjectId: x.subject_id, slug: x.slug, name: x.name, family: x.family, level: x.level })),
+    interests: s.interests,
+    county: s.county,
     currentTutorIds,
   };
 }
@@ -105,6 +109,8 @@ type ListTutorRow = {
   subjects: unknown;
   lessons_completed: number;
   verified_minutes: number;
+  interests: string[] | null;
+  late_cancels_90d: number | null;
   total_count: number;
 };
 
@@ -133,6 +139,8 @@ export function toDirectoryTutor(r: ListTutorRow): DirectoryTutor {
     activeStudents: r.active_students,
     acceptingStudents: r.accepting_students,
     subjects,
+    interests: r.interests ?? [],
+    lateCancels: r.late_cancels_90d ?? 0,
     avatarPath: r.avatar_path,
     grade: r.grade,
     school: r.school,
@@ -243,4 +251,103 @@ export type MyThread = {
 export async function getMyThreads(supabase: Supa): Promise<MyThread[]> {
   const { data } = await supabase.rpc("my_threads");
   return (data ?? []) as MyThread[];
+}
+
+// ---------------------------------------------------------------------------
+// Tutor side: the student directory
+// ---------------------------------------------------------------------------
+export interface DirectoryStudent extends StudentProfile {
+  grade: number;
+  county: string | null;
+  tutorCount: number;
+  connected: boolean;
+  offeredAt: string | null;
+}
+
+type ListStudentRow = {
+  student_id: string;
+  first_name: string;
+  grade: number;
+  county: string | null;
+  goals: string[];
+  learning_style: string | null;
+  explain_style: string | null;
+  availability: string[];
+  preferred_minutes: number;
+  interests: string[];
+  subjects: unknown;
+  tutor_count: number;
+  connected: boolean;
+  offered_at: string | null;
+  total_count: number;
+};
+
+function toDirectoryStudent(r: ListStudentRow): DirectoryStudent {
+  const subjects = ((r.subjects as Record<string, unknown>[]) ?? []).map((x) => ({
+    subjectId: String(x.subject_id),
+    slug: String(x.slug),
+    name: String(x.name),
+    family: String(x.family),
+    level: x.level as Level,
+  }));
+  return {
+    id: r.student_id,
+    firstName: r.first_name,
+    grade: r.grade,
+    county: r.county,
+    goals: r.goals ?? [],
+    learningStyle: r.learning_style,
+    explainStyle: r.explain_style,
+    availability: r.availability ?? [],
+    preferredMinutes: r.preferred_minutes,
+    interests: r.interests ?? [],
+    subjects,
+    tutorCount: r.tutor_count,
+    connected: r.connected,
+    offeredAt: r.offered_at,
+  };
+}
+
+export async function listStudentsForTutor(supabase: Supa, opts: { subjectIds?: string[]; search?: string; limit?: number; offset?: number; studentId?: string } = {}) {
+  const { data } = await supabase.rpc("list_students_for_tutor", {
+    p_subject_ids: opts.subjectIds?.length ? opts.subjectIds : undefined,
+    p_search: opts.search || undefined,
+    p_limit: opts.limit ?? 500,
+    p_offset: opts.offset ?? 0,
+    p_student: opts.studentId,
+  });
+  const rows = (data ?? []) as ListStudentRow[];
+  return { students: rows.map(toDirectoryStudent), total: rows[0] ? Number(rows[0].total_count) : 0 };
+}
+
+export type MyOffer = {
+  id: string;
+  tutor_id: string;
+  tutor_name: string;
+  tutor_avatar: string | null;
+  student_id: string;
+  student_name: string;
+  subject_id: string;
+  subject_name: string;
+  note: string | null;
+  created_at: string;
+  thread_id: string | null;
+};
+
+export async function getMyOffers(supabase: Supa): Promise<MyOffer[]> {
+  const { data } = await supabase.rpc("my_offers");
+  return (data ?? []) as MyOffer[];
+}
+
+/** Tutor side: which connected students manage their own account ("student") vs a parent ("parent"). */
+export async function getStudentKinds(supabase: Supa): Promise<Map<string, "student" | "parent">> {
+  const { data } = await supabase.rpc("connected_student_kinds");
+  return new Map((data ?? []).map((r) => [r.student_id, r.kind === "student" ? "student" : "parent"]));
+}
+
+/** How a tutor should refer to the other side of a conversation. */
+export function contactLabel(studentName: string, kind: "student" | "parent" | undefined, parentFirst?: string | null) {
+  return kind === "student"
+    ? { title: studentName, sub: "Student (manages their own account; a parent can read every message)" }
+    : { title: `${studentName}’s family`, sub: parentFirst ? `Parent: ${parentFirst}` : "Parent account" };
 }

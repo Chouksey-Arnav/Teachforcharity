@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Plus, ShieldCheck, ShieldAlert } from "lucide-react";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +21,7 @@ export default async function StudentsPage() {
   const supabase = await createClient();
   const config = await getPublicConfig();
   const students = await getFamilyStudents(supabase, viewer.id, config?.consent_version);
+  if (viewer.profile.account_kind === "student") redirect(students[0] ? `/dashboard/students/${students[0].id}` : "/onboarding");
 
   return (
     <>

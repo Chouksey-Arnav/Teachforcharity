@@ -28,6 +28,8 @@ The Supabase database (**Teach For Charity**, project ref `nkpdiglnyqgblqcqvbdp`
 | `BREVO_SENDER_EMAIL` | a sender you verified in Brevo | no |
 | `BREVO_SENDER_NAME` | `Teach for a Cause` | no |
 | `CRON_SECRET` | any long random string (e.g. `openssl rand -hex 32`) | **YES** |
+| `SUPABASE_CRON_SECRET` | the secret Supabase's scheduled jobs send (§5). Must equal the Vault secret `tfac_cron_secret` | **YES** |
+| `ADMIN_PASSWORD` | the password for `/admin`. **Set this.** Without it the public fallback `123987` works | **YES** |
 
 3. Redeploy after adding variables.
 
@@ -62,7 +64,7 @@ the server log says exactly which variable is missing.
 
 ### Password & security
 - Authentication → Providers → Email: keep **Confirm email** ON (it only affects anyone bypassing the site; the site creates accounts pre-confirmed after the code). Minimum password length 8.
-- Consider enabling **leaked password protection** (Auth → Settings).
+- Turn on **leaked password protection** (Authentication → Settings / Attack Protection). It rejects passwords found in known breaches.
 
 ---
 
@@ -74,40 +76,49 @@ the server log says exactly which variable is missing.
 
 ---
 
-## 4. Make yourself the admin
+## 4. The admin console (`/admin`)
 
-1. Sign up on the live site like a family (use your real email) and enter the 6-digit code you're emailed. You don’t need to finish the questionnaire.
-2. Supabase → **SQL Editor** → run:
-```sql
-update public.profiles set role = 'admin' where email = 'YOUR-EMAIL@example.com';
-```
-3. Reload `/dashboard`. You now have the admin console. Every other admin or **partner reviewer** can be promoted from **Dashboard → Settings & roles** (they sign up first, then you set their role).
+1. In Vercel, set `ADMIN_PASSWORD` to a long password only you know, and redeploy. (Until you do, the fallback `123987` works and the console shows a red warning. The fallback is published in this repository, so treat it as public.)
+2. Go to `https://YOUR-URL/admin` and enter the password. Sessions last 12 hours. Wrong guesses are rate-limited (10 per IP, 50 total per 15 minutes) and every attempt is written to the activity log.
+3. **Admin → Settings & health**: add at least one **alert email**. Safety reports and serious safety-scan flags are emailed there. Until one is set, nobody is notified.
+4. To change the password, change `ADMIN_PASSWORD` and redeploy. Every open admin session is signed out.
+
+Partner reviewers (who verify volunteer hours) are regular accounts. Ask them to sign up, then enter their email under **Admin → Settings → Partner reviewers**.
 
 ---
 
-## 5. Timely email delivery (reminders & retries)
+## 5. Scheduled jobs (email every 2 minutes, safety scan hourly)
 
-Emails from user actions go out immediately. Reminder emails (day-before, “log your lesson”, “confirm the lesson”) and retries are queued every 15 minutes by the database and sent when the worker runs. Vercel’s free plan only allows a **daily** cron, so let Supabase call the worker every 2 minutes instead. In the SQL Editor (replace both placeholders):
+Emails from user actions go out immediately. Reminder emails and retries are queued every 15 minutes by the database. Vercel's free plan only runs cron **once a day**, so Supabase calls the app instead:
+
+| Job | Schedule | Calls |
+|---|---|---|
+| `tfac-maintenance` | every 15 min | database only: expires requests, queues reminders, deletes student accounts not approved in 14 days |
+| `tfac-email-drain` | every 2 min | `/api/cron/email` |
+| `tfac-safety-scan` | hourly | `/api/cron/safety` |
+
+Migration `20260927000400_scheduled_jobs.sql` enables `pg_net` and schedules the two HTTP jobs. They read two Vault secrets and do nothing until both exist. **These are already set on the production project.** For a new project, run this in the SQL Editor:
 
 ```sql
-create extension if not exists pg_net;
-select vault.create_secret('PASTE-YOUR-CRON_SECRET', 'email_cron_secret');
-select cron.schedule('tfac-email-drain', '*/2 * * * *', $$
-  select net.http_post(
-    url := 'https://YOUR-SITE-URL/api/cron/email',
-    headers := jsonb_build_object('Authorization', 'Bearer ' ||
-      (select decrypted_secret from vault.decrypted_secrets where name = 'email_cron_secret')),
-    body := '{}'::jsonb,
-    timeout_milliseconds := 30000);
-$$);
+select vault.create_secret('https://YOUR-URL', 'tfac_site_url');            -- no trailing slash
+select vault.create_secret('SAME-VALUE-AS-SUPABASE_CRON_SECRET', 'tfac_cron_secret');
 ```
-If you change domains, re-run the `cron.schedule` line with the new URL (same job name updates it).
+
+To change the URL (for example after adding a custom domain):
+
+```sql
+select vault.update_secret(id, 'https://new-domain.org') from vault.secrets where name = 'tfac_site_url';
+```
+
+To rotate the secret, update `tfac_cron_secret` the same way, set the same value in Vercel as `SUPABASE_CRON_SECRET`, and redeploy.
+
+**Admin → Settings & health** shows each job's last run, and whether any messages are waiting to be scanned. Vercel's daily crons in `vercel.json` stay on as a backup.
 
 ---
 
 ## 6. Set the current cause
 
-Dashboard → **Partner & cause**. DOC NC is pre-filled but marked **not confirmed**, with no donation link. Only add a donation URL the nonprofit gives you, and only tick “Partnership confirmed” once they’ve formally agreed.
+**Admin → Settings → Partner & cause**. DOC NC is pre-filled but marked **not confirmed**, with no donation link. Only add a donation URL the nonprofit gives you, and only tick “Partnership confirmed” once they’ve formally agreed.
 
 ---
 
@@ -115,7 +126,9 @@ Dashboard → **Partner & cause**. DOC NC is pre-filled but marked **not confirm
 
 - Run `supabase/tests/e2e_program_test.sql` in the SQL Editor. Expected output: `ERROR: ALL TESTS PASSED (rolled back): ...` (it deliberately errors to roll back all test data).
 - Sign up a test tutor and family with real inboxes you control, and walk one lesson through request → accept → log → confirm → verify.
-- Dashboard → **Email log** should show everything as `sent`.
+- Run `supabase/tests/v2_program_test.sql` the same way (student accounts, parent links, offers, safety scanner, admin erase).
+- Sign up a test **student** with a parent email you control. Approve from the emailed link, then check the parent page.
+- **Admin → Emails** should show everything as `sent`. **Admin → Settings & health** should be all green.
 
 ## Plan limits worth knowing
 - **Supabase Free** pauses a project after 7 days without activity and has no backups. Before real families rely on it, move to **Pro ($25/mo)** — you get daily backups and no pausing.

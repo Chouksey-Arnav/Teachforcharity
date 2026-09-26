@@ -70,6 +70,26 @@ export const GOALS = [
 export type GoalKey = (typeof GOALS)[number]["key"];
 export const goalLabel = (k: string) => GOALS.find((g) => g.key === k)?.label ?? k;
 
+/** Music students and tutors enjoy (max 6 each) — used as a matching signal. Keys must match ^[a-z_]{2,30}$. */
+export const INTERESTS = [
+  { key: "classical", label: "Classical" },
+  { key: "film_music", label: "Movie & game music" },
+  { key: "pop", label: "Pop hits" },
+  { key: "jazz_music", label: "Jazz" },
+  { key: "rock", label: "Rock" },
+  { key: "marching_band", label: "Marching band" },
+  { key: "musicals", label: "Musicals & Broadway" },
+  { key: "anime_music", label: "Anime music" },
+  { key: "latin", label: "Latin" },
+  { key: "hip_hop", label: "Hip-hop & R&B" },
+  { key: "gospel", label: "Gospel & church music" },
+  { key: "country", label: "Country & bluegrass" },
+  { key: "composing", label: "Writing my own music" },
+  { key: "chamber", label: "Small groups & duets" },
+] as const;
+export type InterestKey = (typeof INTERESTS)[number]["key"];
+export const interestLabel = (k: string) => INTERESTS.find((i) => i.key === k)?.label ?? k;
+
 export const TEACHING_STYLES = [
   { key: "structured", label: "A clear plan every lesson", tutor: "I like a clear plan and routine each lesson" },
   { key: "flexible", label: "Go with what I need that day", tutor: "I adjust each lesson to what the student brings" },

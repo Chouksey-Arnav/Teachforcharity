@@ -6,21 +6,22 @@ import { Avatar } from "@/components/ui/avatar";
 import { formatRelative } from "@/lib/time";
 import { cn } from "@/lib/cn";
 
-export function ThreadList({ threads }: { threads: MyThread[] }) {
+export function ThreadList({ threads, selfManaged = [], studentAccount = false }: { threads: MyThread[]; selfManaged?: string[]; studentAccount?: boolean }) {
   const pathname = usePathname();
   const inThread = pathname !== "/dashboard/messages";
   return (
     <aside className={cn("min-h-0 flex-col border-line lg:flex lg:border-r", inThread ? "hidden" : "flex")}>
       <div className="border-b border-line px-5 py-4">
         <h1 className="display text-3xl">Messages</h1>
-        <p className="text-xs text-muted">Every conversation is visible to the parent account.</p>
+        <p className="text-xs text-muted">{studentAccount ? "Your parent can read every message." : "Every conversation is visible to the parent."}</p>
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto">
         {threads.length === 0 && <li className="px-5 py-8 text-sm text-muted">No conversations yet. They start when a lesson is requested or someone says hello.</li>}
         {threads.map((t) => {
           const active = pathname === `/dashboard/messages/${t.id}`;
-          const title = t.my_side === "family" ? t.tutor_name : `${t.student_name}’s family`;
-          const sub = t.my_side === "family" ? `for ${t.student_name}` : `Parent: ${t.family_name}`;
+          const self = selfManaged.includes(t.student_id);
+          const title = t.my_side === "family" ? t.tutor_name : self ? t.student_name : `${t.student_name}’s family`;
+          const sub = t.my_side === "family" ? (studentAccount ? "Your tutor" : `for ${t.student_name}`) : self ? "Student account" : `Parent: ${t.family_name}`;
           return (
             <li key={t.id}>
               <Link

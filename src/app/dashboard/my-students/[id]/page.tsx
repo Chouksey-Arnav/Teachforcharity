@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
+import { getStudentKinds } from "@/lib/data";
 import { EXPLAIN_STYLES, LEVEL_INFO, TEACHING_STYLES, goalLabel, type Level } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
   const s = data as unknown as StudentForTutor;
   const { data: me } = await supabase.from("tutor_profiles").select("availability").eq("user_id", viewer.id).single();
   const { data: thread } = await supabase.from("threads").select("id").eq("student_id", id).eq("tutor_id", viewer.id).maybeSingle();
+  const selfManaged = (await getStudentKinds(supabase)).get(id) === "student";
 
   return (
     <>
@@ -48,12 +50,13 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
         <div className="flex-1">
           <h1 className="display text-5xl">{s.first_name}</h1>
           <p className="mt-1 text-muted">
-            {s.grade}th grade · Parent: {s.parent_first} · {s.lessons_together} lesson{s.lessons_together === 1 ? "" : "s"} together
+            {s.grade}th grade · {selfManaged ? "Manages their own account (a parent approved it and can read messages)" : `Parent: ${s.parent_first}`} ·{" "}
+            {s.lessons_together} lesson{s.lessons_together === 1 ? "" : "s"} together
           </p>
         </div>
         {thread && (
           <Link href={`/dashboard/messages/${thread.id}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-pine-700 px-5 text-sm font-medium text-white hover:bg-pine-800">
-            <MessageCircle className="size-4" /> Message family
+            <MessageCircle className="size-4" /> {selfManaged ? `Message ${s.first_name}` : "Message family"}
           </Link>
         )}
       </div>

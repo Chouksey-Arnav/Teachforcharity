@@ -26,6 +26,7 @@ const PAGE_SIZE = 24;
 
 export default async function TutorsPage({ searchParams }: PageProps<"/dashboard/tutors">) {
   const viewer = await requireViewer(["family"]);
+  const isStudent = viewer.profile.account_kind === "student";
   const sp = await searchParams;
   const supabase = await createClient();
   const config = await getPublicConfig();
@@ -127,7 +128,7 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
           )}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <p className="text-sm text-muted">
-              Matching for <strong className="text-ink">{s.first_name}</strong> ({s.grade}th grade)
+              {isStudent ? "Your matches" : <>Matching for <strong className="text-ink">{s.first_name}</strong></>} ({s.grade}th grade)
             </p>
             <div className="flex flex-wrap gap-2">
               {s.subjects.map((x) => (
@@ -144,16 +145,21 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
               ))}
             </div>
             <Link href={`/dashboard/students/${s.id}`} className="text-sm text-pine-700 hover:underline sm:ml-auto">
-              Edit {s.first_name}’s answers
+              {isStudent ? "Edit your answers" : `Edit ${s.first_name}’s answers`}
             </Link>
           </div>
         </div>
 
-        {!consented && (
-          <Notice tone="warning" className="mb-6" title="Consent needed before requesting lessons" action={<LinkButton href="/dashboard/students" size="sm" variant="secondary">Sign</LinkButton>}>
-            You can look around, but a parent or guardian must sign the consent form before requesting a lesson.
-          </Notice>
-        )}
+        {!consented &&
+          (isStudent ? (
+            <Notice tone="warning" className="mb-6" title="Waiting for your parent’s OK" action={<LinkButton href="/dashboard" size="sm" variant="secondary">Resend</LinkButton>}>
+              Look around and find tutors you like. You can request a lesson as soon as your parent approves your account from the email we sent them.
+            </Notice>
+          ) : (
+            <Notice tone="warning" className="mb-6" title="Consent needed before requesting lessons" action={<LinkButton href="/dashboard/students" size="sm" variant="secondary">Sign</LinkButton>}>
+              You can look around, but a parent or guardian must sign the consent form before requesting a lesson.
+            </Notice>
+          ))}
 
         {matches.length === 0 ? (
           <Empty title={`No ${t.name.toLowerCase()} tutors yet`}>

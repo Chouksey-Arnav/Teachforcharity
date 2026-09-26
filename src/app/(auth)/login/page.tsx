@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <>
       <h1 className="display text-5xl">Welcome back</h1>
-      <p className="mt-3 text-muted">Sign in to your family or tutor account.</p>
+      <p className="mt-3 text-muted">Sign in to your student, parent, or tutor account.</p>
       {sp.error === "link" && (
         <Notice tone="warning" className="mt-6" title="That link didn’t work">
           It may have expired or already been used. Sign in below, or use “Forgot password?” to get a code by email.

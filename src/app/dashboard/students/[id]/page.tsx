@@ -19,10 +19,12 @@ export default async function EditStudentPage({ params }: PageProps<"/dashboard/
   ]);
   const s = students.find((x) => x.id === id);
   if (!s) notFound();
+  const self = viewer.profile.account_kind === "student";
   return (
     <>
-      <PageHeader title={`${s.first_name}’s profile`} description="Changes update matches right away." />
+      <PageHeader title={self ? "Your profile" : `${s.first_name}’s profile`} description="Changes update your matches right away." />
       <StudentEditor
+        self={self}
         subjects={subjects ?? []}
         guardian={{ name: viewer.profile.full_name, phone: viewer.profile.phone ?? "" }}
         initial={{
@@ -32,6 +34,7 @@ export default async function EditStudentPage({ params }: PageProps<"/dashboard/
           county: s.county ?? "",
           school: s.school ?? "",
           goals: s.goals,
+          interests: s.interests,
           learningStyle: s.learning_style,
           explainStyle: s.explain_style,
           preferredMinutes: s.preferred_minutes,

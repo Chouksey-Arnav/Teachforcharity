@@ -6,6 +6,7 @@ import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
 import { Conversation } from "./conversation";
+import { contactLabel, getStudentKinds } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Conversation" };
 
@@ -17,17 +18,20 @@ export default async function ThreadPage({ params }: PageProps<"/dashboard/messa
   if (!thread) notFound();
   const side: "family" | "tutor" = thread.tutor_id === viewer.id ? "tutor" : "family";
 
-  const [{ data: messages }, { data: templates }, config, threads] = await Promise.all([
+  const [{ data: messages }, { data: templates }, config, threads, kinds] = await Promise.all([
     supabase.from("messages").select("id, sender_id, kind, body, created_at").eq("thread_id", id).order("created_at", { ascending: true }).limit(300),
     supabase.from("message_templates").select("key, label, body, audience").in("audience", [side, "both"]).order("sort_order"),
     getPublicConfig(),
     supabase.rpc("my_threads"),
+    side === "tutor" ? getStudentKinds(supabase) : Promise.resolve(new Map<string, "student" | "parent">()),
   ]);
   await supabase.rpc("mark_thread_read", { p_thread: id });
 
   const meta = (threads.data ?? []).find((t) => t.id === id);
-  const title = side === "family" ? (meta?.tutor_name ?? "Tutor") : `${meta?.student_name ?? "Student"}’s family`;
-  const subtitle = side === "family" ? `Tutor for ${meta?.student_name ?? "your student"}` : `Parent: ${meta?.family_name ?? ""}`;
+  const contact = contactLabel(meta?.student_name ?? "Student", kinds.get(thread.student_id), meta?.family_name);
+  const studentAccount = viewer.profile.account_kind === "student";
+  const title = side === "family" ? (meta?.tutor_name ?? "Tutor") : contact.title;
+  const subtitle = side === "family" ? (studentAccount ? "Your tutor · your parent can read these messages" : `Tutor for ${meta?.student_name ?? "your student"}`) : contact.sub;
   const paused = meta?.tutor_status !== "active";
   const termsOk = viewer.profile.messaging_terms_version === config?.messaging_terms_version;
 
