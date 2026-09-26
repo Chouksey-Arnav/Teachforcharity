@@ -43,32 +43,25 @@ The Supabase database (**Teach For Charity**, project ref `nkpdiglnyqgblqcqvbdp`
 - **Site URL:** your production URL (same as `NEXT_PUBLIC_SITE_URL`).
 - **Redirect URLs:** add `https://YOUR-URL/**` and `http://localhost:3000/**`. When you add a custom domain later, add it here too.
 
-### Email templates (so links work even if opened on a different device)
-Replace the link in these templates:
+### Sign-up and password-reset emails are sent by the app, not Supabase
+The site emails a **6-digit code** through the same provider as every other
+email (`EMAIL_PROVIDER`: Nodemailer/Gmail for testing, Brevo later). The account
+is created in Supabase only **after** the code is entered, already confirmed,
+and the person is signed straight in. Nothing to configure in Supabase's email
+templates or SMTP for this — the app never asks Supabase to send email.
 
-**Confirm signup**
-```html
-<h2>Confirm your email</h2>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/onboarding">Confirm your email and finish signing up</a></p>
-```
-**Reset password**
-```html
-<h2>Reset your password</h2>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password">Choose a new password</a></p>
-```
+How it's protected (all in `supabase/migrations/…0700_email_codes.sql`):
+- only a keyed hash of each code is stored; codes expire after 10 minutes;
+- 5 wrong tries kills the code; max 1 code/minute and 5/hour per email, 20/hour per IP;
+- the password is set by whoever enters the code, so nobody can pre-register someone else's email;
+- a password reset signs the account out on every other device.
 
-### Custom SMTP — required before launch
-Supabase’s built-in email only sends a handful of emails per hour and is meant for testing. **Signups will silently fail to get confirmation emails at a club meeting without this.**
-Authentication → **Emails → SMTP Settings** → enable custom SMTP:
-- Host `smtp-relay.brevo.com`, port `587`
-- Username: your Brevo **SMTP login** (Brevo → SMTP & API → **SMTP** tab)
-- Password: a Brevo **SMTP key** — this is *different* from the API key in step 1
-- Sender: the same verified sender address
-
-Then raise **Rate Limits → emails per hour** to something like 100.
+Requires `SUPABASE_SERVICE_ROLE_KEY` plus the email provider variables above. If
+either is missing, sign-up shows "Email sign-up isn’t available right now" and
+the server log says exactly which variable is missing.
 
 ### Password & security
-- Authentication → Providers → Email: keep **Confirm email** ON. Minimum password length 8.
+- Authentication → Providers → Email: keep **Confirm email** ON (it only affects anyone bypassing the site; the site creates accounts pre-confirmed after the code). Minimum password length 8.
 - Consider enabling **leaked password protection** (Auth → Settings).
 
 ---
@@ -77,13 +70,13 @@ Then raise **Rate Limits → emails per hour** to something like 100.
 
 1. Create a free account at brevo.com.
 2. **Senders, Domains & Dedicated IPs → Senders** → add and verify your sender address. For best deliverability, authenticate a domain you own (DKIM/SPF) once you have one — see `DOMAIN.md`.
-3. Create the **API key** (for the app) and the **SMTP key** (for Supabase Auth).
+3. Create the **API key** (for the app). No SMTP key is needed — Supabase no longer sends the site's emails.
 
 ---
 
 ## 4. Make yourself the admin
 
-1. Sign up on the live site like a family (use your real email) and confirm it. You don’t need to finish the questionnaire.
+1. Sign up on the live site like a family (use your real email) and enter the 6-digit code you're emailed. You don’t need to finish the questionnaire.
 2. Supabase → **SQL Editor** → run:
 ```sql
 update public.profiles set role = 'admin' where email = 'YOUR-EMAIL@example.com';

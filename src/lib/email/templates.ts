@@ -26,6 +26,7 @@ interface Block {
   details?: [string, string][]; // label, escaped value
   cta?: { label: string; href: string };
   note?: string; // escaped
+  footer?: string; // escaped; replaces the default account footer (e.g. for sign-up codes)
   textLines: string[];
 }
 
@@ -58,8 +59,11 @@ function layout(b: Block): { html: string; text: string } {
           ${b.note ? `<p style="margin:18px 0 0;font:400 13px/1.55 Arial,sans-serif;color:#5E6A64">${b.note}</p>` : ""}
         </td></tr>
         <tr><td style="padding:18px 8px;font:400 12px/1.6 Arial,sans-serif;color:#7A847F">
-          Lessons are free, online only over Google Meet, and never recorded. A parent or guardian stays reachable during every lesson.<br>
-          Change email settings in your <a href="${esc(link("/dashboard/profile"))}" style="color:#1F5446">profile</a>. If something doesn’t feel right, <a href="${esc(link("/dashboard/report"))}" style="color:#1F5446">report a concern</a>.
+          ${
+            b.footer ??
+            `Lessons are free, online only over Google Meet, and never recorded. A parent or guardian stays reachable during every lesson.<br>
+          Change email settings in your <a href="${esc(link("/dashboard/profile"))}" style="color:#1F5446">profile</a>. If something doesn’t feel right, <a href="${esc(link("/dashboard/report"))}" style="color:#1F5446">report a concern</a>.`
+          }
         </td></tr>
       </table>
     </td></tr>
@@ -332,6 +336,33 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         ],
         cta: { label: "Open dashboard", href: link("/dashboard") },
       });
+
+    case "verification_code": {
+      const code = str(p.code).replace(/\D/g, "");
+      const reset = p.purpose === "reset";
+      return make(`${code} is your ${SITE.name} code`, {
+        heading: reset ? "Reset your password" : "Confirm your email",
+        paragraphs: [
+          hi(p),
+          reset
+            ? "Enter this code on the password reset page to choose a new password:"
+            : `Enter this code on the sign-up page to finish creating your ${esc(SITE.name)} account:`,
+          `<span style="display:inline-block;margin:6px 0;padding:12px 18px;border-radius:12px;background:#F6F3EC;border:1px solid #E2DCCF;font:700 30px/1.2 'Courier New',Courier,monospace;letter-spacing:8px;color:#16201C">${esc(code)}</span>`,
+          `The code expires in ${esc(p.minutes ?? 10)} minutes. Don’t share it with anyone — we will never ask you for it.`,
+        ],
+        textLines: [
+          hiText(p),
+          "",
+          reset ? "Your password reset code is:" : `Your ${SITE.name} sign-up code is:`,
+          "",
+          `    ${code}`,
+          "",
+          `It expires in ${str(p.minutes ?? 10)} minutes. Don’t share it with anyone.`,
+          "If you didn’t ask for this, you can ignore this email.",
+        ],
+        footer: `You’re getting this because this email address was entered on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If that wasn’t you, ignore this email — nothing will happen${reset ? " and your password stays the same" : ""}.`,
+      });
+    }
 
     default:
       return null;

@@ -160,6 +160,54 @@ export type Database = {
           },
         ]
       }
+      email_code_sends: {
+        Row: {
+          created_at: string
+          email: string
+          id: number
+          ip: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: never
+          ip?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: never
+          ip?: string | null
+        }
+        Relationships: []
+      }
+      email_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          email: string
+          expires_at: string
+          purpose: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          email: string
+          expires_at: string
+          purpose: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          purpose?: string
+        }
+        Relationships: []
+      }
       email_outbox: {
         Row: {
           attempts: number
@@ -1200,9 +1248,20 @@ export type Database = {
         Returns: undefined
       }
       attest_guardian: { Args: never; Returns: undefined }
+      auth_user_by_email: {
+        Args: { p_email: string }
+        Returns: {
+          confirmed: boolean
+          id: string
+        }[]
+      }
       cancel_session: {
         Args: { p_reason?: string; p_session: string }
         Returns: undefined
+      }
+      check_email_code: {
+        Args: { p_code_hash: string; p_email: string; p_purpose: string }
+        Returns: string
       }
       claim_outbox: {
         Args: { p_limit?: number }
@@ -1228,6 +1287,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      clear_email_code: {
+        Args: { p_email: string; p_purpose: string; p_send_id?: number }
+        Returns: undefined
+      }
       complete_onboarding: { Args: never; Returns: Json }
       confirm_session: {
         Args: { p_happened: boolean; p_note?: string; p_session: string }
@@ -1238,6 +1301,16 @@ export type Database = {
         Returns: undefined
       }
       get_public_config: { Args: never; Returns: Json }
+      issue_email_code: {
+        Args: {
+          p_code_hash: string
+          p_email: string
+          p_ip?: string
+          p_purpose: string
+          p_ttl_minutes?: number
+        }
+        Returns: number
+      }
       list_tutors: {
         Args: {
           p_limit?: number
@@ -1424,6 +1497,7 @@ export type Database = {
         }[]
       }
       revoke_consent: { Args: { p_student: string }; Returns: number }
+      revoke_user_sessions: { Args: { p_user: string }; Returns: undefined }
       send_message: {
         Args: { p_body?: string; p_template?: string; p_thread: string }
         Returns: string
