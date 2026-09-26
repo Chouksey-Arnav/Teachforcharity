@@ -7,7 +7,6 @@ anyway. People pictured are not program participants.
 
 | File | Photographer | Source |
 |---|---|---|
-| violin-lesson.jpg | JFGryphon | https://www.flickr.com/photos/30484128@N03/53425321289 |
 | violinist.jpg | Elijah Henderson | https://stocksnap.io/photo/people-woman-CPNBISVPYQ |
 | saxophone.jpg | Matt Bango | https://stocksnap.io/photo/saxophone-musician-4TNMGEC1UM |
 | guitar.jpg | Burst | https://stocksnap.io/photo/playing-guitar-KDAPLBMD4J |
