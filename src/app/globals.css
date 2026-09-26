@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-instrument-serif), "Iowan Old Style", Georgia, serif;
+
+  --color-paper: #f6f3ec;
+  --color-paper-2: #efeae0;
+  --color-paper-3: #e7e1d4;
+  --color-card: #ffffff;
+  --color-ink: #16201c;
+  --color-ink-2: #2b3531;
+  --color-muted: #5e6a64;
+  --color-faint: #8c958f;
+  --color-line: #e2dccf;
+  --color-line-2: #d4ccbb;
+
+  --color-pine-950: #0c261f;
+  --color-pine-900: #123a30;
+  --color-pine-800: #174638;
+  --color-pine-700: #1f5446;
+  --color-pine-600: #2a6a57;
+  --color-pine-500: #3d8069;
+  --color-pine-200: #c7dcd2;
+  --color-pine-100: #e1ece6;
+  --color-pine-50: #eff5f1;
+
+  --color-brass-800: #6f4f18;
+  --color-brass-700: #8c6420;
+  --color-brass-600: #a87b2a;
+  --color-brass-500: #c4952f;
+  --color-brass-300: #e2c37e;
+  --color-brass-100: #f5ead2;
+  --color-brass-50: #faf4e6;
+
+  --color-clay-800: #7a2f1d;
+  --color-clay-700: #9c3d26;
+  --color-clay-500: #c4553a;
+  --color-clay-100: #f7e1d9;
+  --color-clay-50: #fbf0ec;
+
+  --color-sky-700: #2f5470;
+  --color-sky-100: #e2ebf2;
+
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+
+  --shadow-card: 0 1px 0 rgb(22 32 28 / 0.04), 0 1px 2px rgb(22 32 28 / 0.04);
+  --shadow-lift: 0 1px 0 rgb(22 32 28 / 0.04), 0 8px 24px -12px rgb(22 32 28 / 0.18);
+  --shadow-pop: 0 12px 40px -12px rgb(22 32 28 / 0.28);
+
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-fade: fade 0.3s ease both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    background: var(--color-brass-300);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-pine-600);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  input, textarea, select, button {
+    font: inherit;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+@layer components {
+  .display {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.04;
+  }
+  .eyebrow {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-brass-700);
+  }
+  .prose-legal h2 {
+    font-family: var(--font-serif);
+    font-size: 1.6rem;
+    line-height: 1.2;
+    margin: 2.25rem 0 0.75rem;
+    color: var(--color-ink);
+  }
+  .prose-legal h3 {
+    font-weight: 600;
+    font-size: 1rem;
+    margin: 1.5rem 0 0.4rem;
+  }
+  .prose-legal p,
+  .prose-legal li {
+    color: var(--color-ink-2);
+    line-height: 1.7;
+    font-size: 0.975rem;
+  }
+  .prose-legal p { margin: 0 0 0.9rem; }
+  .prose-legal ul { list-style: disc; padding-left: 1.25rem; margin: 0 0 1rem; }
+  .prose-legal ol { list-style: decimal; padding-left: 1.25rem; margin: 0 0 1rem; }
+  .prose-legal li { margin: 0.3rem 0; }
+  .prose-legal a { color: var(--color-pine-700); text-decoration: underline; text-underline-offset: 3px; }
+  .prose-legal strong { color: var(--color-ink); font-weight: 600; }
+
+  .staff-bg {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 13px,
+      rgb(22 32 28 / 0.07) 13px,
+      rgb(22 32 28 / 0.07) 14px
+    );
+  }
+  .grain {
+    background-image: radial-gradient(rgb(22 32 28 / 0.035) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  .print-card { border: none !important; box-shadow: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
