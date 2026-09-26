@@ -43,6 +43,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const other = isTutor ? `${s.student_name} (${s.student_grade}th grade)` : s.tutor_name;
   const canJoin = s.status === "scheduled" && now >= start_ - 15 * 60000 && now <= end + 15 * 60000;
   const started = now >= start_;
+  const ended = now >= end;
 
   const run = (fn: () => Promise<ActionState>) =>
     start(async () => {
@@ -154,7 +155,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
                 <Video className="size-4" /> {canJoin ? "Join Google Meet" : "Meet link"}
               </a>
             )}
-            {isTutor && started && (
+            {isTutor && ended && (
               <>
                 <Button size="sm" pending={pending && panel === null} onClick={() => run(() => logLesson({ sessionId: s.id, happened: true }))}>
                   <CheckCircle2 className="size-4" /> It happened
