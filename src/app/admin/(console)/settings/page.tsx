@@ -36,11 +36,15 @@ const set = (k: string) => Boolean(process.env[k]?.trim());
 
 export default async function SettingsPage() {
   const db = await adminDb();
-  const [{ data: h }, { data: partners }, { data: reviewers }] = await Promise.all([
+  const [{ data: h }, { data: partners }, { data: reviewers }, { data: http }] = await Promise.all([
     db.rpc("admin_health"),
     db.from("partners").select("*").order("created_at"),
     db.from("profiles").select("id, full_name, email, role").in("role", ["reviewer", "admin"]).order("role"),
+    db.rpc("admin_cron_http"),
   ]);
+  // pg_cron marks a run "succeeded" once the request is queued; this is what the app actually answered.
+  const calls = http as { ok: number; failed: number; last_status: number | null; last_error: string | null; last_at: string | null } | null;
+  const callsOk = Boolean(calls && calls.ok > 0 && calls.last_status !== null && calls.last_status < 300);
   const health = h as unknown as Health;
   const job = (n: string) => health.jobs.find((j) => j.name === n);
   const provider = emailProvider();
@@ -63,6 +67,18 @@ export default async function SettingsPage() {
             <Check ok={Boolean(siteUrl) && !siteUrl.includes("localhost")} label="Site URL (NEXT_PUBLIC_SITE_URL)" detail={siteUrl || "Not set — email links will point to localhost."} />
             <Check ok={!missing.length} label={`Email provider: ${provider.name}`} detail={missing.length ? `Missing ${missing.join(", ")}` : `Last email sent ${when(health.last_email_sent)}`} />
             <Check ok={set("CRON_SECRET") || set("SUPABASE_CRON_SECRET")} label="Scheduled-job secret (CRON_SECRET / SUPABASE_CRON_SECRET)" />
+            <Check
+              ok={callsOk}
+              warn={!calls || calls.ok + calls.failed === 0}
+              label="Database → site connection"
+              detail={
+                !calls || calls.ok + calls.failed === 0
+                  ? "No scheduled calls in the last hour."
+                  : `Last hour: ${calls.ok} ok, ${calls.failed} failed · last answer ${calls.last_status ?? "none"} ${when(calls.last_at)}${
+                      calls.last_status === 401 ? " — SUPABASE_CRON_SECRET in Vercel doesn’t match the database’s tfac_cron_secret (or needs a redeploy)." : calls.last_error && !callsOk ? ` — ${calls.last_error}` : ""
+                    }`
+              }
+            />
             <Check ok={Boolean(job("tfac-maintenance")?.active)} label="Database maintenance (every 15 min)" detail="Expires stale requests, queues reminders, deletes unapproved student accounts after 14 days." />
             <Check
               ok={Boolean(job("tfac-email-drain")?.active)}

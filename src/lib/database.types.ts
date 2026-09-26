@@ -1369,6 +1369,7 @@ export type Database = {
     }
     Functions: {
       accept_terms: { Args: { p_kind: string }; Returns: undefined }
+      admin_cron_http: { Args: never; Returns: Json }
       admin_activity: {
         Args: { p_action?: string; p_before?: number; p_limit?: number }
         Returns: {

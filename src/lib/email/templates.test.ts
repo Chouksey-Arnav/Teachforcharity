@@ -45,3 +45,21 @@ describe("renderEmail", () => {
     expect(renderEmail("nope", base)).toBeNull();
   });
 });
+
+describe("every template the database queues has a renderer", () => {
+  it("matches enqueue_email/notify_admins calls in the migrations", async () => {
+    const { readFileSync, readdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(process.cwd(), "supabase/migrations");
+    const sql = readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
+    const queued = new Set<string>();
+    for (const m of sql.matchAll(/(?:enqueue_email|notify_admins)\s*\(/g)) {
+      // First snake_case literal after the call is the template name (payload keys come later).
+      const lit = sql.slice(m.index! + m[0].length, m.index! + m[0].length + 300).match(/'([a-z]+(?:_[a-z]+)+)'/);
+      if (lit && lit[1] !== "recipient_first") queued.add(lit[1]);
+    }
+    expect(queued.size).toBeGreaterThan(20);
+    const missing = [...queued].filter((t) => renderEmail(t, {}) === null);
+    expect(missing).toEqual([]);
+  });
+});
