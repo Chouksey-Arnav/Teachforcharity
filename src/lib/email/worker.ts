@@ -1,47 +1,15 @@
 import "server-only";
 import { createServiceClient } from "../supabase/admin";
 import { renderEmail } from "./templates";
-
-const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
+import { emailProvider } from "./provider";
 
 export interface DrainResult {
   configured: boolean;
+  provider: string;
+  missing: string[];
   claimed: number;
   sent: number;
   failed: number;
-}
-
-async function sendViaBrevo(to: { email: string; name?: string | null }, email: NonNullable<ReturnType<typeof renderEmail>>) {
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
-  if (!apiKey || !senderEmail) throw new Error("Brevo is not configured (BREVO_API_KEY / BREVO_SENDER_EMAIL).");
-
-  const body = {
-    sender: { email: senderEmail, name: process.env.BREVO_SENDER_NAME || "Teach for a Cause" },
-    to: [{ email: to.email, ...(to.name ? { name: to.name } : {}) }],
-    subject: email.subject,
-    htmlContent: email.html,
-    textContent: email.text,
-    ...(email.attachments?.length ? { attachment: email.attachments } : {}),
-    tags: ["transactional"],
-  };
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const res = await fetch(BREVO_ENDPOINT, {
-      method: "POST",
-      headers: { "api-key": apiKey, "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`Brevo ${res.status}: ${detail.slice(0, 300)}`);
-    }
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 /**
@@ -52,8 +20,10 @@ async function sendViaBrevo(to: { email: string; name?: string | null }, email: 
  */
 export async function drainOutbox(maxBatches = 4): Promise<DrainResult> {
   const supabase = createServiceClient();
-  const result: DrainResult = { configured: Boolean(supabase && process.env.BREVO_API_KEY), claimed: 0, sent: 0, failed: 0 };
-  if (!supabase || !process.env.BREVO_API_KEY) return result;
+  const provider = emailProvider();
+  const missing = [...(supabase ? [] : ["SUPABASE_SERVICE_ROLE_KEY"]), ...provider.missingConfig()];
+  const result: DrainResult = { configured: missing.length === 0, provider: provider.name, missing, claimed: 0, sent: 0, failed: 0 };
+  if (!supabase || missing.length) return result;
 
   for (let batch = 0; batch < maxBatches; batch++) {
     const { data: rows, error } = await supabase.rpc("claim_outbox", { p_limit: 25 });
@@ -72,19 +42,19 @@ export async function drainOutbox(maxBatches = 4): Promise<DrainResult> {
         let error = "";
         try {
           if (!email) throw new Error(`Unknown email template: ${row.template}`);
-          await sendViaBrevo({ email: row.to_email, name: row.to_name }, email);
+          await provider.send({ to: row.to_email, toName: row.to_name, email });
           sent = true;
         } catch (e) {
           error = e instanceof Error ? e.message : String(e);
-          // A timeout means Brevo may have accepted it; don't risk a duplicate.
-          unknown = e instanceof Error && e.name === "AbortError";
+          // e.g. a timeout after handing the message over: it may have been delivered.
+          unknown = provider.isAmbiguousFailure(e);
           console.error(`[email] #${row.id} (${row.template}) failed:`, error);
         }
         if (unknown) {
           result.failed++;
           return; // left in "sending"; claim_outbox surfaces it as failed-unknown
         }
-        // Record the outcome. Once Brevo has accepted a message, a failure here must
+        // Record the outcome. Once the provider has accepted a message, a failure here must
         // never lead to a resend: retry the bookkeeping, and if it still fails the
         // row stays "sending" and claim_outbox marks it failed-unknown, not queued.
         for (let attempt = 0; attempt < 3; attempt++) {

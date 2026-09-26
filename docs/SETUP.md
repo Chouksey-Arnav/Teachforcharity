@@ -16,14 +16,24 @@ The Supabase database (**Teach For Charity**, project ref `nkpdiglnyqgblqcqvbdp`
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → **secret / service_role** key | **YES** |
 | `NEXT_PUBLIC_SITE_URL` | your Vercel URL, e.g. `https://teachforcharity.vercel.app` (no trailing slash) | no |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | the address families should contact | no |
-| `BREVO_API_KEY` | Brevo → **SMTP & API → API Keys** (starts `xkeysib-`) | **YES** |
+| `EMAIL_PROVIDER` | `smtp` for testing (Nodemailer) or `brevo` (default when unset) | no |
+| `SMTP_HOST` | *smtp only* — e.g. `smtp.gmail.com` | no |
+| `SMTP_PORT` | *smtp only* — `587` (default) or `465` | no |
+| `SMTP_SECURE` | *smtp only, optional* — leave unset; `465` implies TLS, `587` uses STARTTLS | no |
+| `SMTP_USER` | *smtp only* — the SMTP login (for Gmail: your Gmail address) | no |
+| `SMTP_PASS` | *smtp only* — for Gmail a 16-char **App Password** (needs 2-Step Verification) | **YES** |
+| `EMAIL_FROM` | *smtp only* — From address (for Gmail: the same Gmail address) | no |
+| `EMAIL_FROM_NAME` | *smtp only, optional* — `Teach for a Cause` | no |
+| `BREVO_API_KEY` | *brevo only* — Brevo → **SMTP & API → API Keys** (starts `xkeysib-`) | **YES** |
 | `BREVO_SENDER_EMAIL` | a sender you verified in Brevo | no |
 | `BREVO_SENDER_NAME` | `Teach for a Cause` | no |
 | `CRON_SECRET` | any long random string (e.g. `openssl rand -hex 32`) | **YES** |
 
 3. Redeploy after adding variables.
 
-> Never put the service-role key, Brevo key, or cron secret in any `NEXT_PUBLIC_` variable or commit them to git.
+> Brevo variables can stay set while `EMAIL_PROVIDER=smtp`; they're ignored. Switch back by setting `EMAIL_PROVIDER=brevo` and redeploying. After deploying, use **Admin → Emails → Send test email** to confirm delivery.
+
+> Never put the service-role key, SMTP password, Brevo key, or cron secret in any `NEXT_PUBLIC_` variable or commit them to git.
 
 ---
 

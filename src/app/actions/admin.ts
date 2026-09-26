@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { toActionError, type ActionState } from "@/lib/errors";
 import { kickEmails } from "@/lib/email/kick";
 import { drainOutbox } from "@/lib/email/worker";
+import { emailProvider } from "@/lib/email/provider";
+import { SITE } from "@/lib/site";
 
 const uuid = z.string().uuid();
 
@@ -124,6 +126,31 @@ export async function sendQueuedNow(): Promise<ActionState> {
   if (!isAdmin) return { ok: false, error: { message: "Admins only." } };
   const r = await drainOutbox(8);
   revalidatePath("/dashboard/admin/emails");
-  if (!r.configured) return { ok: false, error: { message: "Email isn’t configured yet: set SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY, and BREVO_SENDER_EMAIL in Vercel." } };
+  if (!r.configured) return { ok: false, error: { message: `Email isn’t configured yet (provider: ${r.provider}). Missing: ${r.missing.join(", ")}.` } };
   return { ok: true, message: `Sent ${r.sent}, failed ${r.failed}.` };
+}
+
+/** Sends one email straight through the active provider (bypassing the queue) to check the settings. */
+export async function sendTestEmail(to: string): Promise<ActionState> {
+  const address = to.trim().toLowerCase();
+  if (!z.string().email().safeParse(address).success) return { ok: false, error: { message: "Enter a valid email address." } };
+  const supabase = await createClient();
+  const { error: notAdmin } = await supabase.rpc("admin_overview");
+  if (notAdmin) return { ok: false, error: { message: "Admins only." } };
+  const provider = emailProvider();
+  const missing = provider.missingConfig();
+  if (missing.length) return { ok: false, error: { message: `The ${provider.name} provider is missing: ${missing.join(", ")}.` } };
+  try {
+    await provider.send({
+      to: address,
+      email: {
+        subject: `Test email from ${SITE.name}`,
+        text: `This is a test email sent through the "${provider.name}" provider. If you can read this, email delivery works.`,
+        html: `<p>This is a test email sent through the <strong>${provider.name}</strong> provider.</p><p>If you can read this, email delivery works.</p>`,
+      },
+    });
+    return { ok: true, message: `Sent via ${provider.name}. Check ${address} (and the spam folder).` };
+  } catch (e) {
+    return { ok: false, error: { message: `Sending failed via ${provider.name}: ${e instanceof Error ? e.message : String(e)}` } };
+  }
 }
