@@ -9,7 +9,7 @@ const NEED = [
   "You’re in 9th–12th grade and play a band or orchestra instrument.",
   "You can make a free Google Meet link (a personal Google account works).",
   "A parent or guardian knows you’re volunteering — we’ll email them.",
-  "An hour or two a week, on your own schedule.",
+  "An hour or two a week, on your own schedule. No waiting on approval — your profile goes live as soon as you finish."
 ];
 
 export default function VolunteerPage() {
@@ -45,8 +45,8 @@ export default function VolunteerPage() {
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 md:grid-cols-3">
           {[
             ["You choose who you teach", "Pick the instruments you play and the levels you want to teach — beginners, advanced players, or both. You set how many students you take (1–8) and when you’re free."],
-            ["You stay in control of your time", "Families send requests; you accept, decline, or suggest a different time. Cancel from your dashboard if something comes up."],
-            ["Your hours are verified", "Log each lesson after it happens. Once the family confirms it, our nonprofit partner verifies your hours weekly, and you can print your record anytime."],
+            ["You stay in control of your time", "Students send requests — or you can browse students who fit you and offer to teach. Accept, decline, or suggest a different time, and cancel from your dashboard if something comes up."],
+            ["Your hours are verified", "Log each lesson after it happens. Once the student’s side confirms it, our nonprofit partner verifies your hours weekly, and you can print your record anytime."],
           ].map(([t, d]) => (
             <div key={t}>
               <h2 className="display text-3xl">{t}</h2>

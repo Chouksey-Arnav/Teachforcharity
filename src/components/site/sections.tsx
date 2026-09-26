@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 export function ExampleMatch() {
   return (
     <div className="relative mx-auto w-full max-w-md">
-      <div className="absolute -inset-x-6 -inset-y-8 staff-bg opacity-70 [mask-image:radial-gradient(closest-side,black,transparent)]" aria-hidden />
+      <div className="absolute -inset-y-8 inset-x-0 staff-bg sm:-inset-x-6 opacity-70 [mask-image:radial-gradient(closest-side,black,transparent)]" aria-hidden />
       <div className="relative rotate-[-1.2deg] rounded-3xl border border-line bg-card p-5 shadow-pop">
         <div className="flex items-center justify-between">
           <span className="eyebrow">Example match</span>

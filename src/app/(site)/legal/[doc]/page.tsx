@@ -19,8 +19,8 @@ export default async function LegalPage({ params }: PageProps<"/legal/[doc]">) {
   const d = getLegalDoc(doc);
   if (!d) notFound();
   return (
-    <div className="mx-auto grid max-w-6xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[220px_1fr]">
-      <aside className="lg:sticky lg:top-24 lg:self-start">
+    <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
         <p className="eyebrow mb-4">Policies</p>
         <nav className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible" aria-label="Policies">
           {LEGAL_DOCS.map((x) => (
@@ -37,7 +37,7 @@ export default async function LegalPage({ params }: PageProps<"/legal/[doc]">) {
           ))}
         </nav>
       </aside>
-      <article className="max-w-3xl">
+      <article className="min-w-0 max-w-3xl">
         <h1 className="display text-5xl sm:text-6xl">{d.title}</h1>
         <p className="mt-3 text-sm text-muted">
           Version {d.version} · Effective {d.effective}

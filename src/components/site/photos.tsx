@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 export function HeroPhoto() {
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-      <div className="absolute -inset-x-6 -inset-y-8 staff-bg opacity-70 [mask-image:radial-gradient(closest-side,black,transparent)]" aria-hidden />
+      <div className="absolute -inset-y-8 inset-x-0 staff-bg sm:-inset-x-6 opacity-70 [mask-image:radial-gradient(closest-side,black,transparent)]" aria-hidden />
       <div className="relative overflow-hidden rounded-[28px] shadow-pop ring-1 ring-black/5">
         <Image
           src="/images/violin-lesson.jpg"
@@ -33,7 +33,7 @@ export function HeroPhoto() {
           </span>
           <div className="min-w-0">
             <p className="text-sm font-semibold">Lesson booked</p>
-            <p className="truncate text-xs text-muted">Thursday, 7:00 PM · 45 min · Google Meet</p>
+            <p className="truncate text-xs text-muted">Thursday, 7 PM · Google Meet</p>
           </div>
         </div>
       </div>
