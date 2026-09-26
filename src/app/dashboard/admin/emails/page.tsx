@@ -5,20 +5,29 @@ import { Badge } from "@/components/ui/badge";
 import { Notice } from "@/components/ui/notice";
 import { Empty } from "@/components/ui/empty";
 import { formatWhen } from "@/lib/time";
-import { EmailActions, SendNow } from "./email-actions";
+import { EmailActions, SendNow, TestEmailForm } from "./email-actions";
+import { emailProvider } from "@/lib/email/provider";
 
 export const metadata: Metadata = { title: "Email log · Admin" };
 
 export default async function AdminEmailsPage() {
   const supabase = await createClient();
   const { data } = await supabase.from("email_outbox").select("id, to_email, template, status, attempts, last_error, created_at, sent_at, send_after").order("id", { ascending: false }).limit(150);
-  const configured = Boolean(process.env.BREVO_API_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.BREVO_SENDER_EMAIL);
+  const provider = emailProvider();
+  const missing = [...(process.env.SUPABASE_SERVICE_ROLE_KEY ? [] : ["SUPABASE_SERVICE_ROLE_KEY"]), ...provider.missingConfig()];
   return (
     <>
       <PageHeader title="Email log" description="Every transactional email the program sends, newest first. Failed emails retry automatically up to 5 times." actions={<SendNow />} />
-      {!configured && (
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-card p-5">
+        <p className="text-sm">
+          Sending through <Badge tone={provider.name === "smtp" ? "sky" : "pine"}>{provider.name === "smtp" ? "SMTP (Nodemailer)" : "Brevo"}</Badge>
+          <span className="ml-2 text-muted">Switch with the EMAIL_PROVIDER variable.</span>
+        </p>
+        <TestEmailForm />
+      </div>
+      {missing.length > 0 && (
         <Notice tone="warning" className="mb-6" title="Email isn’t fully configured">
-          Set SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY, and BREVO_SENDER_EMAIL in your Vercel project. Emails are safely queued until then.
+          Missing in your Vercel project: {missing.join(", ")}. Emails are safely queued until then.
         </Notice>
       )}
       {!data?.length ? (
