@@ -14,10 +14,10 @@ export function HeroPhoto() {
       <div className="absolute -inset-y-8 inset-x-0 staff-bg sm:-inset-x-6 opacity-70 [mask-image:radial-gradient(closest-side,black,transparent)]" aria-hidden />
       <div className="relative overflow-hidden rounded-[28px] shadow-pop ring-1 ring-black/5">
         <Image
-          src="/images/violin-lesson.jpg"
-          alt="A teacher gently guides a young student's bow arm during a violin lesson"
-          width={1024}
-          height={971}
+          src="/images/violinist.jpg"
+          alt="A young violinist playing outdoors in warm evening light"
+          width={960}
+          height={640}
           priority
           sizes="(min-width: 1024px) 460px, (min-width: 640px) 448px, 92vw"
           className="aspect-[1.05] h-auto w-full object-cover"
