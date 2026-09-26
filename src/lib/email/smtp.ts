@@ -29,7 +29,7 @@ export const smtpProvider: EmailProvider = {
     return missing;
   },
   async send({ to, toName, email }: OutgoingEmail) {
-    await getTransporter().sendMail({
+    const info = await getTransporter().sendMail({
       from: { name: process.env.EMAIL_FROM_NAME || "Teach for a Cause", address: process.env.EMAIL_FROM! },
       to: toName ? { name: toName, address: to } : to,
       subject: email.subject,
@@ -41,6 +41,10 @@ export const smtpProvider: EmailProvider = {
         contentType: a.name.endsWith(".ics") ? "text/calendar; charset=utf-8; method=PUBLISH" : undefined,
       })),
     });
+    const rejected = (info.rejected ?? []).map(String);
+    // Log the server's reply (never the address itself) so delivery can be traced in Vercel logs.
+    console.info(`[email] smtp ${rejected.length ? "REJECTED" : "accepted"} → *@${to.split("@")[1]} id=${info.messageId} reply="${info.response}"`);
+    if (rejected.length) throw new Error(`SMTP server rejected the recipient (${info.response})`);
   },
   // A dropped connection or timeout after the message was handed over may still deliver it.
   isAmbiguousFailure: (e) => {

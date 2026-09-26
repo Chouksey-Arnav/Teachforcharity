@@ -14,7 +14,17 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <p className="mt-3 text-muted">Sign in to your family or tutor account.</p>
       {sp.error === "link" && (
         <Notice tone="warning" className="mt-6" title="That link didn’t work">
-          It may have expired or already been used. Sign in below, or request a new link.
+          It may have expired or already been used. Sign in below, or use “Forgot password?” to get a code by email.
+        </Notice>
+      )}
+      {sp.created === "1" && (
+        <Notice tone="success" className="mt-6" title="Your account is ready">
+          Your email is verified. Sign in with the password you just chose.
+        </Notice>
+      )}
+      {sp.password === "updated" && (
+        <Notice tone="success" className="mt-6" title="Password updated">
+          Sign in with your new password.
         </Notice>
       )}
       <LoginForm next={next} />
