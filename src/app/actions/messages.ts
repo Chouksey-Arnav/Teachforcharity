@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { toActionError, type ActionState } from "@/lib/errors";
 import { MESSAGE_MAX, messageViolation } from "@/lib/moderation";
 import { kickEmails } from "@/lib/email/kick";
+import { kickSafetyScan } from "@/lib/safety/scanner";
 
 const uuid = z.string().uuid();
 
@@ -39,6 +40,7 @@ export async function sendMessage(input: { threadId: string; template?: string; 
   });
   if (error) return { ok: false, error: toActionError(error) };
   kickEmails();
+  if (!input.template) kickSafetyScan();
   revalidatePath(`/dashboard/messages/${input.threadId}`);
   return { ok: true };
 }

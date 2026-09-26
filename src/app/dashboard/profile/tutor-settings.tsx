@@ -10,7 +10,7 @@ import { ChipGroup } from "@/components/forms/chip-group";
 import { SlotGrid } from "@/components/forms/slot-grid";
 import type { SubjectOption } from "@/components/forms/instrument-picker";
 import { TutorInstrumentsEditor, tutorInstrumentsError, type TutorInstrumentItem } from "@/components/forms/tutor-instruments";
-import { EXPLAIN_STYLES, GOALS, NC_COUNTIES, TEACHING_STYLES } from "@/lib/constants";
+import { EXPLAIN_STYLES, GOALS, INTERESTS, NC_COUNTIES, TEACHING_STYLES } from "@/lib/constants";
 import { normalizeMeetUrl } from "@/lib/meet";
 import { saveMeetLink, saveTutorAbout, saveTutorAvailability, saveTutorInstruments, saveTutorTeaching } from "@/app/actions/onboarding";
 import type { ActionState } from "@/lib/errors";
@@ -23,6 +23,7 @@ interface Initial {
   county: string;
   bio: string;
   strengths: string[];
+  interests: string[];
   teachingStyle: string | null;
   explainStyle: string | null;
   maxStudents: number;
@@ -132,6 +133,10 @@ export function TutorSettings({ subjects, initial }: { subjects: SubjectOption[]
             <p className="text-sm font-medium">Strong at (up to 4)</p>
             <div className="mt-2">
               <ChipGroup max={4} value={v.strengths} onChange={(strengths) => set({ strengths })} options={GOALS.map((g) => ({ value: g.key, label: g.label }))} />
+              <p className="mt-5 mb-2 text-sm font-medium">
+                Music you love <span className="font-normal text-muted">(optional, up to 6)</span>
+              </p>
+              <ChipGroup max={6} value={v.interests} onChange={(interests) => set({ interests })} options={INTERESTS.map((i) => ({ value: i.key, label: i.label }))} />
             </div>
           </div>
           <ChoiceCards name="pts" value={v.teachingStyle} onChange={(x) => set({ teachingStyle: x })} columns={3} size="sm" choices={TEACHING_STYLES.map((t) => ({ value: t.key, label: t.tutor }))} />
@@ -162,6 +167,7 @@ export function TutorSettings({ subjects, initial }: { subjects: SubjectOption[]
             save("teach", () =>
               saveTutorTeaching({
                 strengths: v.strengths as never,
+                interests: v.interests as never,
                 teachingStyle: (v.teachingStyle ?? "balanced") as "structured",
                 explainStyle: (v.explainStyle ?? "balanced") as "show",
                 maxStudents: v.maxStudents,

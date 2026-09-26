@@ -126,3 +126,20 @@ export async function confirmLesson(input: { sessionId: string; happened: boolea
   if (error) return { ok: false, error: toActionError(error) };
   return done(input.happened ? "Thanks — confirmed!" : "Thanks for letting us know. The program team will review it.");
 }
+
+export async function offerToTeach(input: { studentId: string; subjectId: string; note?: string }): Promise<ActionState<{ threadId: string }>> {
+  const p = z
+    .object({ studentId: z.string().uuid(), subjectId: z.string().uuid(), note: z.string().trim().max(300).optional() })
+    .safeParse(input);
+  if (!p.success) return { ok: false, error: { message: p.error.issues[0]?.message ?? "Please check the form." } };
+  if (p.data.note) {
+    const v = messageViolation(p.data.note);
+    if (v) return { ok: false, error: { message: `Your note can't include ${v}.` } };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("tutor_offer", { p_student: p.data.studentId, p_subject: p.data.subjectId, p_note: p.data.note || undefined });
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  revalidatePath("/dashboard/find-students");
+  return { ok: true, data: { threadId: data as string } };
+}

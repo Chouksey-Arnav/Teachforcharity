@@ -90,16 +90,16 @@ export function WhoItsFor() {
 
 export const STEPS = [
   {
-    title: "Tell us about your student",
-    body: "A short questionnaire — instrument, level, goals, and when they're free. It takes about four minutes, and a parent signs the consent form at the end.",
+    title: "Sign up in a few minutes",
+    body: "Students (or a parent) answer a short questionnaire — instrument, level, goals, favorite music, and when they're free. A parent approves before any lesson or message.",
   },
   {
     title: "Get matched",
-    body: "We match by instrument first, then by level, schedule, and learning style. A beginner gets a tutor who wants to teach beginners — not whoever has played the longest.",
+    body: "Instrument first, then level, schedule, goals, learning style, and the music you love. A beginner gets a tutor who wants to teach beginners — not whoever has played the longest.",
   },
   {
     title: "Request a time",
-    body: "Pick a day and time. Your tutor accepts it or suggests another, and everyone gets a confirmation email with the Meet link and a calendar invite.",
+    body: "Pick a day and time, or accept a tutor's offer. The tutor confirms, and everyone gets an email with the Meet link and a calendar invite.",
   },
   {
     title: "Learn on Google Meet",
@@ -125,13 +125,13 @@ export const SAFETY_POINTS: { icon: typeof Wifi; title: string; body: string }[]
   { icon: Wifi, title: "Online only", body: "Every lesson happens on Google Meet. There are no in-person meetings — not now, not ever." },
   { icon: VideoOff, title: "Never recorded", body: "We don't record lessons and never store video of minors. The site has no recording feature at all." },
   { icon: PhoneCall, title: "A parent is always reachable", body: "A parent or guardian must be reachable by phone or text for the whole lesson. They don't have to sit in." },
-  { icon: ShieldCheck, title: "Consent comes first", body: "A parent signs the consent form before a single lesson can be requested. The site enforces it — there's no way around it." },
+  { icon: ShieldCheck, title: "A parent says yes first", body: "Students can sign up themselves, but nothing unlocks until a parent approves by email. Unapproved accounts are deleted after 14 days." },
   {
     icon: MessageSquareLock,
     title: "Messages stay on the platform",
-    body: "Quick replies by default. Phone numbers, emails, links, and social handles are blocked automatically, and the parent account sees every message.",
+    body: "Phone numbers, emails, links, and social apps are blocked, our own software checks every message for safety concerns, and a parent can read every conversation.",
   },
-  { icon: HeartHandshake, title: "Concerns are acted on", body: "Any report goes straight to the program team. A safety report pauses the tutor immediately while it's reviewed." },
+  { icon: HeartHandshake, title: "Concerns are acted on", body: "Any report — from a student, a parent, or our safety scanner — goes straight to the program team. A safety report pauses the tutor immediately." },
 ];
 
 export function SafetyGrid({ inverted = true }: { inverted?: boolean }) {
@@ -265,11 +265,15 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Who are the tutors?",
-    a: "High school students (grades 9–12) who play in their school band or orchestra, many in top ensembles or All-District groups. Each tutor fills out a skill questionnaire and signs a tutor agreement, a parent or guardian of theirs is notified, and the program team approves them before families can see their profile. Skill levels are self-reported — we show you exactly what each tutor told us.",
+    a: "High school students (grades 9–12) who play in their school band or orchestra, many in top ensembles or All-District groups. Each tutor fills out a skill questionnaire and signs a tutor agreement, and a parent or guardian of theirs is notified. Tutors are volunteers, not certified teachers, and skill levels are self-reported — we show you exactly what each tutor told us. Any safety report or safety-scan alert pauses a tutor immediately.",
+  },
+  {
+    q: "Can my middle schooler sign up on their own?",
+    a: "Yes. Students in grades 6–8 can create their own account and set up their profile. We then email their parent or guardian, who reads how the program works and approves (or declines) on a private page — no account needed. Until a parent approves, the student can't message anyone or book a lesson, and unapproved accounts are deleted after 14 days. Parents can also sign up for their child instead.",
   },
   {
     q: "What does a parent need to do?",
-    a: "Create the family account, fill out the short questionnaire for your student, and sign the consent form. During each lesson, you (or another guardian) need to be reachable by phone or text — you don't need to sit in. After each lesson, you confirm it happened with one click.",
+    a: "Approve your child's account (or create a parent account yourself) and be reachable by phone or text during each lesson — you don't need to sit in. From your private parent page you can read every message, see every lesson, report a concern, or delete the account at any time.",
   },
   {
     q: "How are students and tutors matched?",
@@ -285,6 +289,6 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Can we message the tutor?",
-    a: "Yes, inside the site. You can always use quick replies. Writing your own messages requires agreeing to the messaging guidelines, and the system automatically blocks phone numbers, emails, links, social media handles, and inappropriate language to keep all contact on the platform.",
+    a: "Yes, inside the site. Phone numbers, emails, links, social media, and inappropriate language are blocked automatically, and our own safety software (no outside AI services) checks messages for things like requests for secrecy, meeting in person, or bullying — hiding a message and pausing a tutor automatically when something is serious. Parents can read every message.",
   },
 ];

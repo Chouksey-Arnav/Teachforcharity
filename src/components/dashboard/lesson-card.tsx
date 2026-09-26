@@ -64,9 +64,9 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   if (s.status === "pending") {
     statusLine = s.awaiting_me
       ? s.proposed_by === "family"
-        ? `${s.student_name}’s family requested this time.`
+        ? `${s.student_name} requested this time.`
         : `${s.tutor_name} suggested this time.`
-      : `Waiting for ${isTutor ? "the family" : s.tutor_name} to respond.`;
+      : `Waiting for ${isTutor ? s.student_name : s.tutor_name} to respond.`;
   }
 
   return (
@@ -105,14 +105,14 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
           {s.status === "completed" && !isTutor && (
             <p className="mt-2 text-[13.5px] text-ink-2">{s.tutor_name} logged this lesson. Did it happen?</p>
           )}
-          {s.status === "completed" && isTutor && <p className="mt-2 text-[13.5px] text-muted">Waiting for the family to confirm.</p>}
-          {s.status === "confirmed" && <p className="mt-2 text-[13.5px] text-muted">Confirmed by the family — waiting for weekly verification.</p>}
+          {s.status === "completed" && isTutor && <p className="mt-2 text-[13.5px] text-muted">Waiting for {s.student_name}’s side to confirm it happened.</p>}
+          {s.status === "confirmed" && <p className="mt-2 text-[13.5px] text-muted">Confirmed by {isTutor ? `${s.student_name}’s side` : "you"} — waiting for weekly verification.</p>}
           {s.status === "verified" && (
             <p className="mt-2 flex items-center gap-1.5 text-[13.5px] text-pine-800">
               <BadgeCheck className="size-4" /> Verified{s.verifier_org ? ` by ${s.verifier_org}` : ""}
             </p>
           )}
-          {s.status === "disputed" && <p className="mt-2 text-[13.5px] text-clay-800">The family said this lesson didn’t happen. The program team is reviewing it.</p>}
+          {s.status === "disputed" && <p className="mt-2 text-[13.5px] text-clay-800">{isTutor ? `${s.student_name}’s side` : "You"} said this lesson didn’t happen. The program team is reviewing it.</p>}
           {s.status === "rejected" && s.review_note && <p className="mt-2 text-[13.5px] text-clay-800">Not verified: “{s.review_note}”</p>}
         </div>
         <div className="hidden shrink-0 sm:block">

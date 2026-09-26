@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { toActionError, type ActionState } from "@/lib/errors";
-import { ALL_SLOTS, GOALS, LEVELS, NC_COUNTIES } from "@/lib/constants";
+import { ALL_SLOTS, GOALS, INTERESTS, LEVELS, NC_COUNTIES } from "@/lib/constants";
 import { normalizeMeetUrl } from "@/lib/meet";
 import { kickEmails } from "@/lib/email/kick";
 
@@ -24,6 +24,8 @@ const style = z.enum(["structured", "flexible", "balanced"]);
 const explain = z.enum(["show", "tell", "balanced"]);
 const county = z.union([z.enum(NC_COUNTIES), z.literal("")]).optional();
 const goalKeys = GOALS.map((g) => g.key) as [string, ...string[]];
+const interestKeys = INTERESTS.map((i) => i.key) as [string, ...string[]];
+const interests = z.array(z.enum(interestKeys)).max(6, "Pick up to 6.").optional();
 
 async function session() {
   const supabase = await createClient();
@@ -63,6 +65,85 @@ export async function saveFamilyAbout(input: z.input<typeof familyAbout>): Promi
   if (a.error) return { ok: false, error: toActionError(a.error) };
   const t = await supabase.rpc("accept_terms", { p_kind: "terms" });
   if (t.error) return { ok: false, error: toActionError(t.error) };
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Student account (a middle schooler signing up themselves)
+// ---------------------------------------------------------------------------
+const studentSelf = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .min(1, "Please enter your first name.")
+    .max(40)
+    .refine((s) => !/\s\S+\s\S+/.test(s), "First name only, please."),
+  grade: z.coerce.number().int().min(6, "This program is for grades 6–8.").max(8, "This program is for grades 6–8."),
+  county,
+  guardianName: z.string().trim().min(2, "Enter your parent or guardian's name.").max(120),
+  guardianEmail: z.string().trim().toLowerCase().email("Enter your parent or guardian's email address."),
+  acceptTerms: z.literal(true, { message: "Please agree to the Terms and Privacy Policy." }),
+});
+
+export async function saveStudentSelf(input: z.input<typeof studentSelf>): Promise<ActionState<{ id: string; invited: boolean }>> {
+  const p = studentSelf.safeParse(input);
+  if (!p.success) return invalid(p.error);
+  const { supabase, uid } = await session();
+  const { data: me } = await supabase.from("profiles").select("account_kind, email").eq("id", uid).single();
+  if (me?.account_kind !== "student") return { ok: false, error: { message: "This step is for student accounts." } };
+  if (p.data.guardianEmail === me.email) return { ok: false, error: { message: "Use your parent or guardian's own email — not yours." } };
+  const { messageViolation } = await import("@/lib/moderation");
+  if (messageViolation(p.data.firstName) || messageViolation(p.data.guardianName)) return { ok: false, error: { message: "Please use real names." } };
+
+  const a = await supabase.from("profiles").update({ full_name: p.data.firstName }).eq("id", uid);
+  if (a.error) return { ok: false, error: toActionError(a.error) };
+  const t = await supabase.rpc("accept_terms", { p_kind: "terms" });
+  if (t.error) return { ok: false, error: toActionError(t.error) };
+
+  const row = { first_name: p.data.firstName, grade: p.data.grade, county: p.data.county || null };
+  const { data: existing } = await supabase.from("students").select("id").eq("family_id", uid).maybeSingle();
+  let id = existing?.id;
+  if (id) {
+    const { error } = await supabase.from("students").update(row).eq("id", id);
+    if (error) return { ok: false, error: toActionError(error) };
+  } else {
+    const { data, error } = await supabase.from("students").insert({ ...row, family_id: uid }).select("id").single();
+    if (error) return { ok: false, error: toActionError(error) };
+    id = data.id;
+  }
+
+  // Only (re)send the parent email when it's new or changed.
+  const { data: g } = await supabase.from("guardians").select("name, email").eq("account_id", uid).maybeSingle();
+  let invited = false;
+  if (!g || g.email !== p.data.guardianEmail || g.name !== p.data.guardianName) {
+    const r = await supabase.rpc("student_set_guardian", { p_name: p.data.guardianName, p_email: p.data.guardianEmail });
+    if (r.error) return { ok: false, error: toActionError(r.error) };
+    invited = true;
+    kickEmails();
+  }
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, data: { id: id!, invited } };
+}
+
+/** "Resend" / "change parent email" from the student dashboard. */
+export async function resendGuardianInvite(input: { name: string; email: string }): Promise<ActionState> {
+  const p = z
+    .object({ name: z.string().trim().min(2, "Enter your parent or guardian's name.").max(120), email: z.string().trim().toLowerCase().email("Enter a valid email.") })
+    .safeParse(input);
+  if (!p.success) return invalid(p.error);
+  const { supabase } = await session();
+  const { error } = await supabase.rpc("student_set_guardian", { p_name: p.data.name, p_email: p.data.email });
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: `Sent! Ask ${p.data.name.split(" ")[0]} to check their email (and spam folder).` };
+}
+
+export async function finishStudentOnboarding(): Promise<ActionState> {
+  const { supabase } = await session();
+  const done = await supabase.rpc("complete_onboarding");
+  if (done.error) return { ok: false, error: toActionError(done.error) };
+  revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
 
@@ -153,6 +234,7 @@ const studentPrefs = z.object({
   explainStyle: explain,
   preferredMinutes: z.coerce.number().refine((n) => [30, 45, 60].includes(n)),
   notes: z.string().trim().max(500).optional(),
+  interests,
 });
 
 export async function saveStudentPreferences(input: z.input<typeof studentPrefs>): Promise<ActionState> {
@@ -166,7 +248,8 @@ export async function saveStudentPreferences(input: z.input<typeof studentPrefs>
       learning_style: p.data.learningStyle,
       explain_style: p.data.explainStyle,
       preferred_minutes: p.data.preferredMinutes,
-      notes: p.data.notes || null,
+      ...(p.data.notes !== undefined ? { notes: p.data.notes || null } : {}),
+      ...(p.data.interests ? { interests: p.data.interests } : {}),
     })
     .eq("id", p.data.studentId)
     .eq("family_id", uid);
@@ -343,6 +426,7 @@ const tutorTeaching = z.object({
   maxStudents: z.coerce.number().int().min(1).max(8),
   sessionMinutes: z.array(z.coerce.number().refine((n) => [30, 45, 60].includes(n))).min(1, "Offer at least one lesson length."),
   acceptingStudents: z.boolean().optional(),
+  interests,
 });
 
 export async function saveTutorTeaching(input: z.input<typeof tutorTeaching>): Promise<ActionState> {
@@ -358,6 +442,7 @@ export async function saveTutorTeaching(input: z.input<typeof tutorTeaching>): P
       max_students: p.data.maxStudents,
       session_minutes: [...new Set(p.data.sessionMinutes)].sort((a, b) => a - b),
       ...(p.data.acceptingStudents === undefined ? {} : { accepting_students: p.data.acceptingStudents }),
+      ...(p.data.interests ? { interests: p.data.interests } : {}),
     })
     .eq("user_id", uid);
   if (error) return { ok: false, error: toActionError(error) };

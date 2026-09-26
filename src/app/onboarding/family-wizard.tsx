@@ -15,7 +15,7 @@ import {
   type StudentInstrumentItem,
 } from "@/components/forms/student-instruments";
 import { ConsentForm, type ConsentValues } from "@/components/forms/consent-form";
-import { EXPLAIN_STYLES, GOALS, NC_COUNTIES, TEACHING_STYLES } from "@/lib/constants";
+import { EXPLAIN_STYLES, GOALS, INTERESTS, NC_COUNTIES, TEACHING_STYLES } from "@/lib/constants";
 import {
   saveFamilyAbout,
   saveStudentAvailability,
@@ -36,6 +36,7 @@ interface StudentState {
   county: string;
   school: string;
   goals: string[];
+  interests?: string[];
   learningStyle: string | null;
   explainStyle: string | null;
   preferredMinutes: number;
@@ -141,6 +142,7 @@ export function FamilyWizard({
             saveStudentPreferences({
               studentId: s.id!,
               goals: s.goals,
+              interests: (s.interests ?? []) as never,
               learningStyle: s.learningStyle as "structured",
               explainStyle: s.explainStyle as "show",
               preferredMinutes: s.preferredMinutes,
@@ -290,6 +292,12 @@ export function FamilyWizard({
       <WizardShell {...shared} title={`What does ${name} want to work on?`} description="This helps us find a tutor whose strengths fit. Pick up to three.">
         <div className="space-y-8">
           <ChipGroup max={3} value={s.goals} onChange={(goals) => setS({ ...s, goals })} options={GOALS.map((g) => ({ value: g.key, label: g.label, hint: g.hint }))} />
+          <div>
+            <p className="mb-2 text-sm font-medium">
+              What music does {name} enjoy? <span className="font-normal text-muted">(optional, up to 6)</span>
+            </p>
+            <ChipGroup max={6} value={s.interests ?? []} onChange={(interests) => setS({ ...s, interests })} options={INTERESTS.map((i) => ({ value: i.key, label: i.label }))} />
+          </div>
           <div>
             <p className="text-sm font-medium">What kind of lessons work best for {name}?</p>
             <div className="mt-2">

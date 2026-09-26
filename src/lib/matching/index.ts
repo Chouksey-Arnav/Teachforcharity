@@ -14,11 +14,16 @@
  *  4. Spread the load. Tutors with more open capacity rank higher among
  *     otherwise-equal options, so the same few tutors don't absorb every
  *     request. Remaining ties are broken by a stable per-student hash.
+ *  5. Missing answers are neutral. A signal the student didn't answer (e.g.
+ *     interests) is left out and its weight is spread over the others, so an
+ *     incomplete profile is never punished or rewarded.
+ *  6. Both directions agree. Tutors browsing students see exactly the same
+ *     score the student sees for them (rankStudentsForTutor reuses scoreOne).
  *
  * The function is pure and deterministic: same inputs → same output,
  * regardless of the order candidates are passed in.
  */
-import { LEVELS, type Level, slotLabel, goalLabel } from "../constants";
+import { LEVELS, type Level, slotLabel, goalLabel, interestLabel } from "../constants";
 
 export type Tier = "ideal" | "stretch" | "related" | "full";
 
@@ -39,6 +44,8 @@ export interface StudentProfile {
   availability: string[];
   preferredMinutes: number;
   subjects: StudentSubject[];
+  interests?: string[];
+  county?: string | null;
   /** Tutors this student already has an active lesson relationship with. */
   currentTutorIds?: string[];
 }
@@ -66,12 +73,17 @@ export interface TutorCandidate {
   activeStudents: number;
   acceptingStudents: boolean;
   subjects: TutorSubject[];
+  interests?: string[];
+  county?: string | null;
+  /** Lessons the tutor cancelled with < 24h notice in the last 90 days. */
+  lateCancels?: number;
 }
 
 export interface ScoreBreakdown {
   level: number;
   availability: number;
   goals: number;
+  interests: number;
   style: number;
   capacity: number;
   adjustments: number;
@@ -85,13 +97,15 @@ export interface MatchResult {
   subject: TutorSubject; // the instrument this match is based on
   sharedSlots: string[];
   sharedGoals: string[];
+  sharedInterests: string[];
   reasons: string[];
   cautions: string[];
   breakdown: ScoreBreakdown;
 }
 
-export const WEIGHTS = { level: 35, availability: 30, goals: 15, style: 10, capacity: 10 } as const;
-const TIER_ORDER: Record<Tier, number> = { ideal: 0, stretch: 1, related: 2, full: 3 };
+export const WEIGHTS = { level: 30, availability: 25, goals: 15, interests: 10, style: 10, capacity: 10 } as const;
+const TOTAL_WEIGHT = Object.values(WEIGHTS).reduce((a, b) => a + b, 0);
+export const TIER_ORDER: Record<Tier, number> = { ideal: 0, stretch: 1, related: 2, full: 3 };
 const TIER_MULTIPLIER: Record<Tier, number> = { ideal: 1, stretch: 0.8, related: 0.75, full: 1 };
 
 /** Instruments close enough that a player of one can genuinely help a player of the other. */
@@ -211,6 +225,16 @@ function scoreOne(
   const style = (WEIGHTS.style / 2) * teach + (WEIGHTS.style / 2) * explain;
   if (teach === 1 && explain === 1) reasons.push("Teaching style matches how you like to learn");
 
+  // Interests (music the student enjoys). Left out entirely when the student gave none.
+  const studentInterests = student.interests ?? [];
+  const tutorInterests = new Set(tutor.interests ?? []);
+  const sharedInterests = studentInterests.filter((i) => tutorInterests.has(i));
+  const interestsApply = studentInterests.length > 0;
+  const interests = interestsApply
+    ? WEIGHTS.interests * Math.min(1, sharedInterests.length / Math.min(2, studentInterests.length))
+    : 0;
+  if (sharedInterests.length > 0) reasons.push(`Also into ${sharedInterests.slice(0, 2).map((i) => interestLabel(i).toLowerCase()).join(" & ")}`);
+
   // Capacity (load balancing)
   const max = Math.max(1, tutor.maxStudents);
   const open = Math.max(0, max - tutor.activeStudents);
@@ -224,8 +248,18 @@ function scoreOne(
     adjustments -= 3;
     cautions.push(`Offers ${tutor.sessionMinutes.join("/")}-minute lessons`);
   }
+  if (student.county && tutor.county && student.county === tutor.county) {
+    adjustments += 2;
+    reasons.push(`Also from ${tutor.county} County`);
+  }
+  // Reliability: repeated late cancellations cost a little. Never shown to families (tutors are minors too).
+  const late = Math.max(0, tutor.lateCancels ?? 0);
+  if (late >= 2) adjustments -= Math.min(6, 2 * (late - 1));
 
-  const raw = (level + availability + goals + style + capacity + adjustments) * TIER_MULTIPLIER[tier];
+  // Signals the student didn't answer are dropped and the rest are scaled to 100.
+  const applicable = TOTAL_WEIGHT - (interestsApply ? 0 : WEIGHTS.interests);
+  const base = ((level + availability + goals + interests + style + capacity) * TOTAL_WEIGHT) / applicable;
+  const raw = (base + adjustments) * TIER_MULTIPLIER[tier];
   const score = Math.round(Math.max(0, Math.min(100, raw)));
 
   if (tier === "full") {
@@ -240,12 +274,14 @@ function scoreOne(
     subject,
     sharedSlots,
     sharedGoals,
+    sharedInterests,
     reasons,
     cautions,
     breakdown: {
       level: round1(level),
       availability: round1(availability),
       goals: round1(goals),
+      interests: round1(interests),
       style: round1(style),
       capacity: round1(capacity),
       adjustments,
@@ -330,3 +366,43 @@ export const TIER_LABEL: Record<Tier, string> = {
   related: "Related instrument",
   full: "Currently full",
 };
+
+export interface StudentMatch {
+  studentId: string;
+  match: MatchResult;
+  subject: StudentSubject;
+}
+
+/**
+ * The tutor's view: which students fit this tutor best. For every student we
+ * score each instrument the tutor can help with (exactly or as a related
+ * instrument) with the SAME scorer families see, keep the best, and rank.
+ * Capacity is scored as the student would see it, but a tutor's own full
+ * schedule never hides students from them — the database refuses the offer.
+ * Students the tutor can't help with at all are omitted.
+ */
+export function rankStudentsForTutor(tutor: TutorCandidate, students: StudentProfile[]): StudentMatch[] {
+  const open: TutorCandidate = { ...tutor, acceptingStudents: true, activeStudents: Math.min(tutor.activeStudents, Math.max(0, tutor.maxStudents - 1)) };
+  const seen = new Set<string>();
+  const out: StudentMatch[] = [];
+  for (const s of students) {
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
+    let best: StudentMatch | null = null;
+    for (const subj of s.subjects) {
+      const [m] = matchTutors(s, subj.subjectId, [open], { includeRelated: "always" });
+      if (!m) continue;
+      if (!best || TIER_ORDER[m.tier] < TIER_ORDER[best.match.tier] || (m.tier === best.match.tier && m.score > best.match.score)) {
+        best = { studentId: s.id, match: m, subject: subj };
+      }
+    }
+    if (best) out.push(best);
+  }
+  return out.sort(
+    (a, b) =>
+      TIER_ORDER[a.match.tier] - TIER_ORDER[b.match.tier] ||
+      b.match.score - a.match.score ||
+      tieBreak(tutor.tutorId, b.studentId) - tieBreak(tutor.tutorId, a.studentId) ||
+      a.studentId.localeCompare(b.studentId),
+  );
+}

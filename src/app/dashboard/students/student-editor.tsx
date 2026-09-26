@@ -12,7 +12,7 @@ import { SlotGrid } from "@/components/forms/slot-grid";
 import type { SubjectOption } from "@/components/forms/instrument-picker";
 import { StudentInstrumentsEditor, studentInstrumentsError, type StudentInstrumentItem } from "@/components/forms/student-instruments";
 import { ConsentForm, type ConsentValues } from "@/components/forms/consent-form";
-import { EXPLAIN_STYLES, GOALS, NC_COUNTIES, TEACHING_STYLES } from "@/lib/constants";
+import { EXPLAIN_STYLES, GOALS, INTERESTS, NC_COUNTIES, TEACHING_STYLES } from "@/lib/constants";
 import {
   saveStudentAvailability,
   saveStudentBasics,
@@ -29,6 +29,7 @@ export interface EditableStudent {
   county: string;
   school: string;
   goals: string[];
+  interests: string[];
   learningStyle: string | null;
   explainStyle: string | null;
   preferredMinutes: number;
@@ -48,14 +49,25 @@ function Section({ title, description, children }: { title: string; description?
   );
 }
 
-export function StudentEditor({ subjects, initial, guardian }: { subjects: SubjectOption[]; initial: EditableStudent; guardian: { name: string; phone: string } }) {
+/** Edits a student profile. `self` = a student editing their own account (a parent consents separately, by email link). */
+export function StudentEditor({
+  subjects,
+  initial,
+  guardian,
+  self = false,
+}: {
+  subjects: SubjectOption[];
+  initial: EditableStudent;
+  guardian: { name: string; phone: string };
+  self?: boolean;
+}) {
   const router = useRouter();
   const [s, setS] = useState(initial);
   const [consent, setConsent] = useState<ConsentValues>({ guardianName: guardian.name, relationship: "", phone: guardian.phone, signature: "", acks: [false, false, false, false, false, false] });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
-  const name = s.firstName || "your student";
+  const name = self ? "you" : s.firstName || "your student";
 
   const save = () =>
     start(async () => {
@@ -66,7 +78,7 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
       if (instErr) return setError(instErr);
       if (!s.learningStyle || !s.explainStyle) return setError("Answer both learning-style questions.");
       if (!s.availability.length) return setError("Pick at least one time block.");
-      if (!s.consented && consent.acks.some((a) => !a)) return setError("Please check every consent box and sign.");
+      if (!self && !s.consented && consent.acks.some((a) => !a)) return setError("Please check every consent box and sign.");
 
       const basics = await saveStudentBasics({ id: s.id, firstName: s.firstName, grade: s.grade, county: s.county as never, school: s.school });
       if (!basics?.ok) return setError(basics ? basics.error.message : "Error");
@@ -78,10 +90,11 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
           saveStudentPreferences({
             studentId: id,
             goals: s.goals,
+            interests: s.interests as never,
             learningStyle: s.learningStyle as "structured",
             explainStyle: s.explainStyle as "show",
             preferredMinutes: s.preferredMinutes,
-            notes: s.notes,
+            ...(self ? {} : { notes: s.notes }),
           }),
         () => saveStudentAvailability({ studentId: id, slots: s.availability }),
       ];
@@ -89,7 +102,7 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
         const r = await step();
         if (r && !r.ok) return setError(r.error.message);
       }
-      if (!s.consented) {
+      if (!self && !s.consented) {
         const r = await signConsent({
           studentId: id,
           guardianName: consent.guardianName,
@@ -109,7 +122,7 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
 
   return (
     <div className="space-y-6">
-      <Section title="Basics" description="First name only — we never ask for a student’s last name or photo.">
+      <Section title="Basics" description={self ? "Tutors only see your first name and grade." : "First name only — we never ask for a student’s last name or photo."}>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="First name" htmlFor="fn">
             <Input id="fn" value={s.firstName} onChange={(e) => setS({ ...s, firstName: e.target.value })} maxLength={40} />
@@ -134,9 +147,11 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
               ))}
             </Select>
           </Field>
-          <Field label="School" htmlFor="sc" optional>
-            <Input id="sc" value={s.school} onChange={(e) => setS({ ...s, school: e.target.value })} maxLength={120} />
-          </Field>
+          {!self && (
+            <Field label="School" htmlFor="sc" optional>
+              <Input id="sc" value={s.school} onChange={(e) => setS({ ...s, school: e.target.value })} maxLength={120} />
+            </Field>
+          )}
         </div>
       </Section>
 
@@ -147,6 +162,12 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
       <Section title="Goals & learning style">
         <div className="space-y-7">
           <ChipGroup max={3} value={s.goals} onChange={(goals) => setS({ ...s, goals })} options={GOALS.map((g) => ({ value: g.key, label: g.label, hint: g.hint }))} />
+          <div>
+            <p className="mb-2 text-sm font-medium">
+              Favorite kinds of music <span className="font-normal text-muted">(optional, up to 6)</span>
+            </p>
+            <ChipGroup max={6} value={s.interests} onChange={(interests) => setS({ ...s, interests })} options={INTERESTS.map((i) => ({ value: i.key, label: i.label }))} />
+          </div>
           <ChoiceCards name="ls" value={s.learningStyle} onChange={(v) => setS({ ...s, learningStyle: v })} columns={3} size="sm" choices={TEACHING_STYLES.map((t) => ({ value: t.key, label: t.label }))} />
           <ChoiceCards name="es" value={s.explainStyle} onChange={(v) => setS({ ...s, explainStyle: v })} columns={1} size="sm" choices={EXPLAIN_STYLES.map((t) => ({ value: t.key, label: t.label }))} />
           <div className="flex gap-2">
@@ -156,9 +177,11 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
               </button>
             ))}
           </div>
-          <Field label="Notes for tutors" htmlFor="nt" optional>
-            <Textarea id="nt" value={s.notes} onChange={(e) => setS({ ...s, notes: e.target.value })} maxLength={500} rows={3} />
-          </Field>
+          {!self && (
+            <Field label="Notes for tutors" htmlFor="nt" optional>
+              <Textarea id="nt" value={s.notes} onChange={(e) => setS({ ...s, notes: e.target.value })} maxLength={500} rows={3} />
+            </Field>
+          )}
         </div>
       </Section>
 
@@ -166,7 +189,7 @@ export function StudentEditor({ subjects, initial, guardian }: { subjects: Subje
         <SlotGrid value={s.availability} onChange={(availability) => setS({ ...s, availability })} />
       </Section>
 
-      {!s.consented && (
+      {!self && !s.consented && (
         <div id="consent">
           <Section title="Parent/guardian consent" description={`Required before ${name}’s first lesson.`}>
             <ConsentForm studentName={name} value={consent} onChange={setConsent} />

@@ -47,11 +47,14 @@ export async function updateAccount(input: z.input<typeof account>): Promise<Act
   const p = account.safeParse(input);
   if (!p.success) return { ok: false, error: { message: p.error.issues[0].message } };
   const { supabase, uid } = await session();
-  const { data: me } = await supabase.from("profiles").select("role").eq("id", uid).single();
-  if (me?.role === "family" && !p.data.phone) return { ok: false, error: { message: "Families need a phone number so a parent can be reached during lessons." } };
+  const { data: me } = await supabase.from("profiles").select("role, account_kind").eq("id", uid).single();
+  const student = me?.account_kind === "student";
+  if (me?.account_kind === "parent" && !p.data.phone)
+    return { ok: false, error: { message: "Families need a phone number so a parent can be reached during lessons." } };
+  // Never store a child's phone number: the parent's number lives on the consent form.
   const { error } = await supabase
     .from("profiles")
-    .update({ full_name: p.data.fullName, phone: p.data.phone, email_notifications: p.data.emailNotifications })
+    .update({ full_name: p.data.fullName, phone: student ? null : p.data.phone, email_notifications: p.data.emailNotifications })
     .eq("id", uid);
   if (error) return { ok: false, error: toActionError(error) };
   revalidatePath("/dashboard", "layout");

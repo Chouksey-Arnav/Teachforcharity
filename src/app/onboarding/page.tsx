@@ -4,6 +4,7 @@ import { getViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { FamilyWizard } from "./family-wizard";
 import { TutorWizard } from "./tutor-wizard";
+import { StudentWizard } from "./student-wizard";
 import type { Level } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "Get set up" };
@@ -18,6 +19,50 @@ export default async function OnboardingPage() {
     supabase.from("subjects").select("id, slug, name, family, aliases, is_custom").eq("is_active", true).order("name"),
     getPublicConfig(),
   ]);
+
+  if (viewer.role === "family" && viewer.profile.account_kind === "student") {
+    const [{ data: st }, { data: g }] = await Promise.all([
+      supabase
+        .from("students")
+        .select("*, student_subjects(subject_id, level, years_playing, has_instrument, in_school_program, subjects(name, family))")
+        .eq("family_id", viewer.id)
+        .maybeSingle(),
+      supabase.from("guardians").select("name, email").eq("account_id", viewer.id).maybeSingle(),
+    ]);
+    const p = viewer.profile;
+    const termsOk = p.terms_version === config?.terms_version;
+    const initialStep = !st || !g || !termsOk ? 0 : !st.student_subjects?.length ? 1 : !st.learning_style ? 2 : 3;
+    return (
+      <StudentWizard
+        initialStep={initialStep}
+        subjects={subjects ?? []}
+        termsAccepted={termsOk}
+        initial={{
+          id: st?.id ?? null,
+          firstName: st?.first_name ?? p.full_name,
+          grade: st?.grade ?? null,
+          county: st?.county ?? "",
+          guardianName: g?.name ?? "",
+          guardianEmail: g?.email ?? "",
+          goals: st?.goals ?? [],
+          interests: st?.interests ?? [],
+          learningStyle: st?.learning_style ?? null,
+          explainStyle: st?.explain_style ?? null,
+          preferredMinutes: st?.preferred_minutes ?? 45,
+          availability: st?.availability ?? [],
+          instruments: (st?.student_subjects ?? []).map((ss) => ({
+            subjectId: ss.subject_id,
+            name: ss.subjects?.name ?? "Instrument",
+            family: ss.subjects?.family ?? "other",
+            level: ss.level as Level,
+            yearsPlaying: ss.years_playing,
+            hasInstrument: ss.has_instrument,
+            inSchoolProgram: ss.in_school_program,
+          })),
+        }}
+      />
+    );
+  }
 
   if (viewer.role === "family") {
     const { data: students } = await supabase
@@ -57,6 +102,7 @@ export default async function OnboardingPage() {
                 county: s.county ?? "",
                 school: s.school ?? "",
                 goals: s.goals,
+                interests: s.interests ?? [],
                 learningStyle: s.learning_style,
                 explainStyle: s.explain_style,
                 preferredMinutes: s.preferred_minutes,
@@ -110,6 +156,7 @@ export default async function OnboardingPage() {
           county: t.county ?? "",
           bio: t.bio ?? "",
           strengths: t.teaching_strengths,
+          interests: t.interests ?? [],
           teachingStyle: t.teaching_style,
           explainStyle: t.explain_style,
           maxStudents: t.max_students,

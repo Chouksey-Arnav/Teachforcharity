@@ -15,9 +15,10 @@ import {
   sendEmailCode,
   serviceOrNull,
 } from "@/lib/auth/email-code";
+import { logAppEvent } from "@/lib/audit";
 
 const signUpSchema = z.object({
-  role: z.enum(["family", "tutor"]),
+  role: z.enum(["student", "family", "tutor"]),
   fullName: z.string().trim().min(2, "Please enter a full name.").max(120),
   email: z.string().trim().toLowerCase().email("Please enter a valid email address."),
   password: z
@@ -132,7 +133,8 @@ export async function signIn(_: ActionState, form: FormData): Promise<ActionStat
   const password = String(form.get("password") ?? "");
   if (!email || !password) return { ok: false, error: { message: "Enter your email and password." } };
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signedIn, error } = await supabase.auth.signInWithPassword({ email, password });
+  await logAppEvent(signedIn?.user?.id ?? null, error ? "auth.sign_in_failed" : "auth.sign_in", "profile", signedIn?.user?.id ?? null, error ? { email } : {});
   if (error) {
     const msg = /not confirmed/i.test(error.message)
       ? "This email was never verified. Sign up again with the same email to get a code."
@@ -183,6 +185,7 @@ export async function resetPasswordWithCode(_: ActionState, form: FormData): Pro
     return { ok: false, error: { message: /password/i.test(error.message) ? error.message : "We couldn’t update your password. Please try again." } };
   }
   await clearEmailCode(email, "reset");
+  await logAppEvent(user.id, "auth.password_reset", "profile", user.id);
   const { error: revokeErr } = await admin.rpc("revoke_user_sessions", { p_user: user.id });
   if (revokeErr) console.error("[auth] could not sign out other devices:", revokeErr.message);
 
@@ -206,6 +209,8 @@ export async function updatePassword(_: ActionState, form: FormData): Promise<Ac
 
 export async function signOut() {
   const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (data.user) await logAppEvent(data.user.id, "auth.sign_out", "profile", data.user.id);
   await supabase.auth.signOut();
   redirect("/");
 }

@@ -11,7 +11,7 @@ import { AvatarUpload } from "@/components/forms/avatar-upload";
 import type { SubjectOption } from "@/components/forms/instrument-picker";
 import { TutorInstrumentsEditor, tutorInstrumentsError, type TutorInstrumentItem } from "@/components/forms/tutor-instruments";
 import { LinkButton } from "@/components/ui/button";
-import { EXPLAIN_STYLES, GOALS, NC_COUNTIES, TEACHING_STYLES } from "@/lib/constants";
+import { EXPLAIN_STYLES, GOALS, NC_COUNTIES, TEACHING_STYLES, INTERESTS } from "@/lib/constants";
 import { normalizeMeetUrl } from "@/lib/meet";
 import { messageViolation } from "@/lib/moderation";
 import {
@@ -35,6 +35,7 @@ export interface TutorWizardProfile {
   county: string;
   bio: string;
   strengths: string[];
+  interests?: string[];
   teachingStyle: string | null;
   explainStyle: string | null;
   maxStudents: number;
@@ -120,6 +121,7 @@ export function TutorWizard({
           () =>
             saveTutorTeaching({
               strengths: p.strengths as never,
+              interests: (p.interests ?? []) as never,
               teachingStyle: p.teachingStyle as "structured",
               explainStyle: p.explainStyle as "show",
               maxStudents: p.maxStudents,
@@ -284,6 +286,14 @@ export function TutorWizard({
             <p className="text-sm font-medium">What are you best at helping with? (up to 4)</p>
             <div className="mt-2.5">
               <ChipGroup max={4} value={p.strengths} onChange={(strengths) => set({ strengths })} options={GOALS.map((g) => ({ value: g.key, label: g.label, hint: g.hint }))} />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              What music do you love? <span className="font-normal text-muted">(optional, up to 6 — students who like the same music match better)</span>
+            </p>
+            <div className="mt-2.5">
+              <ChipGroup max={6} value={p.interests ?? []} onChange={(interests) => set({ interests })} options={INTERESTS.map((i) => ({ value: i.key, label: i.label }))} />
             </div>
           </div>
           <div>

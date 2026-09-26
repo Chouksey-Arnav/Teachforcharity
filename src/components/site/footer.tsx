@@ -60,7 +60,10 @@ export function SiteFooter() {
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs leading-relaxed text-faint sm:px-6 md:flex-row md:justify-between">
           <p>© {new Date().getFullYear()} {SITE.name}. Lessons are always free. We never collect or handle money.</p>
-          <p>Not affiliated with or endorsed by any school or school district.</p>
+          <p>
+            Not affiliated with or endorsed by any school or school district. Photos are public-domain (CC0) stock images; the people pictured aren’t
+            program participants.
+          </p>
         </div>
       </div>
     </footer>

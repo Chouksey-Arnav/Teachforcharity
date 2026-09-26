@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { GraduationCap, Users } from "lucide-react";
+import { GraduationCap, Music2, Users } from "lucide-react";
 import { signUp, verifySignup } from "@/app/actions/auth";
 import { CodeStep } from "@/components/auth/code-step";
 import { Checkbox, Field, Input } from "@/components/ui/field";
@@ -9,7 +9,7 @@ import { Submit } from "@/components/ui/submit";
 import { Notice } from "@/components/ui/notice";
 import { cn } from "@/lib/cn";
 
-type Role = "family" | "tutor";
+export type Role = "student" | "family" | "tutor";
 
 export function SignupForm({ initialRole }: { initialRole: Role | null }) {
   const [role, setRole] = useState<Role | null>(initialRole);
@@ -64,24 +64,27 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
     >
       <fieldset>
         <legend className="mb-3 text-sm font-medium">I’m signing up as…</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           {(
             [
-              { key: "family", icon: Users, title: "A parent or guardian", body: "For a middle schooler who wants lessons" },
-              { key: "tutor", icon: GraduationCap, title: "A high school tutor", body: "Grades 9–12, volunteering to teach" },
+              { key: "student", icon: Music2, title: "A student", body: "Grades 6–8, I want lessons" },
+              { key: "family", icon: Users, title: "A parent", body: "Signing up my middle schooler" },
+              { key: "tutor", icon: GraduationCap, title: "A tutor", body: "Grades 9–12, I want to teach" },
             ] as const
           ).map(({ key, icon: Icon, title, body }) => (
             <label
               key={key}
               className={cn(
-                "flex cursor-pointer flex-col rounded-2xl border bg-card p-4 transition",
+                "flex cursor-pointer items-center gap-3 rounded-2xl border bg-card p-4 transition sm:flex-col sm:items-start sm:gap-0",
                 role === key ? "border-pine-700 ring-4 ring-pine-600/10" : "border-line hover:border-line-2",
               )}
             >
               <input type="radio" name="role" value={key} checked={role === key} onChange={() => setRole(key)} className="sr-only" />
-              <Icon className={cn("size-5", role === key ? "text-pine-700" : "text-muted")} />
-              <span className="mt-3 text-sm font-semibold">{title}</span>
-              <span className="mt-0.5 text-[13px] text-muted">{body}</span>
+              <Icon className={cn("size-5 shrink-0", role === key ? "text-pine-700" : "text-muted")} />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold sm:mt-3">{title}</span>
+                <span className="mt-0.5 block text-[13px] text-muted">{body}</span>
+              </span>
             </label>
           ))}
         </div>
@@ -90,15 +93,46 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
 
       {role && (
         <div className="animate-rise space-y-5">
+          {role === "student" && (
+            <Notice tone="info" title="You’ll need a parent’s OK">
+              After you sign up, we’ll email your parent or guardian. You can set up your profile and look at tutors right away — messaging and
+              lessons unlock once they approve.
+            </Notice>
+          )}
           <Field
-            label={role === "family" ? "Your name (parent or guardian)" : "Your full name"}
+            label={role === "family" ? "Your name (parent or guardian)" : role === "student" ? "Your first name" : "Your full name"}
             htmlFor="fullName"
-            hint={role === "tutor" ? "Use the name your school knows you by — it goes on your hours record." : undefined}
+            hint={
+              role === "tutor"
+                ? "Use the name your school knows you by — it goes on your hours record."
+                : role === "student"
+                  ? "Just your first name. Tutors only ever see your first name."
+                  : undefined
+            }
             error={fe.fullName}
           >
-            <Input id="fullName" name="fullName" defaultValue={details.fullName} autoComplete="name" required aria-invalid={Boolean(fe.fullName)} />
+            <Input
+              id="fullName"
+              name="fullName"
+              defaultValue={details.fullName}
+              autoComplete={role === "student" ? "given-name" : "name"}
+              maxLength={role === "student" ? 40 : 120}
+              required
+              aria-invalid={Boolean(fe.fullName)}
+            />
           </Field>
-          <Field label="Email" htmlFor="email" error={fe.email} hint={role === "family" ? "Use the parent’s email — all lesson updates go here." : undefined}>
+          <Field
+            label={role === "student" ? "Your email" : "Email"}
+            htmlFor="email"
+            error={fe.email}
+            hint={
+              role === "family"
+                ? "Use the parent’s email — all lesson updates go here."
+                : role === "student"
+                  ? "Your own email (a school email is fine if it can get outside mail). Not your parent’s — we’ll ask for that next."
+                  : undefined
+            }
+          >
             <Input id="email" name="email" type="email" defaultValue={details.email} autoComplete="email" required aria-invalid={Boolean(fe.email)} />
           </Field>
           <Field label="Password" htmlFor="password" error={fe.password} hint="At least 8 characters, with a letter and a number.">
@@ -113,7 +147,9 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
               label={
                 role === "family"
                   ? "I’m the student’s parent or legal guardian, and I’m 18 or older."
-                  : "I’m a high school student in grades 9–12, and my parent or guardian knows I’m volunteering."
+                  : role === "student"
+                    ? "I’m in grades 6–8, and I’ll ask my parent or guardian to approve my account."
+                    : "I’m a high school student in grades 9–12, and my parent or guardian knows I’m volunteering."
               }
             />
             {fe.eligible && <p className="mt-1.5 pl-7 text-[13px] text-clay-700">{fe.eligible}</p>}

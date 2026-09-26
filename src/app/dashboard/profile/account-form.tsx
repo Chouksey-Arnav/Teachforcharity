@@ -6,7 +6,7 @@ import { Checkbox, Field, Input } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import type { ActionState } from "@/lib/errors";
 
-export function AccountForm({ role, initial }: { role: string; initial: { fullName: string; phone: string; emailNotifications: boolean } }) {
+export function AccountForm({ role, kind, initial }: { role: string; kind?: string | null; initial: { fullName: string; phone: string; emailNotifications: boolean } }) {
   const [v, setV] = useState(initial);
   const [res, setRes] = useState<ActionState>(null);
   const [pending, start] = useTransition();
@@ -19,10 +19,10 @@ export function AccountForm({ role, initial }: { role: string; initial: { fullNa
       }}
     >
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Full name" htmlFor="an">
+        <Field label={kind === "student" ? "First name" : "Full name"} htmlFor="an">
           <Input id="an" value={v.fullName} onChange={(e) => setV({ ...v, fullName: e.target.value })} />
         </Field>
-        {role !== "tutor" && (
+        {role !== "tutor" && kind !== "student" && (
           <Field label="Mobile phone" htmlFor="ap" hint={role === "family" ? "Must be reachable during lessons. Never shown to tutors." : undefined}>
             <Input id="ap" type="tel" value={v.phone} onChange={(e) => setV({ ...v, phone: e.target.value })} />
           </Field>

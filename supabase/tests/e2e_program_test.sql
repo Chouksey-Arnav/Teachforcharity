@@ -28,6 +28,8 @@ begin
   if not exists (select 1 from public.tutor_profiles where user_id = t1) then raise exception 'FAIL tutor profile not created'; end if;
   update public.profiles set role = 'admin' where id = adm;
   update public.profiles set role = 'reviewer', partner_id = (select id from public.partners where is_current) where id = rev;
+  -- This test covers the optional manual-approval mode; auto-activation is tested in v2_program_test.sql.
+  update public.app_settings set require_tutor_approval = true;
   log := log || 'users ok; ';
 
   -- ===== family f1 =====

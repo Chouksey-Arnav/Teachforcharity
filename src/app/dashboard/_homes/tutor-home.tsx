@@ -62,11 +62,25 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
       )}
 
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat icon={Clock3} label="Verified hours" value={hrs(verified)} hint="Verified by our partner" />
+        <Link href="/dashboard/hours" className="rounded-2xl transition hover:shadow-lift">
+          <Stat icon={Clock3} label="Verified hours" value={hrs(verified)} hint="Tap for your hours record" />
+        </Link>
         <Stat icon={Hourglass} label="Awaiting verification" value={hrs(pendingV)} hint="Logged or confirmed" />
         <Stat icon={Users} label="Active students" value={`${activeStudents}/${t.max_students}`} hint="Your limit" />
         <Stat icon={CalendarDays} label="Upcoming lessons" value={String(upcoming.filter((u) => u.status === "scheduled").length)} />
       </div>
+
+      {t.status === "active" && (
+        <section className="mb-10 flex flex-col gap-4 rounded-2xl border border-pine-200 bg-pine-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold text-pine-900">Find students who fit you</p>
+            <p className="text-sm text-pine-800/80">See students matched to your instruments, levels, and schedule — and offer to teach them.</p>
+          </div>
+          <LinkButton href="/dashboard/find-students" size="sm">
+            Find students
+          </LinkButton>
+        </section>
+      )}
 
       {action.length > 0 && (
         <section className="mb-10">
@@ -99,7 +113,7 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-line-2 px-5 py-6 text-sm text-muted">
-            {t.status === "active" ? "No lessons booked yet. When a family requests a time, you’ll get an email." : "Lessons will appear here once you’re approved."}
+            {t.status === "active" ? "No lessons booked yet. When a student requests a time, you’ll get an email." : "Lessons will appear here once your profile is active."}
           </div>
         )}
       </section>
@@ -109,7 +123,7 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
           <div className="flex items-start gap-3">
             <UserRound className="mt-0.5 size-5 text-pine-700" />
             <div>
-              <p className="font-medium">Families are more likely to request tutors with a photo and a short intro.</p>
+              <p className="font-medium">Students are more likely to request tutors with a photo and a short intro.</p>
               <p className="text-sm text-muted">It takes a minute.</p>
             </div>
           </div>

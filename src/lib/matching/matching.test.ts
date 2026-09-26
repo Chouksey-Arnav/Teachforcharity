@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import {
   matchTutors,
+  rankStudentsForTutor,
   levelFit,
   areRelated,
   tieBreak,
@@ -485,5 +486,100 @@ describe("simulation — 600 students, 80 tutors", () => {
     const eligible = tutors.filter((t) => students.some((s) => t.subjects.some((x) => x.subjectId === s.subjects[0].subjectId))).length;
     // Load balancing: the vast majority of tutors who could teach someone end up teaching someone.
     expect(used / eligible).toBeGreaterThan(0.85);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v2 signals: interests, county, reliability, and the tutor-side view
+// ---------------------------------------------------------------------------
+describe("matchTutors — v2 signals", () => {
+  it("rewards shared interests and explains them", () => {
+    const res = matchTutors(student({ interests: ["film_music", "jazz_music"] }), "s-clarinet", [
+      tutor({ tutorId: "shares", interests: ["film_music"] }),
+      tutor({ tutorId: "none", interests: ["country"] }),
+    ]);
+    expect(res[0].tutorId).toBe("shares");
+    expect(res[0].sharedInterests).toEqual(["film_music"]);
+    expect(res[0].reasons.join(" ")).toMatch(/movie & game music/);
+  });
+
+  it("a student with no interests is scored the same whatever the tutor's interests are (neutral)", () => {
+    const a = matchTutors(student(), "s-clarinet", [tutor({ tutorId: "a", interests: [] })])[0].score;
+    const b = matchTutors(student(), "s-clarinet", [tutor({ tutorId: "b", interests: ["pop", "rock"] })])[0].score;
+    expect(a).toBe(b);
+  });
+
+  it("gives a small same-county bonus with a reason", () => {
+    const res = matchTutors(student({ county: "Wake" }), "s-clarinet", [
+      tutor({ tutorId: "far", county: "Buncombe" }),
+      tutor({ tutorId: "near", county: "Wake" }),
+    ]);
+    expect(res[0].tutorId).toBe("near");
+    expect(res[0].reasons.join(" ")).toMatch(/Wake County/);
+  });
+
+  it("repeated late cancellations lower a score, but are never shown as a reason or caution", () => {
+    const [ok] = matchTutors(student(), "s-clarinet", [tutor({ tutorId: "ok", lateCancels: 0 })]);
+    const [flaky] = matchTutors(student(), "s-clarinet", [tutor({ tutorId: "flaky", lateCancels: 4 })]);
+    expect(flaky.score).toBeLessThan(ok.score);
+    expect([...flaky.reasons, ...flaky.cautions].join(" ")).not.toMatch(/cancel/i);
+  });
+
+  it("one late cancellation is forgiven", () => {
+    const [a] = matchTutors(student(), "s-clarinet", [tutor({ tutorId: "a", lateCancels: 0 })]);
+    const [b] = matchTutors(student(), "s-clarinet", [tutor({ tutorId: "b", lateCancels: 1 })]);
+    expect(a.score).toBe(b.score);
+  });
+});
+
+describe("rankStudentsForTutor", () => {
+  const t = tutor({ tutorId: "maya", subjects: [tutorSubject("s-clarinet", "advanced", ["beginner", "developing"])] });
+
+  it("ranks students the tutor can help, best first, and omits the rest", () => {
+    const res = rankStudentsForTutor(t, [
+      student({ id: "adv" }, "advanced"),
+      student({ id: "beg" }, "beginner"),
+      student({ id: "trumpet" }, "beginner", "s-trumpet"),
+      student({ id: "sax" }, "beginner", "s-alto"),
+    ]);
+    expect(res.map((r) => r.studentId)).toEqual(["beg", "adv", "sax"]);
+    expect(res.map((r) => r.match.tier)).toEqual(["ideal", "stretch", "related"]);
+  });
+
+  it("picks the student's best instrument for this tutor", () => {
+    const s = student({ id: "two", subjects: [{ ...byId("s-trumpet"), level: "beginner" }, { ...byId("s-clarinet"), level: "beginner" }] });
+    const [r] = rankStudentsForTutor(t, [s]);
+    expect(r.subject.subjectId).toBe("s-clarinet");
+  });
+
+  it("still shows students to a tutor whose schedule is full", () => {
+    const full = { ...t, activeStudents: 3, maxStudents: 3 };
+    const [r] = rankStudentsForTutor(full, [student({ id: "beg" })]);
+    expect(r.match.tier).toBe("ideal");
+  });
+
+  it("agrees with the family's view: same score in both directions (property)", () => {
+    fc.assert(
+      fc.property(studentArb, tutorArb("t0"), (s, tt) => {
+        const open = { ...tt, acceptingStudents: true, activeStudents: Math.min(tt.activeStudents, Math.max(0, tt.maxStudents - 1)) };
+        const fromTutor = rankStudentsForTutor(tt, [s]);
+        const fromStudent = matchTutors(s, s.subjects[0].subjectId, [open], { includeRelated: "always" });
+        expect(fromTutor.length).toBe(fromStudent.length);
+        if (fromTutor.length) expect(fromTutor[0].match.score).toBe(fromStudent[0].score);
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
+  it("is deterministic and independent of input order (property)", () => {
+    fc.assert(
+      fc.property(fc.array(studentArb, { maxLength: 15 }), tutorArb("t0"), (list, tt) => {
+        const a = rankStudentsForTutor(tt, list).map((r) => r.studentId);
+        const b = rankStudentsForTutor(tt, [...list].reverse()).map((r) => r.studentId);
+        expect(new Set(a)).toEqual(new Set(b));
+        expect(a).toEqual(rankStudentsForTutor(tt, list).map((r) => r.studentId));
+      }),
+      { numRuns: 500 },
+    );
   });
 });

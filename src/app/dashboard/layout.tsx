@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
@@ -9,13 +10,15 @@ import { navFor } from "@/components/dashboard/nav-config";
 import { LiveRefresh } from "@/components/dashboard/live-refresh";
 import { signOut } from "@/app/actions/auth";
 
-const ROLE_LABEL = { family: "Family account", tutor: "Tutor", reviewer: "Partner reviewer", admin: "Program admin" } as const;
+const ROLE_LABEL = { family: "Parent account", tutor: "Tutor", reviewer: "Partner reviewer", admin: "Program admin" } as const;
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const viewer = await requireViewer();
   const supabase = await createClient();
 
-  const counts = { action: 0, unread: 0, incidents: 0, pendingTutors: 0 };
+  if (viewer.role === "admin") redirect("/admin");
+
+  const counts = { action: 0, unread: 0 };
   if (viewer.role === "family" || viewer.role === "tutor") {
     const [actions, threads] = await Promise.all([
       supabase.rpc("my_sessions", { p_scope: "action", p_limit: 100 }),
@@ -23,15 +26,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ]);
     counts.action = actions.data?.length ?? 0;
     counts.unread = (threads.data ?? []).filter((t) => t.unread).length;
-  } else if (viewer.role === "admin") {
-    const [inc, pend] = await Promise.all([
-      supabase.from("incidents").select("id", { count: "exact", head: true }).neq("status", "resolved"),
-      supabase.rpc("admin_list_tutors", { p_status: "pending" }),
-    ]);
-    counts.incidents = inc.count ?? 0;
-    counts.pendingTutors = (pend.data ?? []).filter((t) => t.onboarded_at).length;
   }
-  const { main, secondary } = navFor(viewer.role, counts);
+  const { main, secondary } = navFor(viewer.role, counts, viewer.profile.account_kind);
   const name = viewer.profile.full_name || viewer.email;
 
   return (
@@ -45,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Avatar name={name} path={viewer.profile.avatar_path} size={36} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{name}</p>
-            <p className="text-xs text-muted">{ROLE_LABEL[viewer.role]}</p>
+            <p className="text-xs text-muted">{viewer.profile.account_kind === "student" ? "Student" : ROLE_LABEL[viewer.role]}</p>
           </div>
           <form action={signOut}>
             <button className="rounded-full p-2 text-muted hover:bg-paper-2 hover:text-ink" aria-label="Sign out" title="Sign out">

@@ -19,6 +19,7 @@ import {
   UserRound,
   Users,
   GraduationCap,
+  Compass,
 } from "lucide-react";
 import type { NavItem, NavIcon } from "./nav-config";
 import { cn } from "@/lib/cn";
@@ -42,6 +43,7 @@ const ICONS = {
   emails: Mail,
   verified: BadgeCheck,
   inbox: Inbox,
+  discover: Compass,
 } as const satisfies Record<NavIcon, unknown>;
 
 function isActive(pathname: string, item: NavItem) {
@@ -98,7 +100,7 @@ export function MobileTabs({ items }: { items: NavItem[] }) {
           return (
             <Link key={item.href} href={item.href} className={cn("relative flex flex-col items-center gap-0.5 py-2.5 text-[11px]", active ? "text-pine-800" : "text-muted")}>
               <Icon className="size-5" strokeWidth={active ? 2.2 : 1.8} />
-              {item.label.split(" ")[0]}
+              {item.short ?? item.label.split(" ")[0]}
               {!!item.badge && <span className="absolute right-[calc(50%-18px)] top-1.5 size-2 rounded-full bg-brass-500 ring-2 ring-paper" />}
             </Link>
           );

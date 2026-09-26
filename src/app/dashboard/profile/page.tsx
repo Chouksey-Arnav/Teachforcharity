@@ -32,6 +32,7 @@ export default async function ProfilePage() {
           county: t.county ?? "",
           bio: t.bio ?? "",
           strengths: t.teaching_strengths,
+          interests: t.interests ?? [],
           teachingStyle: t.teaching_style,
           explainStyle: t.explain_style,
           maxStudents: t.max_students,
@@ -61,7 +62,7 @@ export default async function ProfilePage() {
           <h2 className="display text-3xl">Account</h2>
           <div className="mt-6 space-y-6">
             <AvatarUpload userId={viewer.id} name={p.full_name} path={p.avatar_path} />
-            <AccountForm role={viewer.role} initial={{ fullName: p.full_name, phone: p.phone ?? "", emailNotifications: p.email_notifications }} />
+            <AccountForm role={viewer.role} kind={viewer.profile.account_kind} initial={{ fullName: p.full_name, phone: p.phone ?? "", emailNotifications: p.email_notifications }} />
             <p className="text-sm text-muted">
               Need to change your email or delete your account? Contact the program administrator. To change your password, use{" "}
               <Link href="/forgot-password" className="text-pine-700 underline underline-offset-2">
