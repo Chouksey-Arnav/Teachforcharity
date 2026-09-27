@@ -14,6 +14,7 @@ import { Notice } from "@/components/ui/notice";
 import { Empty } from "@/components/ui/empty";
 import { LinkButton } from "@/components/ui/button";
 import { greeting } from "./greeting";
+import { SetupSteps, type SetupStep } from "@/components/dashboard/setup-steps";
 import { GuardianStatus } from "./guardian-status";
 import { Avatar } from "@/components/ui/avatar";
 import { formatDate, formatRelative } from "@/lib/time";
@@ -22,10 +23,11 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const supabase = await createClient();
   const config = await getPublicConfig();
   const isStudent = viewer.profile.account_kind === "student";
-  const [students, action, upcoming, { data: subjects }, offers, { data: guardian }] = await Promise.all([
+  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }] = await Promise.all([
     getFamilyStudents(supabase, viewer.id, config?.consent_version),
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming", 5),
+    getMySessions(supabase, "all", 50),
     supabase.from("subjects").select("id, slug"),
     getMyOffers(supabase),
     isStudent
@@ -53,6 +55,22 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const deleteOn = formatDate(new Date(new Date(viewer.profile.created_at).getTime() + 14 * 86400000));
   const first = viewer.profile.full_name.split(" ")[0] || "there";
   const scheduledSoon = upcoming.filter((u) => u.status === "scheduled").slice(0, 3);
+  const consented = students.length > 0 && students.every((s) => s.consent);
+  const requested = history.length > 0;
+  const hadLesson = history.some((s) => ["completed", "confirmed", "verified"].includes(s.status));
+  const steps: SetupStep[] = isStudent
+    ? [
+        { label: "Make your music profile", detail: "Tell us your instrument and when you’re free.", done: students.some((s) => s.subjects.length), href: "/dashboard/students", cta: "Finish profile" },
+        { label: "Parent approves", detail: "Your parent needs to open the email we sent and say OK. You can resend it above.", done: consented },
+        { label: "Request a lesson", detail: "Pick a tutor you like and ask for a time.", done: requested, href: "/dashboard/tutors", cta: "Find tutors" },
+        { label: "Have your first lesson", detail: "Join from Lessons when it’s time, then tap “Yes, it happened”.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
+      ]
+    : [
+        { label: "Add your student", detail: "A short questionnaire about their instrument, level and free times.", done: students.length > 0, href: "/dashboard/students/new", cta: "Add a student" },
+        { label: "Sign consent", detail: "Lessons can’t be booked until a parent or guardian signs the consent form.", done: consented, href: "/dashboard/students", cta: "Sign consent" },
+        { label: "Request a lesson", detail: "Open a matched tutor and pick a time — they’re emailed right away.", done: requested, href: "/dashboard/tutors", cta: "Find tutors" },
+        { label: "First lesson", detail: "After the lesson, confirm it happened so the tutor’s hours count.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
+      ];
 
   return (
     <>
@@ -65,6 +83,8 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
             : "Your profile is ready. Below are your best tutor matches."}
         </Notice>
       )}
+
+      <SetupSteps title={isStudent ? "Getting started" : "Getting your student started"} steps={steps} />
 
       {awaitingParent && <GuardianStatus guardian={guardian} deleteOn={deleteOn} />}
 

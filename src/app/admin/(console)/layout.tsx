@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LogOut, TriangleAlert } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
-import { AdminNav, AutoRefresh } from "@/components/admin/nav";
+import { AdminMobileBar, AdminSideNav, AutoRefresh, PeopleSearch } from "@/components/admin/nav";
 import { AdminSetupError, adminDb, usingFallbackPassword } from "@/lib/admin/session";
 import { adminLogout } from "@/app/actions/admin";
 
@@ -25,12 +25,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const fallback = usingFallbackPassword();
 
   return (
-    <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[232px_1fr]">
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-paper-2/40 px-3 py-5 lg:flex">
+    <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[240px_1fr]">
+      <a href="#main" className="sr-only z-50 rounded-full bg-ink px-4 py-2 text-sm text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-3">
+        Skip to content
+      </a>
+      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-line bg-paper-2/40 px-3 py-5 lg:flex">
         <Logo href="/admin" className="px-2" />
         <p className="mt-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Admin console</p>
-        <div className="mt-6 flex-1">
-          <AdminNav counts={counts} variant="side" />
+        <PeopleSearch className="mx-1 mt-5" />
+        <div className="mt-5 flex-1">
+          <AdminSideNav counts={counts} />
         </div>
         <form action={adminLogout}>
           <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-paper-2 hover:text-ink">
@@ -39,18 +43,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </form>
       </aside>
       <div className="min-w-0">
-        <header className="sticky top-0 z-30 border-b border-line bg-paper/95 px-4 pt-3 backdrop-blur lg:hidden">
-          <div className="mb-2 flex items-center justify-between">
-            <Logo href="/admin" />
-            <form action={adminLogout}>
-              <button className="rounded-full p-2 text-muted" aria-label="Sign out">
-                <LogOut className="size-4" />
-              </button>
-            </form>
+        <AdminMobileBar counts={counts} />
+        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 pb-16 pt-3 outline-none sm:px-6 lg:px-8 lg:pt-5">
+          <div className="mb-3 flex justify-end">
+            <AutoRefresh />
           </div>
-          <AdminNav counts={counts} variant="top" />
-        </header>
-        <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-5 sm:px-6 lg:px-8 lg:pt-8">
           {fallback && (
             <div className="mb-5 flex gap-3 rounded-xl border border-clay-500/40 bg-clay-50 px-4 py-3 text-sm text-clay-800" role="alert">
               <TriangleAlert className="mt-0.5 size-5 shrink-0" />
@@ -70,7 +67,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           )}
         </main>
       </div>
-      <AutoRefresh />
     </div>
   );
 }

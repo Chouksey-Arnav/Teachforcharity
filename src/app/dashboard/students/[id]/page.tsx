@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { getFamilyStudents } from "@/lib/data";
+import { BackLink } from "@/components/dashboard/back-link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StudentEditor } from "../student-editor";
 
@@ -22,6 +23,7 @@ export default async function EditStudentPage({ params }: PageProps<"/dashboard/
   const self = viewer.profile.account_kind === "student";
   return (
     <>
+      {!self && <BackLink href="/dashboard/students" label="Students" />}
       <PageHeader title={self ? "Your profile" : `${s.first_name}’s profile`} description="Changes update your matches right away." />
       <StudentEditor
         self={self}

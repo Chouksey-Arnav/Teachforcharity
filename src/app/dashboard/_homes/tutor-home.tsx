@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, Clock3, Hourglass, PauseCircle, UserRound, Users } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Clock3, Hourglass, PauseCircle, Users } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { getMySessions } from "@/lib/data";
@@ -9,15 +9,19 @@ import { AcceptingToggle } from "@/components/dashboard/accepting-toggle";
 import { Notice } from "@/components/ui/notice";
 import { LinkButton } from "@/components/ui/button";
 import { greeting } from "./greeting";
+import { SetupSteps, type SetupStep } from "@/components/dashboard/setup-steps";
 
-function Stat({ icon: Icon, label, value, hint }: { icon: typeof Clock3; label: string; value: string; hint?: string }) {
+function Stat({ icon: Icon, label, value, hint, href }: { icon: typeof Clock3; label: string; value: string; hint?: string; href: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-card p-5">
-      <Icon className="size-5 text-pine-700" strokeWidth={1.8} />
+    <Link href={href} className="group block rounded-2xl border border-line bg-card p-5 transition hover:border-line-2 hover:shadow-lift">
+      <span className="flex items-center justify-between">
+        <Icon className="size-5 text-pine-700" strokeWidth={1.8} />
+        <ArrowUpRight className="size-4 text-faint opacity-0 transition group-hover:opacity-100" />
+      </span>
       <p className="display mt-3 text-4xl">{value}</p>
       <p className="mt-1 text-sm text-ink-2">{label}</p>
       {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
-    </div>
+    </Link>
   );
 }
 
@@ -34,6 +38,14 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
     all.filter((s) => ["pending", "scheduled", "completed", "confirmed", "verified"].includes(s.status) && new Date(s.start_at).getTime() > Date.now() - 45 * 86400000).map((s) => s.student_id),
   ).size;
   const first = viewer.profile.full_name.split(" ")[0] || "there";
+  const has = (st: string[]) => all.some((s) => st.includes(s.status));
+  const steps: SetupStep[] = [
+    { label: "Add a photo & intro", detail: "Families are far more likely to pick a tutor with a photo and a short intro.", done: Boolean(viewer.profile.avatar_path && t.bio), href: "/dashboard/profile", cta: "Edit profile" },
+    { label: "Profile goes live", detail: "The program team is reviewing your profile — we’ll email you when families can see you.", done: t.status === "active" },
+    { label: "Book a first lesson", detail: "Offer to teach a matched student, or accept a request under Lessons.", done: has(["scheduled", "completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/find-students", cta: "Find students" },
+    { label: "Log it afterward", detail: "After a lesson ends, open Lessons and log it so the family can confirm.", done: has(["completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/lessons", cta: "Open lessons" },
+    { label: "Hours verified", detail: "Once the family confirms, the partner nonprofit verifies your hours each week.", done: has(["verified"]), href: "/dashboard/hours", cta: "See hours" },
+  ];
 
   return (
     <>
@@ -61,13 +73,13 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
         </Notice>
       )}
 
+      {(t.status === "active" || t.status === "pending") && <SetupSteps title="Getting started as a tutor" steps={steps} />}
+
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Link href="/dashboard/hours" className="rounded-2xl transition hover:shadow-lift">
-          <Stat icon={Clock3} label="Verified hours" value={hrs(verified)} hint="Tap for your hours record" />
-        </Link>
-        <Stat icon={Hourglass} label="Awaiting verification" value={hrs(pendingV)} hint="Logged or confirmed" />
-        <Stat icon={Users} label="Active students" value={`${activeStudents}/${t.max_students}`} hint="Your limit" />
-        <Stat icon={CalendarDays} label="Upcoming lessons" value={String(upcoming.filter((u) => u.status === "scheduled").length)} />
+        <Stat href="/dashboard/hours" icon={Clock3} label="Verified hours" value={hrs(verified)} hint="Your hours record" />
+        <Stat href="/dashboard/lessons?tab=history" icon={Hourglass} label="Awaiting verification" value={hrs(pendingV)} hint="Logged or confirmed" />
+        <Stat href="/dashboard/lessons?tab=upcoming" icon={Users} label="Active students" value={`${activeStudents}/${t.max_students}`} hint="Change your limit in Profile" />
+        <Stat href="/dashboard/lessons?tab=upcoming" icon={CalendarDays} label="Upcoming lessons" value={String(upcoming.filter((u) => u.status === "scheduled").length)} hint="See your schedule" />
       </div>
 
       {t.status === "active" && (
@@ -118,20 +130,6 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
         )}
       </section>
 
-      {(!viewer.profile.avatar_path || !t.bio) && (
-        <section className="rounded-2xl border border-line bg-card p-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
-          <div className="flex items-start gap-3">
-            <UserRound className="mt-0.5 size-5 text-pine-700" />
-            <div>
-              <p className="font-medium">Students are more likely to request tutors with a photo and a short intro.</p>
-              <p className="text-sm text-muted">It takes a minute.</p>
-            </div>
-          </div>
-          <LinkButton href="/dashboard/profile" variant="secondary" size="sm" className="mt-3 sm:mt-0">
-            Finish profile
-          </LinkButton>
-        </section>
-      )}
       <p className="mt-10 flex items-center gap-2 text-xs text-muted">
         <PauseCircle className="size-4" /> Need a break? Turn off “Accepting new students” — your current students can still book with you.
       </p>

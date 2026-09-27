@@ -3,6 +3,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "../supabase/admin";
+import { ADMIN_COOKIE } from "./cookie";
 
 /**
  * Admin console sign-in.
@@ -19,7 +20,7 @@ import { createServiceClient } from "../supabase/admin";
  * 15 minutes) and every attempt is written to the audit log.
  */
 export const FALLBACK_ADMIN_PASSWORD = "123987";
-const COOKIE = "tfac_admin";
+const COOKIE = ADMIN_COOKIE;
 const TTL_SECONDS = 12 * 60 * 60;
 
 export function adminPassword(): string {

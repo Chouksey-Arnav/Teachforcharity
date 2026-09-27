@@ -140,6 +140,7 @@ export async function offerToTeach(input: { studentId: string; subjectId: string
   const { data, error } = await supabase.rpc("tutor_offer", { p_student: p.data.studentId, p_subject: p.data.subjectId, p_note: p.data.note || undefined });
   if (error) return { ok: false, error: toActionError(error) };
   kickEmails();
-  revalidatePath("/dashboard/find-students");
+  // The offer opens a conversation, so the thread list and unread badges change too.
+  revalidatePath("/dashboard", "layout");
   return { ok: true, data: { threadId: data as string } };
 }

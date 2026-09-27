@@ -56,7 +56,18 @@ export function Conversation({
     void markThreadRead(threadId).then(() => router.refresh());
   }, [threadId, router]);
 
-  useEffect(() => setMessages(initial), [initial]);
+  // A server refresh is the source of truth (it drops messages an admin hid), but it can be a
+  // moment older than what realtime already delivered — keep those newer messages on top.
+  useEffect(
+    () =>
+      setMessages((prev) => {
+        const known = new Set(initial.map((m) => m.id));
+        const newest = Date.parse(initial.at(-1)?.created_at ?? "") || 0;
+        // Keep a live message if it's newer than the snapshot (or its timestamp can't be parsed).
+        return [...initial, ...prev.filter((m) => !known.has(m.id) && !(Date.parse(m.created_at) <= newest))];
+      }),
+    [initial],
+  );
   useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [messages.length]);
 
   // Live updates for this conversation (RLS ensures only participants receive them).
