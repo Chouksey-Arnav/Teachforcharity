@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
+import { BackLink } from "@/components/dashboard/back-link";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { getStudentKinds } from "@/lib/data";
@@ -42,9 +43,7 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
 
   return (
     <>
-      <Link href="/dashboard/lessons" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="size-4" /> Lessons
-      </Link>
+      <BackLink href="/dashboard/lessons" label="Lessons" />
       <div className="mb-8 flex flex-wrap items-center gap-5">
         <Avatar name={s.first_name} size={72} />
         <div className="flex-1">

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
+import { BackLink } from "@/components/dashboard/back-link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StudentEditor } from "../student-editor";
 
@@ -14,6 +15,7 @@ export default async function NewStudentPage() {
   const { data: subjects } = await supabase.from("subjects").select("id, slug, name, family, aliases, is_custom").eq("is_active", true).order("name");
   return (
     <>
+      <BackLink href="/dashboard/students" label="Students" />
       <PageHeader title="Add a student" description="Same short questionnaire as before, all on one page." />
       <StudentEditor
         subjects={subjects ?? []}

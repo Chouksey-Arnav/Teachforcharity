@@ -9,69 +9,114 @@ export interface NavItem {
   label: string;
   /** Mobile tab label (defaults to the first word of `label`). */
   short?: string;
+  /** One line shown under the label in the mobile "More" sheet. */
+  hint?: string;
   icon: NavIcon;
   badge?: number;
-  mobile?: boolean;
+  /** Shown as one of the (at most four) bottom tabs on phones. Everything else lives under "More". */
+  tab?: boolean;
   exact?: boolean;
+  tone?: "danger";
 }
 
-export function navFor(
-  role: Role,
-  counts: { action: number; unread: number; offers?: number },
-  kind?: string | null,
-): { main: NavItem[]; secondary: NavItem[] } {
+export interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+export interface Nav {
+  groups: NavGroup[];
+}
+
+export const allItems = (nav: Nav) => nav.groups.flatMap((g) => g.items);
+
+const HOME: NavItem = { href: "/dashboard", label: "Home", icon: "home", tab: true, exact: true, hint: "Your next steps at a glance" };
+const REPORT: NavItem = { href: "/dashboard/report", label: "Report a concern", icon: "report", tone: "danger", hint: "Goes straight to the program team" };
+
+/**
+ * Every page a role can reach, grouped the same way on desktop (sidebar) and
+ * phones (bottom tabs + "More" sheet), so nothing is only reachable from a link
+ * buried on another page.
+ */
+export function navFor(role: Role, counts: { action: number; unread: number }, kind?: string | null): Nav {
+  const lessons: NavItem = { href: "/dashboard/lessons", label: "Lessons", icon: "calendar", badge: counts.action, tab: true, hint: "Requests, booked lessons and confirmations" };
+  const messages: NavItem = { href: "/dashboard/messages", label: "Messages", icon: "messages", badge: counts.unread, tab: true, hint: "Talk with your tutor or family" };
+
   if (role === "family" && kind === "student")
     return {
-      main: [
-        { href: "/dashboard", label: "Home", icon: "home", mobile: true, exact: true },
-        { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", mobile: true },
-        { href: "/dashboard/lessons", label: "Lessons", icon: "calendar", badge: counts.action, mobile: true },
-        { href: "/dashboard/messages", label: "Messages", icon: "messages", badge: counts.unread, mobile: true },
-        { href: "/dashboard/students", label: "My profile", short: "Profile", icon: "profile", mobile: true },
-      ],
-      secondary: [
-        { href: "/dashboard/profile", label: "Account", icon: "settings" },
-        { href: "/dashboard/report", label: "Report a concern", icon: "report" },
+      groups: [
+        {
+          label: "Lessons",
+          items: [
+            HOME,
+            { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", tab: true, hint: "Tutors matched to you" },
+            lessons,
+            messages,
+          ],
+        },
+        {
+          label: "You",
+          items: [
+            { href: "/dashboard/students", label: "My music profile", icon: "profile", hint: "Instruments, level and free times" },
+            { href: "/dashboard/profile", label: "Account", icon: "settings", hint: "Name, photo and password" },
+            REPORT,
+          ],
+        },
       ],
     };
   if (role === "family")
     return {
-      main: [
-        { href: "/dashboard", label: "Home", icon: "home", mobile: true, exact: true },
-        { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", mobile: true },
-        { href: "/dashboard/lessons", label: "Lessons", icon: "calendar", badge: counts.action, mobile: true },
-        { href: "/dashboard/messages", label: "Messages", icon: "messages", badge: counts.unread, mobile: true },
-        { href: "/dashboard/students", label: "Students", icon: "students" },
-      ],
-      secondary: [
-        { href: "/dashboard/profile", label: "Account", icon: "profile", mobile: true },
-        { href: "/dashboard/report", label: "Report a concern", icon: "report" },
+      groups: [
+        {
+          label: "Lessons",
+          items: [
+            HOME,
+            { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", tab: true, hint: "Tutors matched to your student" },
+            lessons,
+            messages,
+          ],
+        },
+        {
+          label: "Family",
+          items: [
+            { href: "/dashboard/students", label: "Students & consent", icon: "students", hint: "Add students and sign consent" },
+            { href: "/dashboard/profile", label: "Account", icon: "profile", hint: "Name, photo and password" },
+            REPORT,
+          ],
+        },
       ],
     };
   if (role === "tutor")
     return {
-      main: [
-        { href: "/dashboard", label: "Home", icon: "home", mobile: true, exact: true },
-        { href: "/dashboard/find-students", label: "Find students", short: "Students", icon: "discover", mobile: true },
-        { href: "/dashboard/lessons", label: "Lessons", icon: "calendar", badge: counts.action, mobile: true },
-        { href: "/dashboard/messages", label: "Messages", icon: "messages", badge: counts.unread, mobile: true },
-        { href: "/dashboard/hours", label: "My hours", icon: "hours" },
-      ],
-      secondary: [
-        { href: "/dashboard/profile", label: "Profile", icon: "profile", mobile: true },
-        { href: "/dashboard/report", label: "Report a concern", icon: "report" },
+      groups: [
+        {
+          label: "Teaching",
+          items: [
+            HOME,
+            { href: "/dashboard/find-students", label: "Find students", short: "Students", icon: "discover", tab: true, hint: "Students who fit your instruments" },
+            lessons,
+            messages,
+          ],
+        },
+        {
+          label: "You",
+          items: [
+            { href: "/dashboard/hours", label: "Volunteer hours", icon: "hours", hint: "Verified hours and printable record" },
+            { href: "/dashboard/profile", label: "Tutor profile", icon: "profile", hint: "Bio, instruments, availability" },
+            REPORT,
+          ],
+        },
       ],
     };
   if (role === "reviewer")
     return {
-      main: [
-        { href: "/dashboard", label: "Home", icon: "home", mobile: true, exact: true },
-        { href: "/dashboard/review", label: "Verify hours", icon: "review", mobile: true },
+      groups: [
+        {
+          label: "Review",
+          items: [HOME, { href: "/dashboard/review", label: "Verify hours", short: "Verify", icon: "review", tab: true, hint: "This week’s confirmed lessons" }],
+        },
+        { label: "You", items: [{ href: "/dashboard/profile", label: "Account", icon: "profile", tab: true, hint: "Name and password" }] },
       ],
-      secondary: [{ href: "/dashboard/profile", label: "Account", icon: "profile", mobile: true }],
     };
-  return {
-    main: [{ href: "/admin", label: "Admin console", icon: "overview", mobile: true }],
-    secondary: [{ href: "/dashboard/profile", label: "Account", icon: "profile", mobile: true }],
-  };
+  return { groups: [{ label: "Admin", items: [{ href: "/admin", label: "Admin console", icon: "overview", tab: true }] }] };
 }

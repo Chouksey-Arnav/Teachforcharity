@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Info, Music2, School } from "lucide-react";
+import { Info, Music2, School } from "lucide-react";
+import { BackLink } from "@/components/dashboard/back-link";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTutorIds, getFamilyStudents, getTutor, toStudentProfile } from "@/lib/data";
@@ -34,9 +35,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
 
   return (
     <>
-      <Link href={`/dashboard/tutors${student ? `?student=${student.id}` : ""}`} className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="size-4" /> All tutors
-      </Link>
+      <BackLink href={`/dashboard/tutors${student ? `?student=${student.id}` : ""}`} label="All tutors" />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
         <div className="min-w-0 space-y-6">
