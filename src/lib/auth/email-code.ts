@@ -108,6 +108,25 @@ export async function sendEmailCode(opts: {
   }
 }
 
+/**
+ * Sign-up with an email that already has an account: behave exactly like a
+ * normal sign-up (a code is issued under the same rate limits, and the page
+ * moves on to "check your email") so the response doesn't reveal that the
+ * account exists. The inbox owner gets a "you already have an account" email
+ * instead of a code, so the code step can never succeed.
+ */
+export async function sendAccountExistsNotice(email: string): Promise<{ ok: true } | { ok: false; error: ActionError }> {
+  const issued = await sendEmailCode({ email, purpose: "signup", deliver: false });
+  if (!issued.ok) return issued;
+  const rendered = renderEmail("account_exists", { recipient_first: "" });
+  try {
+    await emailProvider().send({ to: email.trim().toLowerCase(), toName: null, email: rendered! });
+  } catch (e) {
+    console.error("[auth] could not send account-exists notice:", e instanceof Error ? e.message : e);
+  }
+  return { ok: true };
+}
+
 export async function checkEmailCode(email: string, purpose: CodePurpose, code: string): Promise<CodeCheck | "error"> {
   const supabase = serviceOrNull();
   if (!supabase) return "error";

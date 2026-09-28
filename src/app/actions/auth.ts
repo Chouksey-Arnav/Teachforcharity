@@ -12,9 +12,12 @@ import {
   clearEmailCode,
   findAuthUser,
   normalizeCode,
+  sendAccountExistsNotice,
   sendEmailCode,
   serviceOrNull,
 } from "@/lib/auth/email-code";
+import { LEAKED_PASSWORD_MESSAGE, isLeakedPassword } from "@/lib/auth/pwned";
+import { recordSignInDevice } from "@/lib/auth/sign-in-device";
 import { logAppEvent } from "@/lib/audit";
 
 const signUpSchema = z.object({
@@ -35,18 +38,28 @@ function fieldErrorsOf(issues: { path: PropertyKey[]; message: string }[]) {
   return fieldErrors;
 }
 
-const EXISTS = "An account with that email already exists. Try signing in instead.";
+const EXISTS = "We couldn’t create your account. If you already have one, sign in instead.";
 
-/** Step 1 of sign-up: validate the details and email a 6-digit code. No account is created yet. */
+/**
+ * Step 1 of sign-up: validate the details and email a 6-digit code. No account is created yet.
+ * An email that already has an account gets the same response (and a "you already have an
+ * account" email instead of a code), so this form can't be used to find out who's signed up.
+ */
 export async function signUp(_: ActionState<{ email: string }>, form: FormData): Promise<ActionState<{ email: string }>> {
   const parsed = signUpSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) {
     return { ok: false, error: { message: "Please fix the highlighted fields." }, fieldErrors: fieldErrorsOf(parsed.error.issues) };
   }
-  const { email, fullName } = parsed.data;
+  const { email, fullName, password } = parsed.data;
+  if (await isLeakedPassword(password)) {
+    return { ok: false, error: { message: "Please fix the highlighted fields." }, fieldErrors: { password: LEAKED_PASSWORD_MESSAGE } };
+  }
   const existing = await findAuthUser(email);
   if (existing === "error") return { ok: false, error: SETUP_ERROR };
-  if (existing?.confirmed) return { ok: false, error: { message: EXISTS } };
+  if (existing?.confirmed) {
+    const notice = await sendAccountExistsNotice(email);
+    return notice.ok ? { ok: true, data: { email } } : { ok: false, error: notice.error };
+  }
 
   const sent = await sendEmailCode({ email, purpose: "signup", name: fullName });
   if (!sent.ok) return { ok: false, error: sent.error };
@@ -101,11 +114,12 @@ export async function verifySignup(_: ActionState, form: FormData): Promise<Acti
   await clearEmailCode(email, "signup");
 
   const supabase = await createClient();
-  const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signedIn, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
   if (signInErr) {
     console.error("[auth] sign-in after sign-up failed:", signInErr.message);
     redirect("/login?created=1");
   }
+  await recordSignInDevice(signedIn.user.id);
   redirect("/onboarding");
 }
 
@@ -116,7 +130,10 @@ export async function resendCode(input: { email: string; purpose: "signup" | "re
   const purpose = input.purpose === "reset" ? "reset" : "signup";
   const existing = await findAuthUser(email);
   if (existing === "error") return { ok: false, error: SETUP_ERROR };
-  if (purpose === "signup" && existing?.confirmed) return { ok: false, error: { message: EXISTS } };
+  if (purpose === "signup" && existing?.confirmed) {
+    const notice = await sendAccountExistsNotice(email);
+    return notice.ok ? { ok: true, message: "A new code is on its way." } : { ok: false, error: notice.error };
+  }
 
   const sent = await sendEmailCode({
     email,
@@ -128,10 +145,10 @@ export async function resendCode(input: { email: string; purpose: "signup" | "re
   return { ok: true, message: "A new code is on its way." };
 }
 
-export async function signIn(_: ActionState, form: FormData): Promise<ActionState> {
+export async function signIn(_: ActionState<{ email: string }>, form: FormData): Promise<ActionState<{ email: string }>> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  if (!email || !password) return { ok: false, error: { message: "Enter your email and password." } };
+  if (!email || !password) return { ok: false, error: { message: "Enter your email and password." }, data: { email } };
   const supabase = await createClient();
   const { data: signedIn, error } = await supabase.auth.signInWithPassword({ email, password });
   await logAppEvent(signedIn?.user?.id ?? null, error ? "auth.sign_in_failed" : "auth.sign_in", "profile", signedIn?.user?.id ?? null, error ? { email } : {});
@@ -141,8 +158,9 @@ export async function signIn(_: ActionState, form: FormData): Promise<ActionStat
       : /rate limit/i.test(error.message)
         ? "Too many attempts. Please wait a few minutes."
         : "That email and password don't match.";
-    return { ok: false, error: { message: msg } };
+    return { ok: false, error: { message: msg }, data: { email } };
   }
+  await recordSignInDevice(signedIn.user.id);
   redirect(safeNext(form.get("next")));
 }
 
@@ -168,6 +186,7 @@ export async function resetPasswordWithCode(_: ActionState, form: FormData): Pro
   const pw = signUpSchema.shape.password.safeParse(password);
   if (!pw.success) return { ok: false, error: { message: pw.error.issues[0].message } };
   if (password !== confirm) return { ok: false, error: { message: "The two passwords don’t match." } };
+  if (await isLeakedPassword(password)) return { ok: false, error: { message: LEAKED_PASSWORD_MESSAGE } };
 
   const check = await checkEmailCode(email, "reset", code);
   if (check === "error") return { ok: false, error: SETUP_ERROR };
@@ -190,8 +209,9 @@ export async function resetPasswordWithCode(_: ActionState, form: FormData): Pro
   if (revokeErr) console.error("[auth] could not sign out other devices:", revokeErr.message);
 
   const supabase = await createClient();
-  const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signedIn, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
   if (signInErr) redirect("/login?password=updated");
+  await recordSignInDevice(signedIn.user.id);
   redirect("/dashboard?password=updated");
 }
 
@@ -201,10 +221,20 @@ export async function updatePassword(_: ActionState, form: FormData): Promise<Ac
   const check = signUpSchema.shape.password.safeParse(password);
   if (!check.success) return { ok: false, error: { message: check.error.issues[0].message } };
   if (password !== confirm) return { ok: false, error: { message: "The two passwords don't match." } };
+  if (await isLeakedPassword(password)) return { ok: false, error: { message: LEAKED_PASSWORD_MESSAGE } };
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { ok: false, error: { message: "Your session expired. Use “Forgot password?” to get a new code." } };
   redirect("/dashboard?password=updated");
+}
+
+/** Signs this account out on every device (e.g. after using a shared computer). */
+export async function signOutEverywhere() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (data.user) await logAppEvent(data.user.id, "auth.sign_out_everywhere", "profile", data.user.id);
+  await supabase.auth.signOut({ scope: "global" });
+  redirect("/login?signedout=everywhere");
 }
 
 export async function signOut() {

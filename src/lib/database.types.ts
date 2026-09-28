@@ -419,6 +419,38 @@ export type Database = {
           },
         ]
       }
+      known_devices: {
+        Row: {
+          device_hash: string
+          first_seen: string
+          label: string
+          last_seen: string
+          user_id: string
+        }
+        Insert: {
+          device_hash: string
+          first_seen?: string
+          label?: string
+          last_seen?: string
+          user_id: string
+        }
+        Update: {
+          device_hash?: string
+          first_seen?: string
+          label?: string
+          last_seen?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "known_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           audience: string
@@ -1878,6 +1910,10 @@ export type Database = {
           tutor_status: Database["public"]["Enums"]["tutor_status"]
           unread: boolean
         }[]
+      }
+      note_sign_in: {
+        Args: { p_device_hash: string; p_label: string; p_user: string }
+        Returns: boolean
       }
       report_incident: {
         Args: {

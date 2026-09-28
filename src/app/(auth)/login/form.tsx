@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { signIn } from "@/app/actions/auth";
 import { Field, Input } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/secret-inputs";
 import { Submit } from "@/components/ui/submit";
 import { FormMessage } from "@/components/ui/notice";
 
@@ -12,17 +13,13 @@ export function LoginForm({ next }: { next: string }) {
     <form action={action} className="mt-8 space-y-5">
       <input type="hidden" name="next" value={next} />
       <Field label="Email" htmlFor="email">
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Input id="email" name="email" type="email" autoComplete="email" defaultValue={state?.data?.email} required />
       </Field>
       <Field
-        label={
-          <span className="flex w-full justify-between">
-            Password
-          </span>
-        }
+        label="Password"
         htmlFor="password"
       >
-        <Input id="password" name="password" type="password" autoComplete="current-password" required />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required />
       </Field>
       <div className="-mt-2 text-right">
         <Link href="/forgot-password" className="text-sm text-pine-700 underline-offset-4 hover:underline">

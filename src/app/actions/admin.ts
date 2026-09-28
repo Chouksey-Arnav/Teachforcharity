@@ -10,6 +10,7 @@ import { SITE } from "@/lib/site";
 import { adminDb, adminServiceDb } from "@/lib/admin/session";
 import { createClient } from "@/lib/supabase/server";
 import { logAppEvent } from "@/lib/audit";
+import { recordSignInDevice } from "@/lib/auth/sign-in-device";
 import { safeNext } from "@/lib/redirect";
 import { runSafetyScan } from "@/lib/safety/scanner";
 
@@ -50,6 +51,7 @@ export async function adminSignIn(_: ActionState<{ email: string }>, form: FormD
     return { ok: false, error: { message: DENIED }, data: { email } };
   }
   await logAppEvent(data.user.id, "admin.password_ok", "admin", data.user.id);
+  await recordSignInDevice(data.user.id);
   redirect(`/admin/login${nextQuery(form.get("next"))}`);
 }
 

@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card } from "@/components/ui/card";
 import { AvatarUpload } from "@/components/forms/avatar-upload";
+import { Submit } from "@/components/ui/submit";
+import { signOutEverywhere } from "@/app/actions/auth";
 import { AccountForm } from "./account-form";
 import { TutorSettings } from "./tutor-settings";
 import type { Level } from "@/lib/constants";
@@ -71,6 +73,18 @@ export default async function ProfilePage() {
               .
             </p>
           </div>
+        </Card>
+        <Card className="p-5 sm:p-7">
+          <h2 className="display text-3xl">Security</h2>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
+            We email you when your account is signed in to from a new device. If you signed in on a shared or lost device, sign out everywhere —
+            you’ll need your password again on every device, including this one.
+          </p>
+          <form action={signOutEverywhere} className="mt-5">
+            <Submit variant="secondary" pendingText="Signing out…">
+              Sign out of all devices
+            </Submit>
+          </form>
         </Card>
         {tutorData}
       </div>

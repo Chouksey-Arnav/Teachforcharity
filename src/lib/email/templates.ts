@@ -370,6 +370,37 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
       });
     }
 
+    case "account_exists":
+      return make(`You already have a ${SITE.name} account`, {
+        heading: "You already have an account",
+        paragraphs: [
+          hi(p),
+          `Someone (hopefully you) just tried to create a new ${esc(SITE.name)} account with this email address. You already have one, so we didn’t create another.`,
+          "Sign in with your password. If you’ve forgotten it, use “Forgot password?” on the sign-in page to get a reset code.",
+        ],
+        cta: { label: "Sign in", href: link("/login") },
+        footer: `You’re getting this because this email address was entered on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If that wasn’t you, you can ignore this email — nothing about your account changed.`,
+      });
+
+    case "new_sign_in":
+      return make(`New sign-in to your ${SITE.name} account`, {
+        heading: p.guardian ? `New sign-in to ${str(p.student_name)}’s account` : "New sign-in to your account",
+        paragraphs: [
+          hi(p),
+          p.guardian
+            ? `${esc(p.student_name)}’s ${esc(SITE.name)} account was just signed in to from a device we haven’t seen before.`
+            : `Your ${esc(SITE.name)} account was just signed in to from a device we haven’t seen before.`,
+        ],
+        details: [
+          ["When", esc(p.when)],
+          ["Device", esc(p.device)],
+        ],
+        note: p.guardian
+          ? "If this wasn’t your child, reply to this email or report a concern from your parent page."
+          : "If this was you, there’s nothing to do. If it wasn’t, reset your password now — that signs out every other device.",
+        cta: p.guardian ? undefined : { label: "Reset my password", href: link("/forgot-password") },
+      });
+
     case "guardian_invite":
     case "guardian_link": {
       const url = link(`/guardian/${encodeURIComponent(str(p.token))}`);

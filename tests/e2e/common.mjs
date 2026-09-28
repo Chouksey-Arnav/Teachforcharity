@@ -40,3 +40,36 @@ export async function totp(secret, at = Date.now()) {
   const o = h[h.length - 1] & 15;
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, "0");
 }
+
+// ---- Local Mailpit inbox (npx supabase start) ----
+export const MAILPIT = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
+
+/** Every message sent to `to` (newest first), with plain-text bodies. */
+export async function inbox(to) {
+  const r = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}&limit=50`);
+  const { messages = [] } = await r.json();
+  return Promise.all(
+    messages.map(async (m) => {
+      const full = await (await fetch(`${MAILPIT}/api/v1/message/${m.ID}`)).json();
+      return { subject: m.Subject, text: full.Text ?? "", html: full.HTML ?? "" };
+    }),
+  );
+}
+
+/** Waits for an email to `to` whose subject matches `re`, and returns it. */
+export async function waitForEmail(to, re, { timeout = 20000 } = {}) {
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    const hit = (await inbox(to)).find((m) => re.test(m.subject));
+    if (hit) return hit;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`No email to ${to} matching ${re}`);
+}
+
+export async function clearInbox() {
+  await fetch(`${MAILPIT}/api/v1/messages`, { method: "DELETE" });
+}
+
+/** The 6-digit code in a verification email. */
+export const codeIn = (mail) => mail.text.match(/\b(\d{6})\b/)?.[1];

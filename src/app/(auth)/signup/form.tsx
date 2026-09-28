@@ -5,6 +5,7 @@ import { GraduationCap, Music2, Users } from "lucide-react";
 import { signUp, verifySignup } from "@/app/actions/auth";
 import { CodeStep } from "@/components/auth/code-step";
 import { Checkbox, Field, Input } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/secret-inputs";
 import { Submit } from "@/components/ui/submit";
 import { Notice } from "@/components/ui/notice";
 import { cn } from "@/lib/cn";
@@ -136,7 +137,7 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
             <Input id="email" name="email" type="email" defaultValue={details.email} autoComplete="email" required aria-invalid={Boolean(fe.email)} />
           </Field>
           <Field label="Password" htmlFor="password" error={fe.password} hint="At least 8 characters, with a letter and a number.">
-            <Input id="password" name="password" type="password" defaultValue={details.password} autoComplete="new-password" required aria-invalid={Boolean(fe.password)} />
+            <PasswordInput id="password" name="password" defaultValue={details.password} autoComplete="new-password" required aria-invalid={Boolean(fe.password)} />
           </Field>
           <div>
             <Checkbox

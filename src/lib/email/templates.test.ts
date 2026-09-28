@@ -15,7 +15,7 @@ const TEMPLATES = [
   "session_requested", "session_countered", "session_booked", "session_reminder", "session_declined", "session_cancelled",
   "session_confirm_request", "confirm_reminder", "log_reminder", "new_message", "consent_receipt", "tutor_guardian_notice",
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
-  "incident_reported", "incident_received",
+  "incident_reported", "incident_received", "new_sign_in",
 ];
 
 describe("renderEmail", () => {
@@ -26,6 +26,20 @@ describe("renderEmail", () => {
     expect(r!.html).not.toContain("<script>");
     expect(r!.html).toContain("&lt;script&gt;");
     expect(r!.text.length).toBeGreaterThan(10);
+  });
+
+  it("tells a parent which child's account signed in, and doesn't offer them a password reset", () => {
+    const r = renderEmail("new_sign_in", { ...base, guardian: true, student_name: "Leo", device: "Chrome on iPhone" })!;
+    expect(r.subject).toContain("New sign-in");
+    expect(r.text).toContain("Leo’s account");
+    expect(r.text).toContain("Chrome on iPhone");
+    expect(r.html).not.toContain("forgot-password");
+  });
+
+  it("account_exists points to sign-in and contains no code", () => {
+    const r = renderEmail("account_exists", { recipient_first: "" })!;
+    expect(r.html).toContain("/login");
+    expect(r.text).not.toMatch(/\b\d{6}\b/);
   });
 
   it("never includes message bodies in new-message emails", () => {

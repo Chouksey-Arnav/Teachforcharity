@@ -109,5 +109,24 @@ begin
   if to_regclass('public.admin_login_attempts') is not null then raise exception 'FAIL shared-password rate limiter still exists'; end if;
   log := log || 'admin two-factor ok; ';
 
+  -- ===== 2. New-device sign-in alerts =====
+  perform pg_temp.act_as(fam);
+  if pg_temp.hint_of('select public.note_sign_in(''' || fam || ''', repeat(''a'', 64), ''x'')') <> 'DENIED' then
+    raise exception 'FAIL users can record sign-ins themselves'; end if;
+  perform pg_temp.act_as_service();
+  if public.note_sign_in(fam, repeat('a', 64), 'Chrome on Mac') then raise exception 'FAIL first device reported as new'; end if;
+  if public.note_sign_in(fam, repeat('a', 64), 'Chrome on Mac') then raise exception 'FAIL known device reported as new'; end if;
+  if exists (select 1 from public.email_outbox where template = 'new_sign_in' and to_email = 'v3-family@example.test') then
+    raise exception 'FAIL emailed about the sign-up device'; end if;
+  if not public.note_sign_in(fam, repeat('b', 64), 'Safari on iPhone') then raise exception 'FAIL new device not detected'; end if;
+  if not exists (select 1 from public.email_outbox where template = 'new_sign_in' and to_email = 'v3-family@example.test'
+                 and payload ->> 'device' = 'Safari on iPhone') then raise exception 'FAIL new-device email not queued'; end if;
+  if pg_temp.hint_of('select public.note_sign_in(''' || fam || ''', ''not-a-hash'', ''x'')') <> 'BAD_INPUT' then
+    raise exception 'FAIL bad device hash accepted'; end if;
+  for n in 1..25 loop perform public.note_sign_in(fam, lpad(to_hex(n), 64, 'c'), 'Device ' || n); end loop;
+  if (select count(*) from public.known_devices where user_id = fam) <> 20 then raise exception 'FAIL device list not capped at 20'; end if;
+  execute 'reset role';
+  log := log || 'new-device alerts ok; ';
+
   raise exception 'ALL V3 TESTS PASSED (rolled back): %', log;
 end $test$;

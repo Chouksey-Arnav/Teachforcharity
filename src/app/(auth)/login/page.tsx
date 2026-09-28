@@ -22,6 +22,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           Your email is verified. Sign in with the password you just chose.
         </Notice>
       )}
+      {sp.signedout === "everywhere" && (
+        <Notice tone="success" className="mt-6" title="Signed out everywhere">
+          Every device that was signed in to your account has been signed out.
+        </Notice>
+      )}
       {sp.password === "updated" && (
         <Notice tone="success" className="mt-6" title="Password updated">
           Sign in with your new password.

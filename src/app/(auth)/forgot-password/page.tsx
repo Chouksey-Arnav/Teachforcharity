@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { requestPasswordReset, resetPasswordWithCode } from "@/app/actions/auth";
 import { CodeStep } from "@/components/auth/code-step";
 import { Field, Input } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/secret-inputs";
 import { Submit } from "@/components/ui/submit";
 import { FormMessage } from "@/components/ui/notice";
 
@@ -53,10 +54,10 @@ export default function ForgotPasswordPage() {
             onBack={() => setStep("email")}
           >
             <Field label="New password" htmlFor="password" hint="At least 8 characters, with a letter and a number.">
-              <Input id="password" name="password" type="password" autoComplete="new-password" required />
+              <PasswordInput id="password" name="password" autoComplete="new-password" required />
             </Field>
             <Field label="Confirm new password" htmlFor="confirm">
-              <Input id="confirm" name="confirm" type="password" autoComplete="new-password" required />
+              <PasswordInput id="confirm" name="confirm" autoComplete="new-password" required />
             </Field>
             {!codeError && <FormMessage state={resetState} />}
             <Submit className="w-full" size="lg" pendingText="Saving…">
