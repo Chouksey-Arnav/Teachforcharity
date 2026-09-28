@@ -58,6 +58,15 @@ describe("renderEmail", () => {
     expect(r.text).not.toMatch(/\b\d{6}\b/);
   });
 
+  it("never puts the Meet link in lesson emails or calendar invites, even if one is passed", () => {
+    for (const t of ["session_booked", "session_reminder"]) {
+      const r = renderEmail(t, base)!;
+      expect(r.html).not.toContain("meet.google.com");
+      expect(r.text).not.toContain("meet.google.com");
+      for (const a of r.attachments ?? []) expect(Buffer.from(a.content, "base64").toString()).not.toContain("meet.google.com");
+    }
+  });
+
   it("never includes message bodies in new-message emails", () => {
     const r = renderEmail("new_message", { ...base, body: "SECRET BODY" })!;
     expect(r.html).not.toContain("SECRET BODY");

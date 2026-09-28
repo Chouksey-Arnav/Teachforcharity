@@ -897,6 +897,7 @@ export type Database = {
           duration_minutes: number
           end_at: string
           family_id: string
+          family_join_ack_at: string | null
           family_responded_at: string | null
           family_response_note: string | null
           id: string
@@ -909,6 +910,7 @@ export type Database = {
           student_id: string
           subject_id: string
           tutor_id: string
+          tutor_join_ack_at: string | null
           tutor_log_note: string | null
           tutor_logged_at: string | null
           updated_at: string
@@ -923,6 +925,7 @@ export type Database = {
           duration_minutes: number
           end_at: string
           family_id: string
+          family_join_ack_at?: string | null
           family_responded_at?: string | null
           family_response_note?: string | null
           id?: string
@@ -935,6 +938,7 @@ export type Database = {
           student_id: string
           subject_id: string
           tutor_id: string
+          tutor_join_ack_at?: string | null
           tutor_log_note?: string | null
           tutor_logged_at?: string | null
           updated_at?: string
@@ -949,6 +953,7 @@ export type Database = {
           duration_minutes?: number
           end_at?: string
           family_id?: string
+          family_join_ack_at?: string | null
           family_responded_at?: string | null
           family_response_note?: string | null
           id?: string
@@ -961,6 +966,7 @@ export type Database = {
           student_id?: string
           subject_id?: string
           tutor_id?: string
+          tutor_join_ack_at?: string | null
           tutor_log_note?: string | null
           tutor_logged_at?: string | null
           updated_at?: string
@@ -1853,6 +1859,7 @@ export type Database = {
         }
         Returns: number
       }
+      join_lesson: { Args: { p_session: string }; Returns: string }
       list_students_for_tutor: {
         Args: {
           p_limit?: number
@@ -1998,7 +2005,8 @@ export type Database = {
           family_responded_at: string
           family_response_note: string
           id: string
-          meet_url: string
+          join_closes_at: string
+          join_opens_at: string
           my_side: string
           proposal_round: number
           proposed_by: string

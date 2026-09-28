@@ -248,7 +248,9 @@ export type MySession = {
   verified_at: string | null;
   review_note: string | null;
   verifier_org: string | null;
-  meet_url: string | null;
+  /** When the Join button opens and closes (scheduled lessons only). The Meet link itself is never sent to the page. */
+  join_opens_at: string | null;
+  join_closes_at: string | null;
   my_side: "family" | "tutor";
   awaiting_me: boolean;
   thread_id: string | null;

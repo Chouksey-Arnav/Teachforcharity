@@ -169,7 +169,8 @@ begin
   execute 'set local role authenticated';
   v_status := public.respond_session(sess, 'accept');
   if v_status <> 'scheduled' then raise exception 'FAIL accept'; end if;
-  if (select meet_url from public.my_sessions('upcoming') where id = sess) is null then raise exception 'FAIL meet url hidden from booked family'; end if;
+  -- The Meet link is only handed out by join_lesson() during the lesson (v3 tests that); the list shows when joining opens.
+  if (select join_opens_at from public.my_sessions('upcoming') where id = sess) is null then raise exception 'FAIL join time hidden from booked family'; end if;
   log := log || 'booking ok; ';
 
   -- ===== second family: double booking and isolation =====

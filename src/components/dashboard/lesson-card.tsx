@@ -15,7 +15,7 @@ import { cancelLesson, confirmLesson, logLesson, respondLesson } from "@/app/act
 import type { ActionState } from "@/lib/errors";
 import { cn } from "@/lib/cn";
 
-type Panel = null | "counter" | "decline" | "cancel" | "log-no" | "confirm-no";
+type Panel = null | "counter" | "decline" | "cancel" | "log-no" | "confirm-no" | "join";
 
 function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(() => Date.now());
@@ -142,18 +142,16 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         )}
         {s.status === "scheduled" && (
           <>
-            {s.meet_url && (
-              <a
-                href={s.meet_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  "inline-flex h-8 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition",
-                  canJoin ? "bg-pine-700 text-white hover:bg-pine-800" : "border border-line-2 bg-card text-ink-2 hover:border-ink/30",
-                )}
-              >
-                <Video className="size-4" /> {canJoin ? "Join Google Meet" : "Meet link"}
-              </a>
+            {canJoin ? (
+              <Button size="sm" onClick={() => setPanel(panel === "join" ? null : "join")} aria-expanded={panel === "join"}>
+                <Video className="size-4" /> Join Google Meet
+              </Button>
+            ) : (
+              !ended && (
+                <span className="inline-flex h-8 items-center gap-2 rounded-full border border-dashed border-line-2 px-3.5 text-[13px] text-muted">
+                  <Video className="size-4" /> Join opens {formatTime(s.join_opens_at ?? s.start_at)}
+                </span>
+              )
             )}
             {isTutor && ended && (
               <>
@@ -189,7 +187,9 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         )}
       </div>
 
-      {panel && (
+      {panel === "join" && <JoinPanel sessionId={s.id} isTutor={isTutor} studentName={s.student_name} onClose={() => setPanel(null)} />}
+
+      {panel && panel !== "join" && (
         <div className="animate-fade border-t border-line px-4 py-4 sm:px-5">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">
@@ -255,5 +255,44 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
       )}
       <span className="sr-only">{formatDay(s.start_at)}</span>
     </article>
+  );
+}
+
+/**
+ * The last step before a lesson: confirm the safety rule, then the form opens
+ * the Meet in a new tab. The server hands out the link only inside the lesson
+ * window and records the confirmation.
+ */
+function JoinPanel({ sessionId, isTutor, studentName, onClose }: { sessionId: string; isTutor: boolean; studentName: string; onClose: () => void }) {
+  const [ack, setAck] = useState(false);
+  return (
+    <form
+      method="post"
+      action={`/dashboard/lessons/${sessionId}/join`}
+      target="_blank"
+      className="animate-fade space-y-3 border-t border-line px-4 py-4 sm:px-5"
+      onSubmit={() => setTimeout(onClose, 500)}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">Before you join</p>
+        <button type="button" onClick={onClose} className="rounded-full p-1 text-muted hover:bg-paper-2" aria-label="Close">
+          <X className="size-4" />
+        </button>
+      </div>
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-paper-2/60 p-3 text-sm leading-snug text-ink-2">
+        <input type="checkbox" name="ack" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 size-4 accent-pine-700" />
+        <span>
+          {isTutor
+            ? `I’m somewhere quiet and appropriate for a lesson with ${studentName}, and I won’t record, screenshot, or share it.`
+            : `A parent or guardian is home or nearby and can be reached during this lesson. We won’t record it.`}
+        </span>
+      </label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted">Keep chat on this site — the Meet chat isn’t monitored, so don’t share contact info there.</p>
+        <Button type="submit" size="sm" disabled={!ack}>
+          <Video className="size-4" /> Open Google Meet
+        </Button>
+      </div>
+    </form>
   );
 }

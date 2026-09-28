@@ -71,7 +71,7 @@ do $test$
 declare
   adm uuid := gen_random_uuid(); fam uuid := gen_random_uuid(); rev uuid := gen_random_uuid();
   kid uuid := gen_random_uuid(); mom uuid := gen_random_uuid(); tut uuid := gen_random_uuid();
-  stu uuid; consent_id uuid; tok text;
+  stu uuid; consent_id uuid; tok text; sess uuid;
   n int; j jsonb; log text := ''; v_partner uuid;
 begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
@@ -339,6 +339,38 @@ begin
   execute 'reset role';
   if pg_temp.mail('tutor_guardian_request', 'rosa@example.test') ->> 'token' = tok then raise exception 'FAIL no fresh link for a tutor''s parent'; end if;
   log := log || 'tutor parent approval ok; ';
+
+  -- ===== 6. The Meet link only opens during the lesson =====
+  update public.tutor_profiles set status = 'active', guardian_approved_at = now() where user_id = tut;
+  update public.consents set verification_status = 'verified', revoked_at = null where student_id = stu;
+  insert into public.sessions (tutor_id, student_id, family_id, subject_id, start_at, duration_minutes, end_at, status, proposed_by)
+  values (tut, stu, mom, (select id from public.subjects where slug = 'clarinet'),
+          now() + interval '2 hours', 45, now() + interval '2 hours 45 minutes', 'scheduled', 'family')
+  returning id into sess;
+  perform pg_temp.act_as(mom);
+  if (select join_opens_at from public.my_sessions('upcoming') where id = sess) <> (select start_at - interval '15 minutes' from public.sessions where id = sess) then
+    raise exception 'FAIL join window not reported'; end if;
+  if pg_temp.hint_of(format('select public.join_lesson(%L)', sess)) <> 'TOO_EARLY' then raise exception 'FAIL Meet link handed out two hours early'; end if;
+  execute 'reset role';
+  update public.sessions set start_at = now() + interval '10 minutes', end_at = now() + interval '55 minutes' where id = sess;
+  perform pg_temp.act_as(fam);
+  if pg_temp.hint_of(format('select public.join_lesson(%L)', sess)) <> 'NOT_FOUND' then raise exception 'FAIL outsider got the Meet link'; end if;
+  perform pg_temp.act_as_anon();
+  if pg_temp.hint_of(format('select public.join_lesson(%L)', sess)) <> 'DENIED' then raise exception 'FAIL anon got the Meet link'; end if;
+  perform pg_temp.act_as(mom);
+  if public.join_lesson(sess) <> 'https://meet.google.com/abc-defg-hij' then raise exception 'FAIL family can''t join in the window'; end if;
+  perform pg_temp.act_as(tut);
+  perform public.join_lesson(sess);
+  execute 'reset role';
+  if (select family_join_ack_at is null or tutor_join_ack_at is null from public.sessions where id = sess) then
+    raise exception 'FAIL join confirmations not recorded'; end if;
+  if not exists (select 1 from public.audit_log where action = 'lesson.joined' and target_id = sess::text) then raise exception 'FAIL join not audited'; end if;
+  update public.sessions set start_at = now() - interval '2 hours', end_at = now() - interval '75 minutes' where id = sess;
+  perform pg_temp.act_as(mom);
+  if pg_temp.hint_of(format('select public.join_lesson(%L)', sess)) <> 'TOO_LATE' then raise exception 'FAIL Meet link handed out after the lesson'; end if;
+  execute 'reset role';
+  if exists (select 1 from public.email_outbox where payload ? 'meet_url') then raise exception 'FAIL an email still carries the Meet link'; end if;
+  log := log || 'Meet gating ok; ';
 
   raise exception 'ALL V3 TESTS PASSED (rolled back): %', log;
 end $test$;

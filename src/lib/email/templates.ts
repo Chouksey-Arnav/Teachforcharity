@@ -125,14 +125,14 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
     case "session_booked": {
       const role = str(p.role);
       const ics =
-        p.start_iso && p.end_iso && p.meet_url
+        p.start_iso && p.end_iso
           ? buildIcs({
               uid: str(p.session_id),
               start: str(p.start_iso),
               end: str(p.end_iso),
               summary: `${str(p.subject)} lesson${role === "tutor" ? ` with ${str(p.student_name)}` : ` with ${str(p.other_name)}`} · ${SITE.name}`,
-              description: `Join on Google Meet: ${str(p.meet_url)}\nLessons are never recorded. A parent or guardian must be reachable by phone or text during the lesson.\nManage: ${lessonsLink(p)}`,
-              location: str(p.meet_url),
+              description: `Join from your Lessons page — the Google Meet button appears 15 minutes before the start: ${lessonsLink(p)}\nLessons are never recorded. A parent or guardian must be home or nearby and reachable during the lesson.`,
+              location: lessonsLink(p),
             })
           : null;
       return make(
@@ -142,7 +142,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           paragraphs: [
             hi(p),
             role === "tutor"
-              ? `You're teaching <strong>${esc(p.student_name)}</strong> ${esc(p.subject)}. Open your Meet a couple of minutes early.`
+              ? `You're teaching <strong>${esc(p.student_name)}</strong> ${esc(p.subject)}. Join from your Lessons page a couple of minutes early.`
               : role === "guardian"
                 ? `For your records: <strong>${esc(p.student_name)}</strong> booked a ${esc(p.subject)} lesson with volunteer tutor ${esc(p.other_name)}. You can see every lesson and message on your private parent page (use the link from your approval email).`
                 : `<strong>${esc(p.student_name)}</strong>'s ${esc(p.subject)} lesson with ${esc(p.other_name)} is confirmed.`,
@@ -150,13 +150,13 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           details: [
             ["When", esc(p.when)],
             ["Length", `${esc(p.minutes)} minutes`],
-            ["Google Meet", `<a href="${esc(p.meet_url)}" style="color:#1F5446">${esc(p.meet_url)}</a>`],
+            ["How to join", "The Google Meet button appears on your Lessons page 15 minutes before the start."],
           ],
           cta: { label: "View lesson", href: lessonsLink(p) },
           note:
             role === "tutor"
               ? "Reminder: never record lessons, keep all contact on the platform, and log the lesson afterward so the family can confirm it."
-              : "Reminder: a parent or guardian must be reachable by phone or text for the whole lesson. Lessons are never recorded. A calendar invite is attached.",
+              : "Reminder: a parent or guardian must be home or nearby and reachable for the whole lesson. Lessons are never recorded. A calendar invite is attached.",
         },
         ics ? [{ name: "lesson.ics", content: Buffer.from(ics).toString("base64") }] : undefined,
       );
@@ -173,7 +173,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         ],
         details: [
           ["When", esc(p.when)],
-          ["Google Meet", `<a href="${esc(p.meet_url)}" style="color:#1F5446">${esc(p.meet_url)}</a>`],
+          ["How to join", "Open your Lessons page — the Google Meet button appears 15 minutes before the start."],
         ],
         cta: { label: "View lesson", href: lessonsLink(p) },
         note: "Need to cancel? Please do it from your dashboard as early as you can.",
