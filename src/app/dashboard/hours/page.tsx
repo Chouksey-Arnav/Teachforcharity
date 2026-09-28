@@ -9,7 +9,9 @@ import { SITE } from "@/lib/site";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge, sessionTone } from "@/components/ui/badge";
 import { Empty } from "@/components/ui/empty";
+import QRCode from "qrcode";
 import { PrintButton } from "./print-button";
+import { HoursLinkControls } from "./link-controls";
 
 export const metadata: Metadata = { title: "My hours" };
 
@@ -23,6 +25,9 @@ export default async function HoursPage() {
   const verified = sessions.filter((s) => s.status === "verified");
   const h = (m: number) => (m / 60).toFixed(2).replace(/\.?0+$/, "") || "0";
   const t = viewer.tutor!;
+  const { data: code } = await supabase.rpc("my_verify_code", { p_action: "get" });
+  const verifyUrl = code ? `${SITE.url}/verify/${code}` : null;
+  const qr = verifyUrl ? await QRCode.toString(verifyUrl, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : null;
 
   return (
     <>
@@ -92,6 +97,28 @@ export default async function HoursPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className={`flex flex-col gap-5 border-t border-line px-5 py-5 sm:flex-row sm:items-start sm:px-7${verifyUrl ? "" : " no-print"}`}>
+            {qr && verifyUrl && (
+              // Library-generated SVG from our own URL; no user input reaches it.
+              <div className="size-28 shrink-0 rounded-lg bg-white p-2" role="img" aria-label="QR code for the verification link" dangerouslySetInnerHTML={{ __html: qr }} />
+            )}
+            <div className="min-w-0 text-sm">
+              <p className="font-semibold">Check these hours online</p>
+              {verifyUrl ? (
+                <>
+                  <p className="mt-1 text-ink-2">
+                    A school or honor-society advisor can scan the code or visit <span className="break-all font-mono text-[13px]">{verifyUrl}</span> to see your verified totals, straight from the program.
+                  </p>
+                  <p className="no-print mt-2 text-xs text-muted">Anyone with this link sees your name, grade, school, instruments and verified totals — never students’ names or messages.</p>
+                </>
+              ) : (
+                <p className="mt-1 text-ink-2">
+                  Make a private link (with a QR code on this printout) so an advisor can confirm your verified hours with the program directly. It shows your name, grade, school, instruments and verified totals — never students’ names. You can turn it off any time.
+                </p>
+              )}
+              <HoursLinkControls url={verifyUrl} />
+            </div>
           </div>
           <p className="border-t border-line px-5 py-4 text-xs leading-relaxed text-muted sm:px-7">
             Each verified lesson was logged by the tutor, confirmed by the student’s parent or guardian, and verified in a weekly review by the program’s nonprofit partner (or, where shown, the program administrator).

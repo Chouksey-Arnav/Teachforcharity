@@ -24,5 +24,5 @@ export function toActionError(err: PgLike, fallback = "Something went wrong. Ple
 
 export type ActionState<T = undefined> =
   | { ok: true; message?: string; data?: T }
-  | { ok: false; error: ActionError; fieldErrors?: Record<string, string> }
+  | { ok: false; error: ActionError; fieldErrors?: Record<string, string>; data?: T }
   | null;

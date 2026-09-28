@@ -7,11 +7,24 @@ import { getMySessions } from "@/lib/data";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { LessonCard } from "@/components/dashboard/lesson-card";
 import { ScrollToFocus } from "@/components/dashboard/scroll-to-focus";
+import { Notice } from "@/components/ui/notice";
 import { Empty } from "@/components/ui/empty";
 import { LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = { title: "Lessons" };
+
+/** Why "Join Google Meet" sent someone back here (see lessons/[id]/join/route.ts). */
+const JOIN_ERRORS: Record<string, string> = {
+  NO_ACK: "Please tick the confirmation box first.",
+  TOO_EARLY: "You can join from 15 minutes before the lesson starts.",
+  TOO_LATE: "This lesson has ended. If it happened, log or confirm it below.",
+  NOT_SCHEDULED: "This lesson isn’t booked any more — it may have been cancelled.",
+  CONSENT_REQUIRED: "Parent consent for this student isn’t active, so the lesson can’t go ahead.",
+  TUTOR_UNAVAILABLE: "This tutor isn’t available right now. If something seems wrong, send them a message or report a concern.",
+  NOT_FOUND: "We couldn’t find that lesson.",
+  ERROR: "Something went wrong. Please try again.",
+};
 
 export default async function LessonsPage({ searchParams }: PageProps<"/dashboard/lessons">) {
   const viewer = await requireViewer(["family", "tutor"]);
@@ -47,6 +60,11 @@ export default async function LessonsPage({ searchParams }: PageProps<"/dashboar
         }
         actions={viewer.role === "family" ? <LinkButton href="/dashboard/tutors">Request a lesson</LinkButton> : undefined}
       />
+      {typeof sp.join === "string" && JOIN_ERRORS[sp.join] && (
+        <Notice tone="warning" className="mb-6" title="Couldn’t open the lesson">
+          {JOIN_ERRORS[sp.join]}
+        </Notice>
+      )}
       <div className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((t) => (
           <Link

@@ -50,11 +50,14 @@ export function FamilyWizard({
   subjects,
   profile,
   student,
+  invitedChild,
 }: {
   initialStep: number;
   subjects: SubjectOption[];
   profile: { fullName: string; phone: string };
   student: StudentState | null;
+  /** First name of the child who asked this parent to sign up (from the invitation email). */
+  invitedChild?: string;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
@@ -65,7 +68,7 @@ export function FamilyWizard({
   const [s, setS] = useState<StudentState>(
     student ?? {
       id: null,
-      firstName: "",
+      firstName: invitedChild ?? "",
       grade: null,
       county: "",
       school: "",

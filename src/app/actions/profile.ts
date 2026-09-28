@@ -41,6 +41,7 @@ const account = z.object({
       return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
     }),
   emailNotifications: z.boolean(),
+  weeklyDigest: z.boolean().optional(),
 });
 
 export async function updateAccount(input: z.input<typeof account>): Promise<ActionState> {
@@ -54,7 +55,12 @@ export async function updateAccount(input: z.input<typeof account>): Promise<Act
   // Never store a child's phone number: the parent's number lives on the consent form.
   const { error } = await supabase
     .from("profiles")
-    .update({ full_name: p.data.fullName, phone: student ? null : p.data.phone, email_notifications: p.data.emailNotifications })
+    .update({
+      full_name: p.data.fullName,
+      phone: student ? null : p.data.phone,
+      email_notifications: p.data.emailNotifications,
+      ...(p.data.weeklyDigest === undefined ? {} : { weekly_digest: p.data.weeklyDigest }),
+    })
     .eq("id", uid);
   if (error) return { ok: false, error: toActionError(error) };
   revalidatePath("/dashboard", "layout");
@@ -83,4 +89,15 @@ export async function acceptCurrentTerms(): Promise<ActionState> {
   if (error) return { ok: false, error: toActionError(error) };
   revalidatePath("/dashboard", "layout");
   return { ok: true };
+}
+
+/** The public link a tutor gives a school or honor society to check their verified hours. */
+export async function setHoursLink(action: "create" | "new" | "off"): Promise<ActionState<{ code: string | null }>> {
+  if (!["create", "new", "off"].includes(action)) return { ok: false, error: { message: "Invalid request." } };
+  const { supabase } = await session();
+  const { data, error } = await supabase.rpc("my_verify_code", { p_action: action });
+  if (error) return { ok: false, error: toActionError(error) };
+  revalidatePath("/dashboard/hours");
+  const message = action === "off" ? "Link turned off. Anyone who has it now sees “not found.”" : action === "new" ? "New link made. The old one no longer works." : undefined;
+  return { ok: true, message, data: { code: (data as string | null) ?? null } };
 }

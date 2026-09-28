@@ -16,6 +16,8 @@ declare
   wk date; log text := '';
   j jsonb; sub public.subjects;
 begin
+  -- Phone-checked consent is covered by v3_program_test.sql; this suite tests what comes after consent.
+  update public.app_settings set require_consent_verification = false;
   -- users
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
     (f1, 'test-f1@example.test', 'authenticated', 'authenticated', '{"role":"family","full_name":"Pat Parent"}'),
@@ -99,19 +101,33 @@ begin
   execute 'reset role';
   perform set_config('request.jwt.claims', json_build_object('sub', f1, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  if (select count(*) from public.list_tutors()) <> 0 then raise exception 'FAIL pending tutor listed'; end if;
+  if exists (select 1 from public.list_tutors() where tutor_id in (t1, t2)) then raise exception 'FAIL pending tutor listed'; end if;
   begin perform public.request_session(s1, t1, clar, slot, 45, null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'CONSENT_REQUIRED'; end;
   if not ok then raise exception 'FAIL request allowed without consent (hint=%)', hint; end if;
   perform public.sign_consent(s1, 'Pat Parent', 'Mother', '919-555-0100', 'Pat Parent', true,true,true,true,true,true, 'test');
   j := public.complete_onboarding();
 
+  -- the tutor's parent approves from the emailed link (the raw token is only in the email)
+  execute 'reset role';
+  select payload ->> 'token' into msg from public.email_outbox
+  where template = 'tutor_guardian_request' and to_email = 'rosa@example.test' order by id desc limit 1;
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  execute 'set local role anon';
+  perform public.tutor_guardian_approve(msg, 'Rosa Rodriguez', 'Mother', 'Rosa Rodriguez', true, true, true);
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', f1, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+
   -- admin approves tutor; non-admin cannot
   begin perform public.admin_set_tutor_status(t1, 'active', null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'FORBIDDEN'; end;
   if not ok then raise exception 'FAIL family used admin function'; end if;
   execute 'reset role';
-  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated')::text, true);
+  -- Admins act with a two-factor session (aal2 + a recent TOTP check).
+  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated', 'aal', 'aal2',
+    'amr', json_build_array(json_build_object('method', 'password', 'timestamp', extract(epoch from now())::bigint),
+                            json_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint)))::text, true);
   execute 'set local role authenticated';
   perform public.admin_set_tutor_status(t1, 'active', null);
   if (public.admin_overview() -> 'tutors' ->> 'active')::int < 1 then raise exception 'FAIL overview'; end if;
@@ -121,8 +137,8 @@ begin
   execute 'reset role';
   perform set_config('request.jwt.claims', json_build_object('sub', f1, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  if (select count(*) from public.list_tutors(array[clar])) <> 1 then raise exception 'FAIL active tutor not listed'; end if;
-  if (select display_name from public.list_tutors()) <> 'Maya R.' then raise exception 'FAIL tutor display name'; end if;
+  if not exists (select 1 from public.list_tutors(array[clar]) where tutor_id = t1) then raise exception 'FAIL active tutor not listed'; end if;
+  if (select display_name from public.list_tutors() where tutor_id = t1) is distinct from 'Maya R.' then raise exception 'FAIL tutor display name'; end if;
   if (select count(*) from public.tutor_profiles where user_id = t1) <> 0 then raise exception 'FAIL family can read tutor private profile'; end if;
   begin perform public.request_session(s1, t1, clar, slot + interval '7 minutes', 45, null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'BAD_TIME'; end;
@@ -153,7 +169,8 @@ begin
   execute 'set local role authenticated';
   v_status := public.respond_session(sess, 'accept');
   if v_status <> 'scheduled' then raise exception 'FAIL accept'; end if;
-  if (select meet_url from public.my_sessions('upcoming') where id = sess) is null then raise exception 'FAIL meet url hidden from booked family'; end if;
+  -- The Meet link is only handed out by join_lesson() during the lesson (v3 tests that); the list shows when joining opens.
+  if (select join_opens_at from public.my_sessions('upcoming') where id = sess) is null then raise exception 'FAIL join time hidden from booked family'; end if;
   log := log || 'booking ok; ';
 
   -- ===== second family: double booking and isolation =====

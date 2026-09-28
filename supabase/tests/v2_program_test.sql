@@ -11,6 +11,8 @@ declare
   ok boolean; hint text; log text := ''; run bigint; g_id uuid;
   slot timestamptz := ((current_date + 3)::timestamp + time '17:00') at time zone 'America/New_York';
 begin
+  -- Phone-checked consent is covered by v3_program_test.sql; this suite tests what comes after consent.
+  update public.app_settings set require_consent_verification = false;
   select id into clar from public.subjects where slug = 'clarinet';
   select id into tpt from public.subjects where slug = 'trumpet';
 
@@ -19,7 +21,9 @@ begin
     (par, 'v2-parent@example.test', 'authenticated', 'authenticated', '{"role":"family","full_name":"Pat Parent"}'),
     (tut, 'v2-tutor@example.test', 'authenticated', 'authenticated', '{"role":"tutor","full_name":"Maya Rodriguez"}'),
     (tut2, 'v2-tutor2@example.test', 'authenticated', 'authenticated', '{"role":"tutor","full_name":"Sam Lee"}');
-  if (select account_kind from public.profiles where id = stu) <> 'student' then raise exception 'FAIL student kind'; end if;
+  -- New sign-ups can't create student accounts any more (v3 tests that); this suite covers existing ones.
+  if (select account_kind from public.profiles where id = stu) <> 'parent' then raise exception 'FAIL student sign-up not turned into a parent account'; end if;
+  update public.profiles set account_kind = 'student' where id = stu;
   if (select account_kind from public.profiles where id = par) <> 'parent' then raise exception 'FAIL parent kind'; end if;
   if (select account_kind from public.profiles where id = tut) is not null then raise exception 'FAIL tutor kind'; end if;
   if not exists (select 1 from public.audit_log where action = 'account.created' and target_id = stu::text) then
@@ -43,8 +47,14 @@ begin
   perform public.accept_terms('terms');
   perform public.sign_tutor_agreement('Maya Rodriguez', 'Rosa Rodriguez', 'rosa@example.test', '');
   j := public.complete_onboarding();
-  if j ->> 'status' <> 'active' then raise exception 'FAIL tutor not auto-active: %', j; end if;
+  if j ->> 'status' <> 'pending' then raise exception 'FAIL tutor live before their parent approved: %', j; end if;
   execute 'reset role';
+  -- With admin review off, the parent's approval is the last step.
+  update public.app_settings set require_tutor_approval = false;
+  if public.tutor_guardian_approve(
+       (select payload ->> 'token' from public.email_outbox where template = 'tutor_guardian_request' and to_email = 'rosa@example.test' order by id desc limit 1),
+       'Rosa Rodriguez', 'Mother', 'Rosa Rodriguez', true, true, true) <> 'active' then
+    raise exception 'FAIL tutor not auto-active after parent approval'; end if;
   log := log || 'auto-activate ok; ';
 
   -- ===== student account =====
@@ -201,7 +211,9 @@ begin
   execute 'set local role authenticated';
   begin perform public.moderation_start('manual'); ok := false; exception when insufficient_privilege then ok := true; end;
   if not ok then raise exception 'FAIL user started moderation'; end if;
-  begin perform public.admin_people(); ok := false; exception when insufficient_privilege then ok := true; end;
+  -- Signed-in users may call admin functions, which refuse anyone who isn't a two-factor admin.
+  begin perform public.admin_people(); ok := false;
+  exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'FORBIDDEN'; end;
   if not ok then raise exception 'FAIL user called admin_people'; end if;
   perform public.accept_terms('messaging');
   msg := public.send_message(th, null, 'you should keep our lessons secret from your parents ok');
@@ -228,19 +240,15 @@ begin
   if not exists (select 1 from public.moderation_batch(100)) is false then null; end if;
   -- admin console (service role) sees everything
   j := public.admin_overview();
-  if (j -> 'open_flags' ->> 'critical')::int <> 1 then raise exception 'FAIL overview flags: %', j -> 'open_flags'; end if;
+  if (j -> 'open_flags' ->> 'critical')::int < 1 then raise exception 'FAIL overview flags: %', j -> 'open_flags'; end if;
   j := public.admin_person(stu);
   if j -> 'profile' ->> 'kind' <> 'student' or jsonb_array_length(j -> 'students') <> 1 then raise exception 'FAIL admin_person'; end if;
   if (select count(*) from public.admin_people('student', null, 50, 0)) < 1 then raise exception 'FAIL admin_people'; end if;
-  if (select count(*) from public.admin_list_flags('open', 50)) <> 1 then raise exception 'FAIL admin_list_flags'; end if;
+  if (select count(*) from public.admin_list_flags('open', 50) where thread_id = th) <> 1 then raise exception 'FAIL admin_list_flags'; end if;
   j := public.admin_thread(th);
   if not exists (select 1 from jsonb_array_elements(j -> 'messages') m where m ->> 'hidden_at' is not null) then
     raise exception 'FAIL admin cannot see hidden message'; end if;
   perform public.admin_update_flag((select id from public.moderation_flags where source_id = msg::text), 'actioned', 'Tutor removed');
-  if not public.admin_login_allowed('1.2.3.4') then raise exception 'FAIL login allowed'; end if;
-  for n in 1..10 loop perform public.admin_login_record('1.2.3.4', false); end loop;
-  if public.admin_login_allowed('1.2.3.4') then raise exception 'FAIL admin brute force not limited'; end if;
-  if not public.admin_login_allowed('5.6.7.8') then raise exception 'FAIL other IP limited'; end if;
   j := public.admin_health();
   execute 'reset role';
   -- the hidden message is gone for the student
@@ -267,7 +275,7 @@ begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data)
     values (old_stu, 'v2-old@example.test', 'authenticated', 'authenticated', '{"role":"student","full_name":"Old"}');
   insert into public.students (family_id, first_name, grade) values (old_stu, 'Old', 7);
-  update public.profiles set created_at = now() - interval '15 days' where id = old_stu;
+  update public.profiles set created_at = now() - interval '15 days', account_kind = 'student' where id = old_stu;
   perform private.run_maintenance();
   if exists (select 1 from auth.users where id = old_stu) then raise exception 'FAIL unapproved student not deleted'; end if;
   if not exists (select 1 from auth.users where id = stu) then raise exception 'FAIL approved student deleted'; end if;

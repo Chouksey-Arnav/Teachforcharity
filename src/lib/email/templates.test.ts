@@ -15,7 +15,8 @@ const TEMPLATES = [
   "session_requested", "session_countered", "session_booked", "session_reminder", "session_declined", "session_cancelled",
   "session_confirm_request", "confirm_reminder", "log_reminder", "new_message", "consent_receipt", "tutor_guardian_notice",
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
-  "incident_reported", "incident_received",
+  "incident_reported", "incident_received", "new_sign_in", "consent_pending", "consent_verified",
+  "consent_not_verified", "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew", "waitlist_match", "weekly_digest",
 ];
 
 describe("renderEmail", () => {
@@ -26,6 +27,84 @@ describe("renderEmail", () => {
     expect(r!.html).not.toContain("<script>");
     expect(r!.html).toContain("&lt;script&gt;");
     expect(r!.text.length).toBeGreaterThan(10);
+  });
+
+  it("tells a parent which child's account signed in, and doesn't offer them a password reset", () => {
+    const r = renderEmail("new_sign_in", { ...base, guardian: true, student_name: "Leo", device: "Chrome on iPhone" })!;
+    expect(r.subject).toContain("New sign-in");
+    expect(r.text).toContain("Leo’s account");
+    expect(r.text).toContain("Chrome on iPhone");
+    expect(r.html).not.toContain("forgot-password");
+  });
+
+  it("parent invites escape the child's name, link to parent sign-up and keep the child's details out of the footer", () => {
+    const r = renderEmail("parent_invite", { child_first: evil, parent_email: "mom@example.test", has_account: false })!;
+    expect(r.html).not.toContain("<script>");
+    expect(r.html).toContain("/signup?role=family&amp;email=mom%40example.test");
+    const existing = renderEmail("parent_invite", { child_first: "Leo", parent_email: "mom@example.test", has_account: true })!;
+    expect(existing.html).toContain("/dashboard/students/new");
+  });
+
+  it("consent receipts mention the phone call only when verification is on", () => {
+    const on = renderEmail("consent_receipt", { ...base, verification: true })!;
+    const off = renderEmail("consent_receipt", { ...base, verification: false })!;
+    expect(on.text).toContain("will call you at 919-555-0100");
+    expect(off.text).not.toContain("will call you");
+  });
+
+  it("account_exists points to sign-in and contains no code", () => {
+    const r = renderEmail("account_exists", { recipient_first: "" })!;
+    expect(r.html).toContain("/login");
+    expect(r.text).not.toMatch(/\b\d{6}\b/);
+  });
+
+  it("never puts the Meet link in lesson emails or calendar invites, even if one is passed", () => {
+    for (const t of ["session_booked", "session_reminder"]) {
+      const r = renderEmail(t, base)!;
+      expect(r.html).not.toContain("meet.google.com");
+      expect(r.text).not.toContain("meet.google.com");
+      for (const a of r.attachments ?? []) expect(Buffer.from(a.content, "base64").toString()).not.toContain("meet.google.com");
+    }
+  });
+
+  it("weekly series emails describe every week and attach one calendar event per lesson", () => {
+    const dates = [0, 7, 14, 21].map((d, i) => ({
+      start_iso: new Date(Date.UTC(2026, 9, 1 + d, 21)).toISOString(),
+      end_iso: new Date(Date.UTC(2026, 9, 1 + d, 21, 45)).toISOString(),
+      session_id: `s-${i}`,
+    }));
+    const series = { ...base, weeks: 4, weekly: "Thursdays at 5:00 PM ET", until: "Thursday, October 22 at 5:00 PM ET", dates };
+    const booked = renderEmail("session_booked", series)!;
+    expect(booked.subject).toBe("Booked: 4 weekly Clarinet lessons, Thursdays at 5:00 PM ET");
+    expect(booked.text).toContain("Thursdays at 5:00 PM ET, 4 weeks");
+    const ics = Buffer.from(booked.attachments![0].content, "base64").toString();
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(4);
+    expect(ics).toContain("UID:s-3@teachforacause");
+    expect(renderEmail("session_requested", series)!.subject).toContain("weekly Clarinet lessons");
+    expect(renderEmail("session_cancelled", { ...base, count: 3 })!.subject).toContain("3 Clarinet lessons");
+  });
+
+  it("confirmation emails carry a signed one-tap link and the practice notes", () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
+    const r = renderEmail("session_confirm_request", { ...base, session_id: "0b0c9f5e-1d2a-4b8e-9c3a-6f5e4d3c2b1a", practice: "Scales in F, 10 min a day" })!;
+    expect(r.html).toMatch(/\/confirm\/0b0c9f5e-1d2a-4b8e-9c3a-6f5e4d3c2b1a\.\d+\./);
+    expect(r.text).toContain("Scales in F, 10 min a day");
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const plain = renderEmail("confirm_reminder", { ...base, session_id: "0b0c9f5e-1d2a-4b8e-9c3a-6f5e4d3c2b1a" })!;
+    expect(plain.html).not.toContain("/confirm/");
+    expect(plain.html).toContain("/dashboard/lessons");
+  });
+
+  it("the weekly summary lists lessons, practice and what needs confirming", () => {
+    const r = renderEmail("weekly_digest", {
+      recipient_first: "Dana", student_name: "Leo", messages: 3, to_confirm: 1,
+      past: [{ when: "Thu, Oct 1 at 5:00 PM ET", subject: "Clarinet", tutor: "Maya R.", status: "completed", practice: "Long tones" }],
+      upcoming: [{ when: "Thu, Oct 8 at 5:00 PM ET", subject: "Clarinet", tutor: "Maya R." }],
+    })!;
+    expect(r.text).toContain("waiting for your confirmation");
+    expect(r.text).toContain("Long tones");
+    expect(r.text).toContain("Coming up: Clarinet with Maya R.");
+    expect(r.text).toContain("1 lesson needs your confirmation");
   });
 
   it("never includes message bodies in new-message emails", () => {

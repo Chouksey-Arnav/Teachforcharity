@@ -1,5 +1,6 @@
 import { SITE } from "../site";
 import { buildIcs } from "./ics";
+import { signLessonToken } from "../links";
 
 export interface RenderedEmail {
   subject: string;
@@ -82,6 +83,10 @@ function layout(b: Block): { html: string; text: string } {
 }
 
 const hi = (p: P) => `Hi ${esc(str(p.recipient_first) || "there")},`;
+/** True for a weekly series (2+ lessons). */
+const isSeries = (p: P) => Number(p.weeks) > 1;
+/** "Thursdays at 5:00 PM ET, 8 weeks (Oct 2 – Nov 20)" for a series; the single date otherwise. */
+const whenText = (p: P) => (isSeries(p) ? `${str(p.weekly)}, ${str(p.weeks)} weeks (${str(p.when)} to ${str(p.until)})` : str(p.when));
 const hiText = (p: P) => `Hi ${str(p.recipient_first) || "there"},`;
 const lessonsLink = (p: P) => link(`/dashboard/lessons${p.session_id ? `?focus=${encodeURIComponent(str(p.session_id))}` : ""}`);
 
@@ -95,27 +100,39 @@ function make(subject: string, b: Omit<Block, "textLines"> & { textLines?: strin
 export function renderEmail(template: string, p: P): RenderedEmail | null {
   switch (template) {
     case "session_requested":
-      return make(`${str(p.student_name)} wants a ${str(p.subject)} lesson — ${str(p.when)}`, {
-        heading: "You have a new lesson request",
+      return make(
+        isSeries(p)
+          ? `${str(p.student_name)} wants weekly ${str(p.subject)} lessons — ${str(p.weekly)}`
+          : `${str(p.student_name)} wants a ${str(p.subject)} lesson — ${str(p.when)}`,
+        {
+        heading: isSeries(p) ? "You have a weekly lesson request" : "You have a new lesson request",
         paragraphs: [
           hi(p),
-          `<strong>${esc(p.student_name)}</strong> (grade ${esc(p.student_grade)}) would like a ${esc(p.minutes)}-minute <strong>${esc(p.subject)}</strong> lesson with you. Check your dashboard to accept it, suggest another time, or decline.`,
+          isSeries(p)
+            ? `<strong>${esc(p.student_name)}</strong> (grade ${esc(p.student_grade)}) would like ${esc(p.weeks)} weekly ${esc(p.minutes)}-minute <strong>${esc(p.subject)}</strong> lessons with you. You can accept them all at once, suggest a different weekly time, or decline.`
+            : `<strong>${esc(p.student_name)}</strong> (grade ${esc(p.student_grade)}) would like a ${esc(p.minutes)}-minute <strong>${esc(p.subject)}</strong> lesson with you. Check your dashboard to accept it, suggest another time, or decline.`,
         ],
         details: [
-          ["When", esc(p.when)],
+          ["When", esc(whenText(p))],
           ["Length", `${esc(p.minutes)} minutes`],
           ...(p.note ? ([["Their note", esc(p.note)]] as [string, string][]) : []),
         ],
         cta: { label: "Review the request", href: lessonsLink(p) },
         note: "Requests expire automatically if the time passes without an answer.",
-      });
+        },
+      );
 
     case "session_countered":
-      return make(`New time suggested: ${str(p.when)}`, {
+      return make(`New time suggested: ${isSeries(p) ? str(p.weekly) : str(p.when)}`, {
         heading: "A different time was suggested",
-        paragraphs: [hi(p), `${esc(p.other_name)} suggested a new time for the ${esc(p.subject)} lesson.`],
+        paragraphs: [
+          hi(p),
+          isSeries(p)
+            ? `${esc(p.other_name)} suggested a new weekly time for the ${esc(p.weeks)} ${esc(p.subject)} lessons.`
+            : `${esc(p.other_name)} suggested a new time for the ${esc(p.subject)} lesson.`,
+        ],
         details: [
-          ["New time", esc(p.when)],
+          ["New time", esc(isSeries(p) ? `${str(p.weekly)}, starting ${str(p.when)}` : str(p.when))],
           ["Length", `${esc(p.minutes)} minutes`],
           ...(p.note ? ([["Note", esc(p.note)]] as [string, string][]) : []),
         ],
@@ -124,39 +141,47 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
 
     case "session_booked": {
       const role = str(p.role);
+      const dates = Array.isArray(p.dates)
+        ? (p.dates as { start_iso: string; end_iso: string; session_id: string }[])
+        : p.start_iso && p.end_iso
+          ? [{ start_iso: str(p.start_iso), end_iso: str(p.end_iso), session_id: str(p.session_id) }]
+          : [];
       const ics =
-        p.start_iso && p.end_iso && p.meet_url
+        dates.length
           ? buildIcs({
-              uid: str(p.session_id),
-              start: str(p.start_iso),
-              end: str(p.end_iso),
+              events: dates.map((d) => ({ uid: d.session_id, start: d.start_iso, end: d.end_iso })),
               summary: `${str(p.subject)} lesson${role === "tutor" ? ` with ${str(p.student_name)}` : ` with ${str(p.other_name)}`} · ${SITE.name}`,
-              description: `Join on Google Meet: ${str(p.meet_url)}\nLessons are never recorded. A parent or guardian must be reachable by phone or text during the lesson.\nManage: ${lessonsLink(p)}`,
-              location: str(p.meet_url),
+              description: `Join from your Lessons page — the Google Meet button appears 15 minutes before the start: ${lessonsLink(p)}\nLessons are never recorded. A parent or guardian must be home or nearby and reachable during the lesson.`,
+              location: lessonsLink(p),
             })
           : null;
       return make(
-        `Booked: ${str(p.subject)} lesson, ${str(p.when)}`,
+        isSeries(p) ? `Booked: ${str(p.weeks)} weekly ${str(p.subject)} lessons, ${str(p.weekly)}` : `Booked: ${str(p.subject)} lesson, ${str(p.when)}`,
         {
-          heading: role === "guardian" ? `${str(p.student_name)} booked a lesson` : "Your lesson is booked",
+          heading:
+            role === "guardian"
+              ? `${str(p.student_name)} booked ${isSeries(p) ? "weekly lessons" : "a lesson"}`
+              : isSeries(p)
+                ? "Your weekly lessons are booked"
+                : "Your lesson is booked",
           paragraphs: [
             hi(p),
             role === "tutor"
-              ? `You're teaching <strong>${esc(p.student_name)}</strong> ${esc(p.subject)}. Open your Meet a couple of minutes early.`
+              ? `You're teaching <strong>${esc(p.student_name)}</strong> ${esc(p.subject)}. Join from your Lessons page a couple of minutes early.`
               : role === "guardian"
                 ? `For your records: <strong>${esc(p.student_name)}</strong> booked a ${esc(p.subject)} lesson with volunteer tutor ${esc(p.other_name)}. You can see every lesson and message on your private parent page (use the link from your approval email).`
                 : `<strong>${esc(p.student_name)}</strong>'s ${esc(p.subject)} lesson with ${esc(p.other_name)} is confirmed.`,
           ],
           details: [
-            ["When", esc(p.when)],
+            ["When", esc(whenText(p))],
             ["Length", `${esc(p.minutes)} minutes`],
-            ["Google Meet", `<a href="${esc(p.meet_url)}" style="color:#1F5446">${esc(p.meet_url)}</a>`],
+            ["How to join", "The Google Meet button appears on your Lessons page 15 minutes before the start."],
           ],
           cta: { label: "View lesson", href: lessonsLink(p) },
           note:
             role === "tutor"
               ? "Reminder: never record lessons, keep all contact on the platform, and log the lesson afterward so the family can confirm it."
-              : "Reminder: a parent or guardian must be reachable by phone or text for the whole lesson. Lessons are never recorded. A calendar invite is attached.",
+              : `Reminder: a parent or guardian must be home or nearby and reachable for the whole lesson. Lessons are never recorded. ${isSeries(p) ? "Calendar invites for every week are attached." : "A calendar invite is attached."}`,
         },
         ics ? [{ name: "lesson.ics", content: Buffer.from(ics).toString("base64") }] : undefined,
       );
@@ -173,53 +198,56 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         ],
         details: [
           ["When", esc(p.when)],
-          ["Google Meet", `<a href="${esc(p.meet_url)}" style="color:#1F5446">${esc(p.meet_url)}</a>`],
+          ["How to join", "Open your Lessons page — the Google Meet button appears 15 minutes before the start."],
         ],
         cta: { label: "View lesson", href: lessonsLink(p) },
         note: "Need to cancel? Please do it from your dashboard as early as you can.",
       });
 
     case "session_declined":
-      return make(`Lesson request not accepted — ${str(p.when)}`, {
+      return make(`Lesson request not accepted — ${isSeries(p) ? str(p.weekly) : str(p.when)}`, {
         heading: "That time didn't work out",
         paragraphs: [
           hi(p),
-          `${esc(p.other_name)} couldn't take the ${esc(p.subject)} lesson on ${esc(p.when)}.${p.reason ? ` Their note: “${esc(p.reason)}”` : ""}`,
+          `${esc(p.other_name)} couldn't take the ${esc(p.subject)} ${isSeries(p) ? `lessons ${esc(p.weekly)} from ${esc(p.when)}` : `lesson on ${esc(p.when)}`}.${p.reason ? ` Their note: “${esc(p.reason)}”` : ""}`,
           "You can send a request for a different time, or look at other matches.",
         ],
         cta: { label: "Find another time", href: link("/dashboard/tutors") },
       });
 
     case "session_cancelled":
-      return make(`Cancelled: ${str(p.subject)} lesson, ${str(p.when)}`, {
-        heading: "A lesson was cancelled",
+      return make(Number(p.count) > 1 ? `Cancelled: ${str(p.count)} ${str(p.subject)} lessons from ${str(p.when)}` : `Cancelled: ${str(p.subject)} lesson, ${str(p.when)}`, {
+        heading: Number(p.count) > 1 ? "Lessons were cancelled" : "A lesson was cancelled",
         paragraphs: [
           hi(p),
-          `The ${esc(p.subject)} lesson${p.student_name ? ` for ${esc(p.student_name)}` : ""} on <strong>${esc(p.when)}</strong> was cancelled${p.other_name ? ` by ${esc(p.other_name)}` : ""}.${p.reason ? ` Note: “${esc(p.reason)}”` : ""}`,
+          Number(p.count) > 1
+            ? `${esc(p.count)} ${esc(p.subject)} lessons${p.student_name ? ` for ${esc(p.student_name)}` : ""}, starting <strong>${esc(p.when)}</strong>, were cancelled${p.other_name ? ` by ${esc(p.other_name)}` : ""}.${p.reason ? ` Note: “${esc(p.reason)}”` : ""}`
+            : `The ${esc(p.subject)} lesson${p.student_name ? ` for ${esc(p.student_name)}` : ""} on <strong>${esc(p.when)}</strong> was cancelled${p.other_name ? ` by ${esc(p.other_name)}` : ""}.${p.reason ? ` Note: “${esc(p.reason)}”` : ""}`,
         ],
         cta: { label: "Open dashboard", href: link("/dashboard/lessons") },
       });
 
     case "session_confirm_request":
-      return make(`Did ${str(p.student_name)}'s lesson happen?`, {
-        heading: "Please confirm the lesson",
+    case "confirm_reminder": {
+      const reminder = template === "confirm_reminder";
+      const token = signLessonToken(str(p.session_id));
+      const confirmUrl = token ? link(`/confirm/${encodeURIComponent(token)}`) : lessonsLink(p);
+      return make(reminder ? `Reminder: confirm ${str(p.student_name)}'s lesson` : `Did ${str(p.student_name)}'s lesson happen?`, {
+        heading: reminder ? "One quick click" : "Please confirm the lesson",
         paragraphs: [
           hi(p),
-          `${esc(p.other_name)} logged ${esc(p.student_name)}'s ${esc(p.subject)} lesson from ${esc(p.when)}. It takes one click to confirm whether it happened.`,
+          reminder
+            ? `We're still waiting to hear whether ${esc(p.student_name)}'s ${esc(p.subject)} lesson with ${esc(p.other_name)} on ${esc(p.when)} happened.`
+            : `${esc(p.other_name)} logged ${esc(p.student_name)}'s ${esc(p.subject)} lesson from ${esc(p.when)}. It takes one click to confirm whether it happened — no sign-in needed.`,
+          ...(p.practice
+            ? [`<strong>What to practice</strong>, from ${esc(p.other_name)}:<br><span style="white-space:pre-line">${esc(p.practice)}</span>`]
+            : []),
           "Your confirmation is what lets our partner nonprofit verify the tutor's volunteer hours — unconfirmed lessons don't count.",
         ],
-        cta: { label: "Confirm the lesson", href: lessonsLink(p) },
+        cta: { label: token ? "Yes, it happened — or report a problem" : "Confirm the lesson", href: confirmUrl },
+        note: token ? "The button opens a short page with two choices. The link works for 30 days and only for this lesson." : undefined,
       });
-
-    case "confirm_reminder":
-      return make(`Reminder: confirm ${str(p.student_name)}'s lesson`, {
-        heading: "One quick click",
-        paragraphs: [
-          hi(p),
-          `We're still waiting to hear whether ${esc(p.student_name)}'s ${esc(p.subject)} lesson with ${esc(p.other_name)} on ${esc(p.when)} happened.`,
-        ],
-        cta: { label: "Confirm or report a problem", href: lessonsLink(p) },
-      });
+    }
 
     case "log_reminder":
       return make(`Log your lesson with ${str(p.student_name)}`, {
@@ -243,10 +271,15 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
 
     case "consent_receipt":
       return make(`Your consent form for ${str(p.student_name)}`, {
-        heading: "Consent form received",
+        heading: p.verification ? "Consent received — we’ll call you to confirm" : "Consent form received",
         paragraphs: [
           hi(p),
-          `Thank you. This is your copy of the parent/guardian consent you signed for <strong>${esc(p.student_name)}</strong>. You agreed that:`,
+          ...(p.verification
+            ? [
+                `<strong>One more step:</strong> someone from the program will call you at <strong>${esc(p.guardian_phone)}</strong>, usually within two days, to confirm you’re ${esc(p.student_name)}’s parent or guardian. It takes about two minutes. Lessons and messaging start right after that call.`,
+              ]
+            : []),
+          `This is your copy of the parent/guardian consent you signed for <strong>${esc(p.student_name)}</strong>. You agreed that:`,
           "• Lessons happen only online, over Google Meet — never in person.<br>• Lessons are never recorded.<br>• A parent or guardian will be reachable by phone or text for the full length of every lesson.<br>• Concerns are reported through the site, reviewed promptly, and a tutor may be paused while a concern is reviewed.<br>• Lessons are always free. Donations to our partner are optional and go directly to them.<br>• Messages on the platform are filtered and may be reviewed by program administrators for safety.",
         ],
         details: [
@@ -262,6 +295,152 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           ? "Keep this email: the button opens your private parent page, where you can see every lesson and message and withdraw consent at any time. The link works for 30 days; you can always request a new one at " + esc(link("/guardian")) + "."
           : "You can withdraw consent at any time from your dashboard; any upcoming lessons will be cancelled.",
       });
+
+    case "parent_invite": {
+      const signupUrl = link(`/signup?role=family&email=${encodeURIComponent(str(p.parent_email))}&child=${encodeURIComponent(str(p.child_first))}`);
+      return make(`${str(p.child_first)} asked you to sign them up for free music lessons`, {
+        heading: `${str(p.child_first)} wants free music lessons`,
+        paragraphs: [
+          "Hello,",
+          `<strong>${esc(p.child_first)}</strong> asked us to email you about ${esc(SITE.name)}: free, one-on-one band and orchestra lessons for North Carolina middle schoolers, taught online by high school musicians.`,
+          "Middle schoolers can’t sign up on their own — a parent or guardian creates the account, adds their child, and signs a consent form. Nothing about your child is saved until you do.",
+          p.has_account
+            ? `You already have an account. Sign in and choose “Add a student” to add ${esc(p.child_first)}.`
+            : "It takes about five minutes.",
+        ],
+        cta: p.has_account ? { label: `Add ${str(p.child_first)}`, href: link("/dashboard/students/new") } : { label: "Sign up as a parent", href: signupUrl },
+        note: `Lessons are free, online only, never recorded, and a parent stays reachable during every lesson. See <a href="${esc(link("/safety"))}" style="color:#1F5446">how we keep students safe</a>.`,
+        footer: `You’re getting this because someone entered your email on ${esc(SITE.url.replace(/^https?:\/\//, ""))} and said you’re their parent or guardian. If you don’t know who this is, ignore this email — we delete the request after 14 days and won’t email you again unless asked.`,
+      });
+    }
+
+    case "consent_pending":
+      return make(`Parent to call: ${str(p.guardian_name)} (${str(p.student_name)})`, {
+        heading: "A parent is waiting for a verification call",
+        paragraphs: [
+          `<strong>${esc(p.guardian_name)}</strong> (${esc(p.relationship)}) signed consent for <strong>${esc(p.student_name)}</strong>${p.student_grade ? `, grade ${esc(p.student_grade)}` : ""}.`,
+          "Lessons and messaging stay locked until someone calls the number on the form and confirms they’re the parent or guardian. Aim to call within two days.",
+        ],
+        cta: { label: "Open the call list", href: link("/admin/consents") },
+        note: "Phone numbers are only shown in the admin console.",
+      });
+
+    case "consent_verified":
+      return make(`${str(p.student_name)} is all set for lessons`, {
+        heading: "Thanks — you’re verified",
+        paragraphs: [
+          hi(p),
+          p.student_account
+            ? `Thanks for taking our call. ${esc(p.student_name)} can now message tutors and request lessons. You can see every lesson and message from your parent page.`
+            : `Thanks for taking our call. ${esc(p.student_name)} can now be matched with tutors, and you can request lessons and message tutors from your dashboard.`,
+        ],
+        cta: p.student_account ? { label: "Open your parent page", href: link("/guardian") } : { label: "See tutor matches", href: link("/dashboard/tutors") },
+      });
+
+    case "consent_not_verified":
+      return make(`We couldn’t confirm consent for ${str(p.student_name)}`, {
+        heading: "We couldn’t confirm your consent",
+        paragraphs: [
+          hi(p),
+          `We weren’t able to confirm by phone that the consent for ${esc(p.student_name)} came from their parent or guardian, so it has been withdrawn and lessons stay locked.`,
+          `If this is a mistake, reply to this email${SITE.contactEmail ? ` or write to ${esc(SITE.contactEmail)}` : ""} with a good time to call, and sign the consent form again from your dashboard.`,
+        ],
+      });
+
+    case "tutor_guardian_request": {
+      const url = link(`/guardian/tutor/${encodeURIComponent(str(p.token))}`);
+      if (p.approved)
+        return make(`Your parent link for ${str(p.tutor_first)}`, {
+          heading: "Here’s your new link",
+          paragraphs: [hi(p), `Use this private link to see ${esc(p.tutor_first)}’s volunteer status or withdraw your approval. Earlier links no longer work.`],
+          cta: { label: "Open your parent page", href: url },
+          note: "The link works for 30 days. Don’t forward it.",
+          footer: `You asked for this link on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If you didn’t, you can ignore this email.`,
+        });
+      return make(`${p.reminder ? "Reminder: " : ""}${str(p.tutor_first)} needs your OK to volunteer as a music tutor`, {
+        heading: `Approve ${str(p.tutor_first)} to volunteer`,
+        paragraphs: [
+          hi(p),
+          `<strong>${esc(p.tutor_name)}</strong>${p.grade ? ` (grade ${esc(p.grade)}${p.school ? `, ${esc(p.school)}` : ""})` : ""} signed up to teach free music lessons to middle schoolers with ${esc(SITE.name)} and listed you as their parent or guardian.`,
+          "Because tutors are minors too, they can’t teach until a parent or guardian approves. The page below explains exactly what volunteering involves — one-on-one video lessons, never recorded, with every message monitored — and takes about two minutes.",
+        ],
+        cta: { label: "Review and approve", href: url },
+        note: `If you don’t approve, ${esc(p.tutor_first)}’s profile stays hidden. The link works for 30 days. If you don’t know who this is, ignore this email.${SITE.contactEmail ? ` Questions: ${esc(SITE.contactEmail)}` : ""}`,
+        footer: `You’re getting this because a high school student entered your email as their parent or guardian on ${esc(SITE.url.replace(/^https?:\/\//, ""))}.`,
+      });
+    }
+
+    case "tutor_guardian_approved":
+      return make("Your parent approved you to volunteer", {
+        heading: "One step closer!",
+        paragraphs: [
+          hi(p),
+          `${esc(p.guardian_first) || "Your parent"} approved you to volunteer.`,
+          p.needs_review
+            ? "Next, the program team reviews your profile — usually within a couple of days. We’ll email you the moment families can see you."
+            : "Your profile is live: families can now find you and request lessons.",
+        ],
+        cta: { label: "Open your dashboard", href: link("/dashboard") },
+      });
+
+    case "tutor_guardian_withdrew":
+      return make(`A parent withdrew approval for tutor ${str(p.tutor_name)}`, {
+        heading: "Parent withdrew approval",
+        paragraphs: [
+          `The parent or guardian of <strong>${esc(p.tutor_name)}</strong> withdrew their approval from their private link. The tutor is paused and their upcoming lessons were cancelled.`,
+          "Consider contacting the parent to understand why.",
+        ],
+        cta: { label: "Open the tutor", href: link(`/admin/people/${encodeURIComponent(str(p.tutor_id))}`) },
+      });
+
+    case "waitlist_match":
+      return make(`A ${str(p.subject)} tutor just joined`, {
+        heading: `Good news for ${str(p.student_name)}`,
+        paragraphs: [
+          hi(p),
+          `A volunteer tutor who teaches <strong>${esc(p.subject)}</strong> just became available. You asked us to let you know.`,
+          "Tutors fill up quickly — have a look and request a time if they’re a good fit.",
+        ],
+        cta: { label: "See tutor matches", href: link(`/dashboard/tutors${p.student_id ? `?student=${encodeURIComponent(str(p.student_id))}` : ""}`) },
+      });
+
+    case "weekly_digest": {
+      type Past = { when: string; subject: string; tutor: string; status: string; practice?: string | null };
+      type Next = { when: string; subject: string; tutor: string };
+      const past = (Array.isArray(p.past) ? p.past : []) as Past[];
+      const upcoming = (Array.isArray(p.upcoming) ? p.upcoming : []) as Next[];
+      const statusWord: Record<string, string> = {
+        scheduled: "not logged by the tutor yet",
+        completed: "waiting for your confirmation",
+        confirmed: "confirmed",
+        verified: "confirmed",
+        disputed: "under review",
+      };
+      const practice = past.filter((x) => x.practice);
+      return make(`${str(p.student_name)}’s week in music`, {
+        heading: `${str(p.student_name)}’s week`,
+        paragraphs: [
+          hi(p),
+          past.length
+            ? `This week: ${past.map((x) => `${esc(x.subject)} with ${esc(x.tutor)} on ${esc(x.when)} (${esc(statusWord[x.status] ?? x.status)})`).join("; ")}.`
+            : "No lessons this past week.",
+          ...(practice.length
+            ? [`<strong>What to practice:</strong><br>${practice.map((x) => `<span style="white-space:pre-line">• ${esc(x.practice)}</span>`).join("<br>")}`]
+            : []),
+          upcoming.length
+            ? `Coming up: ${upcoming.map((x) => `${esc(x.subject)} with ${esc(x.tutor)} on ${esc(x.when)}`).join("; ")}.`
+            : "Nothing booked for the coming week yet.",
+          Number(p.messages) > 0
+            ? `${esc(p.messages)} message${Number(p.messages) === 1 ? " was" : "s were"} exchanged with tutors this week${p.guardian ? " — you can read them all on your parent page" : " — you can read them all in Messages"}.`
+            : "",
+          Number(p.to_confirm) > 0 ? `<strong>${esc(p.to_confirm)} lesson${Number(p.to_confirm) === 1 ? " needs" : "s need"} your confirmation</strong> so the tutor’s hours count.` : "",
+        ].filter(Boolean),
+        cta: p.guardian ? { label: "Open your parent page", href: link("/guardian") } : { label: "Open your dashboard", href: link("/dashboard/lessons") },
+        footer: p.guardian
+          ? undefined
+          : `You get this summary on Sundays when there’s lesson activity. Turn it off in your <a href="${esc(link("/dashboard/profile"))}" style="color:#1F5446">account settings</a>.`,
+      });
+    }
 
     case "tutor_guardian_notice":
       return make(`${str(p.tutor_name)} signed up to volunteer with ${SITE.name}`, {
@@ -369,6 +548,37 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         footer: `You’re getting this because this email address was entered on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If that wasn’t you, ignore this email — nothing will happen${reset ? " and your password stays the same" : ""}.`,
       });
     }
+
+    case "account_exists":
+      return make(`You already have a ${SITE.name} account`, {
+        heading: "You already have an account",
+        paragraphs: [
+          hi(p),
+          `Someone (hopefully you) just tried to create a new ${esc(SITE.name)} account with this email address. You already have one, so we didn’t create another.`,
+          "Sign in with your password. If you’ve forgotten it, use “Forgot password?” on the sign-in page to get a reset code.",
+        ],
+        cta: { label: "Sign in", href: link("/login") },
+        footer: `You’re getting this because this email address was entered on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If that wasn’t you, you can ignore this email — nothing about your account changed.`,
+      });
+
+    case "new_sign_in":
+      return make(`New sign-in to your ${SITE.name} account`, {
+        heading: p.guardian ? `New sign-in to ${str(p.student_name)}’s account` : "New sign-in to your account",
+        paragraphs: [
+          hi(p),
+          p.guardian
+            ? `${esc(p.student_name)}’s ${esc(SITE.name)} account was just signed in to from a device we haven’t seen before.`
+            : `Your ${esc(SITE.name)} account was just signed in to from a device we haven’t seen before.`,
+        ],
+        details: [
+          ["When", esc(p.when)],
+          ["Device", esc(p.device)],
+        ],
+        note: p.guardian
+          ? "If this wasn’t your child, reply to this email or report a concern from your parent page."
+          : "If this was you, there’s nothing to do. If it wasn’t, reset your password now — that signs out every other device.",
+        cta: p.guardian ? undefined : { label: "Reset my password", href: link("/forgot-password") },
+      });
 
     case "guardian_invite":
     case "guardian_link": {

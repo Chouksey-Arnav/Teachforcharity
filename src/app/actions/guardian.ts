@@ -122,3 +122,48 @@ export async function guardianRequestLink(_: ActionState, form: FormData): Promi
   // Same answer whether or not the email is on file.
   return { ok: true, message: "If that email belongs to a parent or guardian on file, a new link is on its way. Check spam if you don’t see it in a few minutes." };
 }
+
+// ---------------------------------------------------------------------------
+// Parents of tutors: approve (or withdraw approval for) their teen volunteering
+// ---------------------------------------------------------------------------
+const tutorApproval = z.object({
+  token,
+  name: z.string().trim().min(2, "Enter your full name.").max(120),
+  relationship: z.string().trim().min(2, "Enter your relationship to the tutor.").max(40),
+  signature: z.string().trim().min(2, "Type your full name to sign.").max(120),
+  adultGuardian: z.literal(true, { message: "Please confirm you're the parent or legal guardian and 18 or older." }),
+  readAgreement: z.literal(true, { message: "Please confirm you've read the Tutor Agreement." }),
+  understandsFormat: z.literal(true, { message: "Please confirm you understand how lessons work." }),
+});
+
+export async function tutorGuardianApprove(input: z.input<typeof tutorApproval>): Promise<ActionState<{ status: string }>> {
+  const p = tutorApproval.safeParse(input);
+  if (!p.success) {
+    if (p.error.issues.some((i) => i.path[0] === "token")) return BAD_LINK;
+    return { ok: false, error: { message: p.error.issues[0].message } };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("tutor_guardian_approve", {
+    p_token: p.data.token,
+    p_name: p.data.name,
+    p_relationship: p.data.relationship,
+    p_signature: p.data.signature,
+    p_adult_guardian: true,
+    p_read_agreement: true,
+    p_understands_format: true,
+  });
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  revalidatePath(`/guardian/tutor/${p.data.token}`);
+  return { ok: true, data: { status: data as string } };
+}
+
+export async function tutorGuardianWithdraw(input: { token: string }): Promise<ActionState> {
+  if (!token.safeParse(input.token).success) return BAD_LINK;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("tutor_guardian_withdraw", { p_token: input.token });
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  revalidatePath(`/guardian/tutor/${input.token}`);
+  return { ok: true, message: "Approval withdrawn. The tutor profile is paused and any upcoming lessons were cancelled." };
+}

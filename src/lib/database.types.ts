@@ -14,33 +14,13 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_login_attempts: {
-        Row: {
-          created_at: string
-          id: number
-          ip: string | null
-          ok: boolean
-        }
-        Insert: {
-          created_at?: string
-          id?: never
-          ip?: string | null
-          ok: boolean
-        }
-        Update: {
-          created_at?: string
-          id?: never
-          ip?: string | null
-          ok?: boolean
-        }
-        Relationships: []
-      }
       app_settings: {
         Row: {
           admin_emails: string[]
           consent_version: string
           id: boolean
           messaging_terms_version: string
+          require_consent_verification: boolean
           require_tutor_approval: boolean
           terms_version: string
           tutor_agreement_version: string
@@ -51,6 +31,7 @@ export type Database = {
           consent_version?: string
           id?: boolean
           messaging_terms_version?: string
+          require_consent_verification?: boolean
           require_tutor_approval?: boolean
           terms_version?: string
           tutor_agreement_version?: string
@@ -61,6 +42,7 @@ export type Database = {
           consent_version?: string
           id?: boolean
           messaging_terms_version?: string
+          require_consent_verification?: boolean
           require_tutor_approval?: boolean
           terms_version?: string
           tutor_agreement_version?: string
@@ -124,6 +106,10 @@ export type Database = {
           signed_at: string
           student_id: string
           user_agent: string | null
+          verification_note: string | null
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
           version: string
         }
         Insert: {
@@ -143,6 +129,10 @@ export type Database = {
           signed_at?: string
           student_id: string
           user_agent?: string | null
+          verification_note?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           version: string
         }
         Update: {
@@ -162,6 +152,10 @@ export type Database = {
           signed_at?: string
           student_id?: string
           user_agent?: string | null
+          verification_note?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           version?: string
         }
         Relationships: [
@@ -177,6 +171,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -440,6 +441,133 @@ export type Database = {
           },
         ]
       }
+      instrument_waitlist: {
+        Row: {
+          created_at: string
+          notified_at: string | null
+          student_id: string
+          subject_id: string
+        }
+        Insert: {
+          created_at?: string
+          notified_at?: string | null
+          student_id: string
+          subject_id: string
+        }
+        Update: {
+          created_at?: string
+          notified_at?: string | null
+          student_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_waitlist_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instrument_waitlist_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      known_devices: {
+        Row: {
+          device_hash: string
+          first_seen: string
+          label: string
+          last_seen: string
+          user_id: string
+        }
+        Insert: {
+          device_hash: string
+          first_seen?: string
+          label?: string
+          last_seen?: string
+          user_id: string
+        }
+        Update: {
+          device_hash?: string
+          first_seen?: string
+          label?: string
+          last_seen?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "known_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_series: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          student_id: string
+          subject_id: string
+          tutor_id: string
+          weeks: number
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          student_id: string
+          subject_id: string
+          tutor_id: string
+          weeks: number
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          student_id?: string
+          subject_id?: string
+          tutor_id?: string
+          weeks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_series_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_series_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_series_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_series_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           audience: string
@@ -667,6 +795,36 @@ export type Database = {
         }
         Relationships: []
       }
+      parent_invites: {
+        Row: {
+          child_first_name: string
+          created_at: string
+          id: string
+          ip_hash: string | null
+          last_sent_at: string
+          parent_email: string
+          send_count: number
+        }
+        Insert: {
+          child_first_name: string
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          last_sent_at?: string
+          parent_email: string
+          send_count?: number
+        }
+        Update: {
+          child_first_name?: string
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          last_sent_at?: string
+          parent_email?: string
+          send_count?: number
+        }
+        Relationships: []
+      }
       partners: {
         Row: {
           cause_description: string
@@ -728,6 +886,7 @@ export type Database = {
           terms_accepted_at: string | null
           terms_version: string | null
           updated_at: string
+          weekly_digest: boolean
         }
         Insert: {
           account_kind?: string | null
@@ -747,6 +906,7 @@ export type Database = {
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string
+          weekly_digest?: boolean
         }
         Update: {
           account_kind?: string | null
@@ -766,6 +926,7 @@ export type Database = {
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string
+          weekly_digest?: boolean
         }
         Relationships: [
           {
@@ -773,6 +934,47 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          label: string | null
+          last_sent_at: string | null
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          label?: string | null
+          last_sent_at?: string | null
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          label?: string | null
+          last_sent_at?: string | null
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -834,18 +1036,23 @@ export type Database = {
           duration_minutes: number
           end_at: string
           family_id: string
+          family_join_ack_at: string | null
           family_responded_at: string | null
           family_response_note: string | null
           id: string
+          practice_plan: string | null
           proposal_round: number
           proposed_by: string
           request_note: string | null
           review_note: string | null
+          series_id: string | null
+          series_index: number | null
           start_at: string
           status: Database["public"]["Enums"]["session_status"]
           student_id: string
           subject_id: string
           tutor_id: string
+          tutor_join_ack_at: string | null
           tutor_log_note: string | null
           tutor_logged_at: string | null
           updated_at: string
@@ -860,18 +1067,23 @@ export type Database = {
           duration_minutes: number
           end_at: string
           family_id: string
+          family_join_ack_at?: string | null
           family_responded_at?: string | null
           family_response_note?: string | null
           id?: string
+          practice_plan?: string | null
           proposal_round?: number
           proposed_by: string
           request_note?: string | null
           review_note?: string | null
+          series_id?: string | null
+          series_index?: number | null
           start_at: string
           status?: Database["public"]["Enums"]["session_status"]
           student_id: string
           subject_id: string
           tutor_id: string
+          tutor_join_ack_at?: string | null
           tutor_log_note?: string | null
           tutor_logged_at?: string | null
           updated_at?: string
@@ -886,18 +1098,23 @@ export type Database = {
           duration_minutes?: number
           end_at?: string
           family_id?: string
+          family_join_ack_at?: string | null
           family_responded_at?: string | null
           family_response_note?: string | null
           id?: string
+          practice_plan?: string | null
           proposal_round?: number
           proposed_by?: string
           request_note?: string | null
           review_note?: string | null
+          series_id?: string | null
+          series_index?: number | null
           start_at?: string
           status?: Database["public"]["Enums"]["session_status"]
           student_id?: string
           subject_id?: string
           tutor_id?: string
+          tutor_join_ack_at?: string | null
           tutor_log_note?: string | null
           tutor_logged_at?: string | null
           updated_at?: string
@@ -917,6 +1134,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_series"
             referencedColumns: ["id"]
           },
           {
@@ -1164,6 +1388,35 @@ export type Database = {
           },
         ]
       }
+      tutor_guardian_links: {
+        Row: {
+          created_at: string
+          expires_at: string
+          token_hash: string
+          tutor_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          token_hash: string
+          tutor_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          token_hash?: string
+          tutor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_guardian_links_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: true
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tutor_offers: {
         Row: {
           created_at: string
@@ -1226,7 +1479,12 @@ export type Database = {
           created_at: string
           explain_style: string | null
           grade: number | null
+          guardian_approved_at: string | null
+          guardian_approved_name: string | null
+          guardian_approved_relationship: string | null
           guardian_email: string | null
+          guardian_invite_count: number
+          guardian_last_invited_at: string | null
           guardian_name: string | null
           guardian_phone: string | null
           interests: string[]
@@ -1242,6 +1500,7 @@ export type Database = {
           teaching_style: string | null
           updated_at: string
           user_id: string
+          verify_code: string | null
         }
         Insert: {
           accepting_students?: boolean
@@ -1255,7 +1514,12 @@ export type Database = {
           created_at?: string
           explain_style?: string | null
           grade?: number | null
+          guardian_approved_at?: string | null
+          guardian_approved_name?: string | null
+          guardian_approved_relationship?: string | null
           guardian_email?: string | null
+          guardian_invite_count?: number
+          guardian_last_invited_at?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
           interests?: string[]
@@ -1271,6 +1535,7 @@ export type Database = {
           teaching_style?: string | null
           updated_at?: string
           user_id: string
+          verify_code?: string | null
         }
         Update: {
           accepting_students?: boolean
@@ -1284,7 +1549,12 @@ export type Database = {
           created_at?: string
           explain_style?: string | null
           grade?: number | null
+          guardian_approved_at?: string | null
+          guardian_approved_name?: string | null
+          guardian_approved_relationship?: string | null
           guardian_email?: string | null
+          guardian_invite_count?: number
+          guardian_last_invited_at?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
           interests?: string[]
@@ -1300,6 +1570,7 @@ export type Database = {
           teaching_style?: string | null
           updated_at?: string
           user_id?: string
+          verify_code?: string | null
         }
         Relationships: [
           {
@@ -1369,7 +1640,6 @@ export type Database = {
     }
     Functions: {
       accept_terms: { Args: { p_kind: string }; Returns: undefined }
-      admin_cron_http: { Args: never; Returns: Json }
       admin_activity: {
         Args: { p_action?: string; p_before?: number; p_limit?: number }
         Returns: {
@@ -1384,6 +1654,7 @@ export type Database = {
           target_type: string
         }[]
       }
+      admin_cron_http: { Args: never; Returns: Json }
       admin_erase_account: {
         Args: { p_reason: string; p_user: string }
         Returns: string
@@ -1403,6 +1674,30 @@ export type Database = {
       admin_hide_message: {
         Args: { p_hide: boolean; p_message: string }
         Returns: undefined
+      }
+      admin_list_consent_checks: {
+        Args: { p_status?: string }
+        Returns: {
+          account_created_at: string
+          account_email: string
+          account_id: string
+          account_kind: string
+          account_name: string
+          guardian_name: string
+          id: string
+          phone: string
+          phone_used_by_other_families: number
+          relationship: string
+          signed_at: string
+          student_county: string
+          student_grade: number
+          student_id: string
+          student_name: string
+          verification_note: string
+          verification_status: string
+          verified_at: string
+          verified_by_name: string
+        }[]
       }
       admin_list_families: {
         Args: { p_search?: string }
@@ -1533,11 +1828,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      admin_login_allowed: { Args: { p_ip: string }; Returns: boolean }
-      admin_login_record: {
-        Args: { p_ip: string; p_ok: boolean }
-        Returns: undefined
-      }
       admin_overview: { Args: never; Returns: Json }
       admin_people: {
         Args: {
@@ -1610,7 +1900,15 @@ export type Database = {
         Returns: undefined
       }
       admin_update_settings: {
-        Args: { p_admin_emails: string[]; p_require_tutor_approval: boolean }
+        Args: {
+          p_admin_emails: string[]
+          p_require_consent_verification?: boolean
+          p_require_tutor_approval: boolean
+        }
+        Returns: undefined
+      }
+      admin_verify_consent: {
+        Args: { p_consent: string; p_note: string; p_verified: boolean }
         Returns: undefined
       }
       attest_guardian: { Args: never; Returns: undefined }
@@ -1622,8 +1920,8 @@ export type Database = {
         }[]
       }
       cancel_session: {
-        Args: { p_reason?: string; p_session: string }
-        Returns: undefined
+        Args: { p_reason?: string; p_scope?: string; p_session: string }
+        Returns: number
       }
       check_email_code: {
         Args: { p_code_hash: string; p_email: string; p_purpose: string }
@@ -1657,6 +1955,15 @@ export type Database = {
         Args: { p_email: string; p_purpose: string; p_send_id?: number }
         Returns: undefined
       }
+      complete_onboarding: { Args: never; Returns: Json }
+      confirm_session: {
+        Args: { p_happened: boolean; p_note?: string; p_session: string }
+        Returns: Database["public"]["Enums"]["session_status"]
+      }
+      confirm_session_by_link: {
+        Args: { p_happened: boolean; p_note?: string; p_session: string }
+        Returns: Database["public"]["Enums"]["session_status"]
+      }
       connected_student_kinds: {
         Args: never
         Returns: {
@@ -1665,15 +1972,11 @@ export type Database = {
           student_id: string
         }[]
       }
-      complete_onboarding: { Args: never; Returns: Json }
-      confirm_session: {
-        Args: { p_happened: boolean; p_note?: string; p_session: string }
-        Returns: Database["public"]["Enums"]["session_status"]
-      }
       finish_outbox: {
         Args: { p_error?: string; p_id: number; p_ok: boolean }
         Returns: undefined
       }
+      forget_push_devices: { Args: never; Returns: undefined }
       get_public_config: { Args: never; Returns: Json }
       guardian_delete_account: {
         Args: { p_confirm: string; p_token: string }
@@ -1709,6 +2012,7 @@ export type Database = {
         Returns: string
       }
       guardian_view: { Args: { p_token: string }; Returns: Json }
+      hours_certificate: { Args: { p_code: string }; Returns: Json }
       issue_email_code: {
         Args: {
           p_code_hash: string
@@ -1719,6 +2023,8 @@ export type Database = {
         }
         Returns: number
       }
+      join_lesson: { Args: { p_session: string }; Returns: string }
+      lesson_for_link: { Args: { p_session: string }; Returns: Json }
       list_students_for_tutor: {
         Args: {
           p_limit?: number
@@ -1788,7 +2094,12 @@ export type Database = {
         Returns: undefined
       }
       log_session: {
-        Args: { p_happened: boolean; p_note?: string; p_session: string }
+        Args: {
+          p_happened: boolean
+          p_note?: string
+          p_practice?: string
+          p_session: string
+        }
         Returns: Database["public"]["Enums"]["session_status"]
       }
       mark_thread_read: { Args: { p_thread: string }; Returns: undefined }
@@ -1864,12 +2175,17 @@ export type Database = {
           family_responded_at: string
           family_response_note: string
           id: string
-          meet_url: string
+          join_closes_at: string
+          join_opens_at: string
           my_side: string
+          practice_plan: string
           proposal_round: number
           proposed_by: string
           request_note: string
           review_note: string
+          series_id: string
+          series_index: number
+          series_size: number
           start_at: string
           status: Database["public"]["Enums"]["session_status"]
           student_grade: number
@@ -1905,6 +2221,11 @@ export type Database = {
           unread: boolean
         }[]
       }
+      my_verify_code: { Args: { p_action?: string }; Returns: string }
+      note_sign_in: {
+        Args: { p_device_hash: string; p_label: string; p_user: string }
+        Returns: boolean
+      }
       report_incident: {
         Args: {
           p_category: string
@@ -1916,6 +2237,14 @@ export type Database = {
         }
         Returns: string
       }
+      request_parent_invite: {
+        Args: {
+          p_child_first: string
+          p_ip_hash?: string
+          p_parent_email: string
+        }
+        Returns: string
+      }
       request_session: {
         Args: {
           p_minutes: number
@@ -1924,9 +2253,11 @@ export type Database = {
           p_student: string
           p_subject: string
           p_tutor: string
+          p_weeks?: number
         }
         Returns: string
       }
+      resend_tutor_guardian_request: { Args: never; Returns: undefined }
       resolve_dispute: {
         Args: { p_happened: boolean; p_note: string; p_session: string }
         Returns: undefined
@@ -2003,9 +2334,22 @@ export type Database = {
       }
       revoke_consent: { Args: { p_student: string }; Returns: number }
       revoke_user_sessions: { Args: { p_user: string }; Returns: undefined }
+      save_push_subscription: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_label?: string
+          p_p256dh: string
+        }
+        Returns: string
+      }
       send_message: {
         Args: { p_body?: string; p_template?: string; p_thread: string }
         Returns: string
+      }
+      set_waitlist: {
+        Args: { p_on: boolean; p_student: string; p_subject: string }
+        Returns: undefined
       }
       sign_consent: {
         Args: {
@@ -2042,9 +2386,34 @@ export type Database = {
         Args: { p_email: string; p_name: string }
         Returns: undefined
       }
+      tutor_busy_times: {
+        Args: { p_from: string; p_to: string; p_tutor: string }
+        Returns: {
+          end_at: string
+          start_at: string
+        }[]
+      }
+      tutor_guardian_approve: {
+        Args: {
+          p_adult_guardian: boolean
+          p_name: string
+          p_read_agreement: boolean
+          p_relationship: string
+          p_signature: string
+          p_token: string
+          p_understands_format: boolean
+        }
+        Returns: Database["public"]["Enums"]["tutor_status"]
+      }
+      tutor_guardian_view: { Args: { p_token: string }; Returns: Json }
+      tutor_guardian_withdraw: { Args: { p_token: string }; Returns: undefined }
       tutor_offer: {
         Args: { p_note?: string; p_student: string; p_subject: string }
         Returns: string
+      }
+      tutor_update_guardian: {
+        Args: { p_email: string; p_name: string; p_phone?: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -2080,12 +2449,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2109,11 +2478,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2134,11 +2503,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2159,11 +2528,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2176,11 +2545,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

@@ -38,7 +38,7 @@ export function TutorCard({
   const subjects = match ? [match.subject, ...tutor.subjects.filter((s) => s.subjectId !== match.subject.subjectId)] : tutor.subjects;
   const primary = subjects[0];
   return (
-    <article className={cn("group flex flex-col rounded-2xl border bg-card p-5 shadow-card transition hover:shadow-lift", match?.tier === "full" ? "border-line opacity-80" : "border-line")}>
+    <article className={cn("group flex min-w-0 flex-col rounded-2xl border bg-card p-5 shadow-card transition hover:shadow-lift", match?.tier === "full" ? "border-line opacity-80" : "border-line")}>
       <div className="flex items-start gap-4">
         <Avatar name={tutor.displayName} path={tutor.avatarPath} size={56} />
         <div className="min-w-0 flex-1">

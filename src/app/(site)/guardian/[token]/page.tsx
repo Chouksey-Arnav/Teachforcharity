@@ -31,7 +31,16 @@ interface GuardianData {
     availability: string[];
     subjects: { name: string; level: Level }[];
   };
-  consent: { signed_at: string; guardian_name: string; relationship: string; phone: string; version: string } | null;
+  consent: {
+    signed_at: string;
+    guardian_name: string;
+    relationship: string;
+    phone: string;
+    version: string;
+    verification_status: "pending" | "verified" | "rejected";
+    /** Whether this consent currently unlocks lessons (signed and, if required, phone-checked). */
+    active: boolean;
+  } | null;
   lessons: { id: string; status: string; start_at: string; minutes: number; subject: string; tutor: string }[];
   threads: { id: string; tutor: string; tutor_id: string; messages: { from: "tutor" | "student" | "system"; body: string; at: string }[] }[];
 }
@@ -67,7 +76,12 @@ export default async function GuardianPage({ params }: PageProps<"/guardian/[tok
         {d.consent ? `${name}’s lessons` : `${name} wants free music lessons`}
       </h1>
 
-      {d.consent ? (
+      {d.consent && !d.consent.active ? (
+        <Notice tone="info" className="mt-6" title="Thanks — we’ll call you to confirm">
+          You signed on {formatDate(d.consent.signed_at)}. Someone from the program will call {d.consent.phone}, usually within two days, to confirm
+          you’re {name}’s parent or guardian. {name} can message tutors and book lessons right after that call.
+        </Notice>
+      ) : d.consent ? (
         <Notice tone="success" className="mt-6" title={`Approved on ${formatDate(d.consent.signed_at)}`}>
           Signed by {d.consent.guardian_name} ({d.consent.relationship}). You’ll get an email whenever {name} books a lesson or a tutor reaches out.
         </Notice>

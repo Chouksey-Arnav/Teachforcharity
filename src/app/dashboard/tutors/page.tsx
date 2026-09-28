@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Search, Sparkles } from "lucide-react";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCandidates, getCurrentTutorIds, getFamilyStudents, relatedSubjectIds, searchTutors, toStudentProfile } from "@/lib/data";
+import { consentState, getCandidates, getCurrentTutorIds, getFamilyStudents, relatedSubjectIds, searchTutors, toStudentProfile, type ConsentState } from "@/lib/data";
 import { matchTutors, type Tier } from "@/lib/matching";
 import { LEVEL_INFO } from "@/lib/constants";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -12,6 +12,7 @@ import { Notice } from "@/components/ui/notice";
 import { Empty } from "@/components/ui/empty";
 import { LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { WaitlistButton } from "@/components/dashboard/waitlist-button";
 
 export const metadata: Metadata = { title: "Find tutors" };
 
@@ -31,7 +32,7 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
   const supabase = await createClient();
   const config = await getPublicConfig();
   const [students, { data: subjects }] = await Promise.all([
-    getFamilyStudents(supabase, viewer.id, config?.consent_version),
+    getFamilyStudents(supabase, viewer.id, config),
     supabase.from("subjects").select("id, slug, name, family").eq("is_active", true).order("name"),
   ]);
   const view = sp.view === "all" ? "all" : "matches";
@@ -81,7 +82,7 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
             Add a student and their instrument to see ranked matches.
           </Empty>
         ) : (
-          <MatchesView studentId={student.id} targetId={target.subject_id} qs={qs} students={ready} subjects={subjects ?? []} consented={Boolean(student.consent)} />
+          <MatchesView studentId={student.id} targetId={target.subject_id} qs={qs} students={ready} subjects={subjects ?? []} consent={consentState(student)} phone={student.consent?.phone ?? null} />
         )
       ) : (
         <BrowseView q={q} filterSubject={filterSubject} page={page} subjects={subjects ?? []} qs={qs} studentId={student?.id} />
@@ -95,19 +96,28 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
     qs,
     students,
     subjects,
-    consented,
+    consent,
+    phone,
   }: {
     studentId: string;
     targetId: string;
     qs: (p: Record<string, string | undefined>) => string;
     students: typeof ready;
     subjects: { id: string; slug: string; name: string; family: string }[];
-    consented: boolean;
+    consent: ConsentState;
+    phone: string | null;
   }) {
     const s = students.find((x) => x.id === studentId)!;
     const t = s.subjects.find((x) => x.subject_id === targetId)!;
     const [cands, current] = await Promise.all([getCandidates(supabase, relatedSubjectIds(t.slug, subjects)), getCurrentTutorIds(supabase, s.id)]);
     const matches = matchTutors(toStudentProfile(s, current), t.subject_id, cands);
+    const nobodyOpen = !matches.some((m) => m.canRequest);
+    const { data: waiting } = nobodyOpen
+      ? await supabase.from("instrument_waitlist").select("notified_at").eq("student_id", s.id).eq("subject_id", t.subject_id).maybeSingle()
+      : { data: null };
+    const waitlist = nobodyOpen ? (
+      <WaitlistButton studentId={s.id} subjectId={t.subject_id} subjectName={t.name} joined={Boolean(waiting && !waiting.notified_at)} />
+    ) : null;
     const tiers = (["ideal", "stretch", "related", "full"] as Tier[]).map((tier) => ({ tier, items: matches.filter((m) => m.tier === tier) })).filter((g) => g.items.length);
 
     return (
@@ -150,7 +160,14 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
           </div>
         </div>
 
-        {!consented &&
+        {consent === "pending" && (
+          <Notice tone="info" className="mb-6" title={isStudent ? "Your parent said yes — one quick check left" : "We’ll call you to confirm consent"}>
+            {isStudent
+              ? "Someone from the program will call your parent to make sure it was really them. You can request lessons right after that call."
+              : `Someone from the program will call ${phone ?? "the number on your form"}, usually within two days, to confirm you’re the parent or guardian. You can request lessons right after that call.`}
+          </Notice>
+        )}
+        {consent === "none" &&
           (isStudent ? (
             <Notice tone="warning" className="mb-6" title="Waiting for your parent’s OK" action={<LinkButton href="/dashboard" size="sm" variant="secondary">Resend</LinkButton>}>
               Look around and find tutors you like. You can request a lesson as soon as your parent approves your account from the email we sent them.
@@ -164,10 +181,17 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
         {matches.length === 0 ? (
           <Empty title={`No ${t.name.toLowerCase()} tutors yet`}>
             We don’t have an approved tutor for {t.name.toLowerCase()} yet. The program team can see that {s.first_name} is waiting and recruits for the
-            instruments families need most. We’ll show matches here as soon as one joins.
+            instruments families need most.
+            {waitlist}
           </Empty>
         ) : (
           <div className="space-y-12">
+            {waitlist && (
+              <div className="rounded-2xl border border-brass-300/70 bg-brass-50 p-5 text-sm leading-relaxed text-ink-2">
+                Every {t.name.toLowerCase()} tutor is full or not taking new students right now. New tutors join often.
+                {waitlist}
+              </div>
+            )}
             {tiers.map(({ tier, items }) => (
               <section key={tier}>
                 <div className="mb-4">

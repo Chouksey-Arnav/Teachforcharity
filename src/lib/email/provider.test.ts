@@ -84,8 +84,9 @@ describe("Nodemailer delivery", () => {
     expect(m.from?.value[0]).toMatchObject({ address: "lessons@example.test", name: "Teach for a Cause" });
     expect(m.to && !Array.isArray(m.to) && m.to.value[0].address).toBe("parent@example.test");
     expect(m.subject).toContain("Booked: Clarinet lesson");
-    expect(m.html).toContain("meet.google.com/abc-defg-hij");
-    expect(m.text).toContain("Google Meet");
+    // The Meet link is only handed out on the Lessons page during the lesson window.
+    expect(m.html).not.toContain("meet.google.com");
+    expect(m.text).toContain("Google Meet button appears on your Lessons page");
     const ics = m.attachments.find((a) => a.filename === "lesson.ics");
     expect(ics?.content.toString()).toContain("DTSTART:20261001T230000Z");
   });

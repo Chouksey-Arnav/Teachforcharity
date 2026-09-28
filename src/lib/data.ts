@@ -1,6 +1,7 @@
 import "server-only";
 import type { createClient } from "./supabase/server";
 import type { Level } from "./constants";
+import type { PublicConfig } from "./viewer";
 import { RELATED_GROUPS, type StudentProfile, type TutorCandidate, type TutorSubject } from "./matching";
 
 type Supa = Awaited<ReturnType<typeof createClient>>;
@@ -21,19 +22,45 @@ export interface FamilyStudent {
   is_active: boolean;
   created_at: string;
   subjects: { subject_id: string; slug: string; name: string; family: string; level: Level; years_playing: number; in_school_program: boolean; has_instrument: boolean }[];
-  consent: { signed_at: string; guardian_name: string; version: string } | null;
+  /** The current, signed (not withdrawn) consent, whether or not the phone check is done. */
+  consent: { signed_at: string; guardian_name: string; version: string; phone: string; status: "pending" | "verified" | "rejected" } | null;
+  /** Consent that actually unlocks lessons and messaging: signed and phone-checked (or checks are off). */
+  consentActive: boolean;
 }
 
-export async function getFamilyStudents(supabase: Supa, familyId: string, consentVersion: string | undefined): Promise<FamilyStudent[]> {
+/** "none": not signed · "pending": signed, waiting for the phone check · "active": unlocks lessons. */
+export type ConsentState = "none" | "pending" | "active";
+
+export function consentState(s: Pick<FamilyStudent, "consent" | "consentActive">): ConsentState {
+  return s.consentActive ? "active" : s.consent ? "pending" : "none";
+}
+
+/** Whether a signed consent unlocks lessons. Mirrors private.has_consent() in the database. */
+export function consentUnlocks(consent: FamilyStudent["consent"], config: Pick<PublicConfig, "require_consent_verification"> | null): boolean {
+  if (!consent) return false;
+  return consent.status === "verified" || config?.require_consent_verification === false;
+}
+
+export async function getFamilyStudents(supabase: Supa, familyId: string, config: PublicConfig | null): Promise<FamilyStudent[]> {
+  const consentVersion = config?.consent_version;
   const { data } = await supabase
     .from("students")
     .select(
-      "*, student_subjects(subject_id, level, years_playing, in_school_program, has_instrument, subjects(slug, name, family)), consents(signed_at, guardian_name, version, revoked_at)",
+      "*, student_subjects(subject_id, level, years_playing, in_school_program, has_instrument, subjects(slug, name, family)), consents(signed_at, guardian_name, guardian_phone, version, revoked_at, verification_status)",
     )
     .eq("family_id", familyId)
     .order("created_at");
   return (data ?? []).map((s) => {
-    const consent = (s.consents ?? []).find((c) => c.version === consentVersion && !c.revoked_at) ?? null;
+    const row = (s.consents ?? []).find((c) => c.version === consentVersion && !c.revoked_at) ?? null;
+    const consent = row
+      ? {
+          signed_at: row.signed_at,
+          guardian_name: row.guardian_name,
+          version: row.version,
+          phone: row.guardian_phone,
+          status: row.verification_status as "pending" | "verified" | "rejected",
+        }
+      : null;
     return {
       id: s.id,
       first_name: s.first_name,
@@ -59,7 +86,8 @@ export async function getFamilyStudents(supabase: Supa, familyId: string, consen
         in_school_program: ss.in_school_program,
         has_instrument: ss.has_instrument,
       })),
-      consent: consent ? { signed_at: consent.signed_at, guardian_name: consent.guardian_name, version: consent.version } : null,
+      consent,
+      consentActive: consentUnlocks(consent, config),
     };
   });
 }
@@ -220,7 +248,18 @@ export type MySession = {
   verified_at: string | null;
   review_note: string | null;
   verifier_org: string | null;
-  meet_url: string | null;
+  /** The tutor's "what to practice" notes, left when logging the lesson. */
+  practice_plan: string | null;
+  /** When the Join button opens and closes (scheduled lessons only). The Meet link itself is never sent to the page. */
+  join_opens_at: string | null;
+  join_closes_at: string | null;
+  /** Weekly series: which week this is, of how many. */
+  series_id: string | null;
+  series_index: number | null;
+  series_size: number | null;
+  /** Set on the one card that stands for a pending weekly request (see collapsePendingSeries). */
+  pending_weeks?: number;
+  pending_until?: string;
   my_side: "family" | "tutor";
   awaiting_me: boolean;
   thread_id: string | null;
@@ -229,7 +268,30 @@ export type MySession = {
 
 export async function getMySessions(supabase: Supa, scope: "all" | "upcoming" | "action" | "history", limit = 100): Promise<MySession[]> {
   const { data } = await supabase.rpc("my_sessions", { p_scope: scope, p_limit: limit });
-  return (data ?? []) as MySession[];
+  return collapsePendingSeries((data ?? []) as MySession[]);
+}
+
+/**
+ * A weekly request is answered as a whole, so its pending weeks show as one
+ * card: the earliest week, carrying how many weeks are pending and the last
+ * date. Booked weeks stay separate (each is logged and confirmed on its own).
+ */
+export function collapsePendingSeries(rows: MySession[]): MySession[] {
+  const groups = new Map<string, MySession[]>();
+  for (const r of rows) if (r.status === "pending" && r.series_id) groups.set(r.series_id, [...(groups.get(r.series_id) ?? []), r]);
+  const out: MySession[] = [];
+  for (const r of rows) {
+    if (!(r.status === "pending" && r.series_id)) {
+      out.push(r);
+      continue;
+    }
+    const g = groups.get(r.series_id)!;
+    const first = g.reduce((a, b) => (a.start_at <= b.start_at ? a : b));
+    if (r.id !== first.id) continue;
+    const last = g.reduce((a, b) => (a.start_at >= b.start_at ? a : b));
+    out.push({ ...first, pending_weeks: g.length, pending_until: last.start_at });
+  }
+  return out;
 }
 
 export type MyThread = {

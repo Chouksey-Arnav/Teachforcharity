@@ -53,7 +53,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/admin/a
                         by <PersonLink id={a.actor_id} name={a.actor_name} /> <KindBadge kind={a.actor_kind} />
                       </span>
                     ) : (
-                      <span className="text-xs text-muted">by system / admin console</span>
+                      <span className="text-xs text-muted">by the system</span>
                     )}
                     {targetIsPerson && a.target_id && a.target_id !== a.actor_id && (
                       <Link href={`/admin/people/${a.target_id}`} className="text-xs text-pine-700 hover:underline">

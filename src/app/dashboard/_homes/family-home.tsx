@@ -24,7 +24,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const config = await getPublicConfig();
   const isStudent = viewer.profile.account_kind === "student";
   const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }] = await Promise.all([
-    getFamilyStudents(supabase, viewer.id, config?.consent_version),
+    getFamilyStudents(supabase, viewer.id, config),
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming", 5),
     getMySessions(supabase, "all", 50),
@@ -56,18 +56,23 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const first = viewer.profile.full_name.split(" ")[0] || "there";
   const scheduledSoon = upcoming.filter((u) => u.status === "scheduled").slice(0, 3);
   const consented = students.length > 0 && students.every((s) => s.consent);
+  const verified = students.length > 0 && students.every((s) => s.consentActive);
+  const awaitingCall = isStudent ? [] : students.filter((s) => s.consent && !s.consentActive);
   const requested = history.length > 0;
   const hadLesson = history.some((s) => ["completed", "confirmed", "verified"].includes(s.status));
   const steps: SetupStep[] = isStudent
     ? [
         { label: "Make your music profile", detail: "Tell us your instrument and when you’re free.", done: students.some((s) => s.subjects.length), href: "/dashboard/students", cta: "Finish profile" },
-        { label: "Parent approves", detail: "Your parent needs to open the email we sent and say OK. You can resend it above.", done: consented },
+        { label: "Parent approves", detail: "Your parent opens the email we sent and says OK, then we call them to double-check.", done: verified },
         { label: "Request a lesson", detail: "Pick a tutor you like and ask for a time.", done: requested, href: "/dashboard/tutors", cta: "Find tutors" },
         { label: "Have your first lesson", detail: "Join from Lessons when it’s time, then tap “Yes, it happened”.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
       ]
     : [
         { label: "Add your student", detail: "A short questionnaire about their instrument, level and free times.", done: students.length > 0, href: "/dashboard/students/new", cta: "Add a student" },
         { label: "Sign consent", detail: "Lessons can’t be booked until a parent or guardian signs the consent form.", done: consented, href: "/dashboard/students", cta: "Sign consent" },
+        ...(config?.require_consent_verification
+          ? [{ label: "Quick phone check", detail: "We call the number on your consent form to confirm it was you — about two minutes, usually within two days.", done: verified }]
+          : []),
         { label: "Request a lesson", detail: "Open a matched tutor and pick a time — they’re emailed right away.", done: requested, href: "/dashboard/tutors", cta: "Find tutors" },
         { label: "First lesson", detail: "After the lesson, confirm it happened so the tutor’s hours count.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
       ];
@@ -118,6 +123,13 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
             ))}
           </div>
         </section>
+      )}
+
+      {awaitingCall.length > 0 && (
+        <Notice tone="info" className="mb-6" title="We’ll call you to confirm consent">
+          Someone from the program will call {awaitingCall[0].consent?.phone} to confirm you’re {awaitingCall.map((s) => s.first_name).join(" and ")}’s
+          parent or guardian — usually within two days. You can look at tutors now; requests and messages unlock right after the call.
+        </Notice>
       )}
 
       {needsConsent.length > 0 && (

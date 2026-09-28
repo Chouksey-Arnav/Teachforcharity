@@ -2,7 +2,8 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { MailCheck } from "lucide-react";
 import { resendCode } from "@/app/actions/auth";
-import { Field, Input } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
+import { CodeInput } from "@/components/ui/secret-inputs";
 import { Notice } from "@/components/ui/notice";
 
 const RESEND_AFTER = 60;
@@ -48,20 +49,16 @@ export function CodeStep({
       </div>
 
       <Field label="Verification code" htmlFor="code" error={error ?? undefined}>
-        <Input
+        <CodeInput
           id="code"
           name="code"
           value={code}
-          onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="\d{6}"
-          maxLength={6}
+          onValueChange={setCode}
+          // Sign-up has nothing else to fill in, so finish as soon as the code is complete.
+          autoSubmit={purpose === "signup"}
           required
           autoFocus
           aria-invalid={Boolean(error)}
-          placeholder="123456"
-          className="text-center font-mono text-2xl tracking-[0.5em]"
         />
       </Field>
 

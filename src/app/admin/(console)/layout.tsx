@@ -1,28 +1,22 @@
 import type { Metadata } from "next";
-import { LogOut, TriangleAlert } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { AdminMobileBar, AdminSideNav, AutoRefresh, PeopleSearch } from "@/components/admin/nav";
-import { AdminSetupError, adminDb, usingFallbackPassword } from "@/lib/admin/session";
+import { adminDb, requireAdmin } from "@/lib/admin/session";
 import { adminLogout } from "@/app/actions/admin";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: { default: "Admin", template: "%s · Admin" }, robots: { index: false, follow: false } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  let counts = { reports: 0, flags: 0 };
-  let setupError: string | null = null;
-  try {
-    const db = await adminDb();
-    const [r, f] = await Promise.all([
-      db.from("incidents").select("id", { count: "exact", head: true }).neq("status", "resolved"),
-      db.from("moderation_flags").select("id", { count: "exact", head: true }).eq("status", "open").in("severity", ["high", "critical"]),
-    ]);
-    counts = { reports: r.count ?? 0, flags: f.count ?? 0 };
-  } catch (e) {
-    if (e instanceof AdminSetupError) setupError = e.message;
-    else throw e;
-  }
-  const fallback = usingFallbackPassword();
+  const me = await requireAdmin();
+  const db = await adminDb();
+  const [r, f, c] = await Promise.all([
+    db.from("incidents").select("id", { count: "exact", head: true }).neq("status", "resolved"),
+    db.from("moderation_flags").select("id", { count: "exact", head: true }).eq("status", "open").in("severity", ["high", "critical"]),
+    db.from("consents").select("id", { count: "exact", head: true }).eq("verification_status", "pending").is("revoked_at", null),
+  ]);
+  const counts = { reports: r.count ?? 0, flags: f.count ?? 0, calls: c.count ?? 0 };
 
   return (
     <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[240px_1fr]">
@@ -37,6 +31,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminSideNav counts={counts} />
         </div>
         <form action={adminLogout}>
+          <p className="truncate px-3 text-xs text-faint" title={me.email ?? undefined}>
+            {me.email}
+          </p>
           <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-paper-2 hover:text-ink">
             <LogOut className="size-4" /> Sign out
           </button>
@@ -48,23 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <div className="mb-3 flex justify-end">
             <AutoRefresh />
           </div>
-          {fallback && (
-            <div className="mb-5 flex gap-3 rounded-xl border border-clay-500/40 bg-clay-50 px-4 py-3 text-sm text-clay-800" role="alert">
-              <TriangleAlert className="mt-0.5 size-5 shrink-0" />
-              <p>
-                <strong>You’re using the default admin password.</strong> The code is public, so anyone can find it. In Vercel → Settings → Environment
-                Variables, add <code className="rounded bg-white/70 px-1">ADMIN_PASSWORD</code> (Production + Preview) with a long unique password, then
-                redeploy.
-              </p>
-            </div>
-          )}
-          {setupError ? (
-            <div className="rounded-xl border border-clay-500/40 bg-clay-50 p-5 text-sm text-clay-800">
-              <strong>The admin console can’t reach the database.</strong> {setupError}
-            </div>
-          ) : (
-            children
-          )}
+          {children}
         </main>
       </div>
     </div>

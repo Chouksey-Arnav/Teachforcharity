@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { ArrowRightLeft, BadgeCheck, CheckCircle2, Clock, MessageCircle, Video, X, XCircle } from "lucide-react";
+import { ArrowRightLeft, BadgeCheck, CheckCircle2, Clock, MessageCircle, Repeat, Video, X, XCircle } from "lucide-react";
 import type { MySession } from "@/lib/data";
 import { SESSION_STATUS_LABEL } from "@/lib/constants";
-import { formatDay, formatTime, easternDateOffset, easternParts } from "@/lib/time";
+import { formatDate, formatDay, formatTime, easternDateOffset, easternParts } from "@/lib/time";
 import { Badge, sessionTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -15,7 +15,7 @@ import { cancelLesson, confirmLesson, logLesson, respondLesson } from "@/app/act
 import type { ActionState } from "@/lib/errors";
 import { cn } from "@/lib/cn";
 
-type Panel = null | "counter" | "decline" | "cancel" | "log-no" | "confirm-no";
+type Panel = null | "counter" | "decline" | "cancel" | "log-yes" | "log-no" | "confirm-no" | "join";
 
 function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(() => Date.now());
@@ -60,6 +60,12 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const day = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", day: "numeric" }).format(d);
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" }).format(d);
 
+  const weeksPending = s.pending_weeks ?? 0;
+  const isWeekly = weeksPending > 1;
+  const laterWeeks = s.series_id && s.series_size && s.series_index ? s.series_size - s.series_index : 0;
+  const [cancelRest, setCancelRest] = useState(false);
+  const [practice, setPractice] = useState("");
+
   let statusLine: string | null = null;
   if (s.status === "pending") {
     statusLine = s.awaiting_me
@@ -90,14 +96,30 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               {SESSION_STATUS_LABEL[s.status] ?? s.status}
             </Badge>
             {s.awaiting_me && <Badge tone="brass">Needs you</Badge>}
+            {isWeekly && (
+              <Badge tone="pine">
+                <Repeat className="size-3" aria-hidden /> {weeksPending} weekly lessons
+              </Badge>
+            )}
+            {!isWeekly && s.series_index && s.series_size && s.status !== "pending" && (
+              <Badge tone="neutral">
+                Week {s.series_index} of {s.series_size}
+              </Badge>
+            )}
           </div>
           <h3 className="mt-2 text-[15px] font-semibold leading-snug">
             {s.subject_name} with {other}
           </h3>
           <p className="mt-0.5 flex items-center gap-1.5 text-[13.5px] text-muted">
             <Clock className="size-3.5" />
+            {isWeekly ? `${new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(d)}s, ` : ""}
             {formatTime(s.start_at)}–{formatTime(s.end_at)} ET · {s.duration_minutes} min
           </p>
+          {isWeekly && s.pending_until && (
+            <p className="mt-0.5 text-[13px] text-muted">
+              {formatDate(s.start_at).replace(/, \d{4}$/, "")} to {formatDate(s.pending_until).replace(/, \d{4}$/, "")} · answering covers every week
+            </p>
+          )}
           {statusLine && <p className="mt-2 text-[13.5px] text-ink-2">{statusLine}</p>}
           {s.request_note && s.status === "pending" && <p className="mt-1.5 rounded-lg bg-paper-2 px-3 py-2 text-[13px] text-ink-2">“{s.request_note}”</p>}
           {s.status === "declined" && s.decline_reason && <p className="mt-1.5 text-[13px] text-muted">Note: “{s.decline_reason}”</p>}
@@ -114,6 +136,12 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
           )}
           {s.status === "disputed" && <p className="mt-2 text-[13.5px] text-clay-800">{isTutor ? `${s.student_name}’s side` : "You"} said this lesson didn’t happen. The program team is reviewing it.</p>}
           {s.status === "rejected" && s.review_note && <p className="mt-2 text-[13.5px] text-clay-800">Not verified: “{s.review_note}”</p>}
+          {s.practice_plan && ["completed", "confirmed", "verified", "disputed"].includes(s.status) && (
+            <div className="mt-3 rounded-xl bg-paper-2/70 px-3.5 py-2.5 text-[13.5px]">
+              <p className="font-semibold">What to practice</p>
+              <p className="mt-0.5 whitespace-pre-line text-ink-2">{s.practice_plan}</p>
+            </div>
+          )}
         </div>
         <div className="hidden shrink-0 sm:block">
           <Avatar name={isTutor ? s.student_name : s.tutor_name} path={isTutor ? null : s.tutor_avatar} size={40} />
@@ -142,22 +170,20 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         )}
         {s.status === "scheduled" && (
           <>
-            {s.meet_url && (
-              <a
-                href={s.meet_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  "inline-flex h-8 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition",
-                  canJoin ? "bg-pine-700 text-white hover:bg-pine-800" : "border border-line-2 bg-card text-ink-2 hover:border-ink/30",
-                )}
-              >
-                <Video className="size-4" /> {canJoin ? "Join Google Meet" : "Meet link"}
-              </a>
+            {canJoin ? (
+              <Button size="sm" onClick={() => setPanel(panel === "join" ? null : "join")} aria-expanded={panel === "join"}>
+                <Video className="size-4" /> Join Google Meet
+              </Button>
+            ) : (
+              !ended && (
+                <span className="inline-flex h-8 items-center gap-2 rounded-full border border-dashed border-line-2 px-3.5 text-[13px] text-muted">
+                  <Video className="size-4" /> Join opens {formatTime(s.join_opens_at ?? s.start_at)}
+                </span>
+              )
             )}
             {isTutor && ended && (
               <>
-                <Button size="sm" pending={pending && panel === null} onClick={() => run(() => logLesson({ sessionId: s.id, happened: true }))}>
+                <Button size="sm" onClick={() => setPanel(panel === "log-yes" ? null : "log-yes")} aria-expanded={panel === "log-yes"}>
                   <CheckCircle2 className="size-4" /> It happened
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setPanel(panel === "log-no" ? null : "log-no")}>
@@ -189,13 +215,16 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         )}
       </div>
 
-      {panel && (
+      {panel === "join" && <JoinPanel sessionId={s.id} isTutor={isTutor} studentName={s.student_name} onClose={() => setPanel(null)} />}
+
+      {panel && panel !== "join" && (
         <div className="animate-fade border-t border-line px-4 py-4 sm:px-5">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">
-              {panel === "counter" && "Suggest a different time"}
-              {panel === "decline" && "Decline this request"}
-              {panel === "cancel" && (s.status === "pending" ? "Withdraw this request" : "Cancel this lesson")}
+              {panel === "counter" && (isWeekly ? `Suggest a different weekly time (all ${weeksPending} weeks move)` : "Suggest a different time")}
+              {panel === "decline" && (isWeekly ? `Decline all ${weeksPending} weekly lessons` : "Decline this request")}
+              {panel === "cancel" && (s.status === "pending" ? (isWeekly ? `Withdraw the request for ${weeksPending} weekly lessons` : "Withdraw this request") : "Cancel this lesson")}
+              {panel === "log-yes" && "Log this lesson"}
               {panel === "log-no" && "What happened?"}
               {panel === "confirm-no" && "Tell us what happened"}
             </p>
@@ -209,12 +238,34 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               This lesson is less than 24 hours away. Please also send a quick message so they aren’t waiting.
             </Notice>
           )}
+          {panel === "cancel" && s.status === "scheduled" && laterWeeks > 0 && (
+            <label className="mb-2 flex items-center gap-2 text-[13px] text-ink-2">
+              <input type="checkbox" checked={cancelRest} onChange={(e) => setCancelRest(e.target.checked)} className="accent-pine-700" />
+              Also cancel the {laterWeeks} later week{laterWeeks === 1 ? "" : "s"} of this series
+            </label>
+          )}
           {panel === "confirm-no" && (
             <p className="mb-2 text-[13px] text-muted">This flags the lesson for review — it won’t count toward the tutor’s hours. If something made you uncomfortable, please also use “Report a concern.”</p>
           )}
+          {panel === "log-yes" && (
+            <>
+              <label htmlFor={`practice-${s.id}`} className="block text-[13px] font-medium">
+                What should {s.student_name} practice? <span className="font-normal text-faint">Optional — the family sees this</span>
+              </label>
+              <Textarea
+                id={`practice-${s.id}`}
+                className="mt-1.5 min-h-20"
+                placeholder="e.g. Long tones for 5 minutes a day. Measures 20–40 of the concert piece, slowly, then at 80 bpm."
+                value={practice}
+                onChange={(e) => setPractice(e.target.value)}
+                maxLength={1000}
+                rows={3}
+              />
+            </>
+          )}
           <Textarea
             className="mt-3 min-h-16"
-            placeholder={panel === "confirm-no" ? "Required: briefly, what happened?" : "Optional note (no contact info)"}
+            placeholder={panel === "confirm-no" ? "Required: briefly, what happened?" : panel === "log-yes" ? "Optional private note for the program (not shown to the family)" : "Optional note (no contact info)"}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={300}
@@ -226,19 +277,20 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             </Button>
             <Button
               size="sm"
-              variant={panel === "counter" ? "primary" : "danger"}
+              variant={panel === "counter" || panel === "log-yes" ? "primary" : "danger"}
               pending={pending}
               onClick={() =>
                 run(() => {
                   if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note });
                   if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note });
-                  if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note });
+                  if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" });
+                  if (panel === "log-yes") return logLesson({ sessionId: s.id, happened: true, note, practice });
                   if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note });
                   return confirmLesson({ sessionId: s.id, happened: false, note });
                 })
               }
             >
-              {panel === "counter" ? "Send new time" : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : "Submit"}
+              {panel === "counter" ? "Send new time" : panel === "log-yes" ? "Log lesson" : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : "Submit"}
             </Button>
           </div>
         </div>
@@ -255,5 +307,44 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
       )}
       <span className="sr-only">{formatDay(s.start_at)}</span>
     </article>
+  );
+}
+
+/**
+ * The last step before a lesson: confirm the safety rule, then the form opens
+ * the Meet in a new tab. The server hands out the link only inside the lesson
+ * window and records the confirmation.
+ */
+function JoinPanel({ sessionId, isTutor, studentName, onClose }: { sessionId: string; isTutor: boolean; studentName: string; onClose: () => void }) {
+  const [ack, setAck] = useState(false);
+  return (
+    <form
+      method="post"
+      action={`/dashboard/lessons/${sessionId}/join`}
+      target="_blank"
+      className="animate-fade space-y-3 border-t border-line px-4 py-4 sm:px-5"
+      onSubmit={() => setTimeout(onClose, 500)}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">Before you join</p>
+        <button type="button" onClick={onClose} className="rounded-full p-1 text-muted hover:bg-paper-2" aria-label="Close">
+          <X className="size-4" />
+        </button>
+      </div>
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-paper-2/60 p-3 text-sm leading-snug text-ink-2">
+        <input type="checkbox" name="ack" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-0.5 size-4 accent-pine-700" />
+        <span>
+          {isTutor
+            ? `I’m somewhere quiet and appropriate for a lesson with ${studentName}, and I won’t record, screenshot, or share it.`
+            : `A parent or guardian is home or nearby and can be reached during this lesson. We won’t record it.`}
+        </span>
+      </label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted">Keep chat on this site — the Meet chat isn’t monitored, so don’t share contact info there.</p>
+        <Button type="submit" size="sm" disabled={!ack}>
+          <Video className="size-4" /> Open Google Meet
+        </Button>
+      </div>
+    </form>
   );
 }
