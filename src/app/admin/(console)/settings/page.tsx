@@ -36,11 +36,12 @@ const set = (k: string) => Boolean(process.env[k]?.trim());
 
 export default async function SettingsPage() {
   const db = await adminDb();
-  const [{ data: h }, { data: partners }, { data: reviewers }, { data: http }] = await Promise.all([
+  const [{ data: h }, { data: partners }, { data: reviewers }, { data: http }, { data: settingsRow }] = await Promise.all([
     db.rpc("admin_health"),
     db.from("partners").select("*").order("created_at"),
     db.from("profiles").select("id, full_name, email, role").in("role", ["reviewer", "admin"]).order("role"),
     db.rpc("admin_cron_http"),
+    db.from("app_settings").select("require_consent_verification").maybeSingle(),
   ]);
   // pg_cron marks a run "succeeded" once the request is queued; this is what the app actually answered.
   const admins = await adminTwoFactorStatus((reviewers ?? []).filter((r) => r.role === "admin"));
@@ -56,7 +57,11 @@ export default async function SettingsPage() {
     <AdminPage title="Settings & health" description="Program settings, who can verify hours, the current partner, and a live check of every part of the deployment.">
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Alerts & tutor approval">
-          <SettingsForm requireApproval={health.settings.require_tutor_approval} adminEmails={health.settings.admin_emails.join(", ")} />
+          <SettingsForm
+            requireApproval={health.settings.require_tutor_approval}
+            requireConsentVerification={Boolean(settingsRow?.require_consent_verification)}
+            adminEmails={health.settings.admin_emails.join(", ")}
+          />
         </Panel>
 
         <Panel title="Deployment health" className="scroll-mt-20" >

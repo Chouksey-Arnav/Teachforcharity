@@ -15,7 +15,8 @@ const TEMPLATES = [
   "session_requested", "session_countered", "session_booked", "session_reminder", "session_declined", "session_cancelled",
   "session_confirm_request", "confirm_reminder", "log_reminder", "new_message", "consent_receipt", "tutor_guardian_notice",
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
-  "incident_reported", "incident_received", "new_sign_in",
+  "incident_reported", "incident_received", "new_sign_in", "consent_pending", "consent_verified",
+  "consent_not_verified",
 ];
 
 describe("renderEmail", () => {
@@ -34,6 +35,21 @@ describe("renderEmail", () => {
     expect(r.text).toContain("Leo’s account");
     expect(r.text).toContain("Chrome on iPhone");
     expect(r.html).not.toContain("forgot-password");
+  });
+
+  it("parent invites escape the child's name, link to parent sign-up and keep the child's details out of the footer", () => {
+    const r = renderEmail("parent_invite", { child_first: evil, parent_email: "mom@example.test", has_account: false })!;
+    expect(r.html).not.toContain("<script>");
+    expect(r.html).toContain("/signup?role=family&amp;email=mom%40example.test");
+    const existing = renderEmail("parent_invite", { child_first: "Leo", parent_email: "mom@example.test", has_account: true })!;
+    expect(existing.html).toContain("/dashboard/students/new");
+  });
+
+  it("consent receipts mention the phone call only when verification is on", () => {
+    const on = renderEmail("consent_receipt", { ...base, verification: true })!;
+    const off = renderEmail("consent_receipt", { ...base, verification: false })!;
+    expect(on.text).toContain("will call you at 919-555-0100");
+    expect(off.text).not.toContain("will call you");
   });
 
   it("account_exists points to sign-in and contains no code", () => {

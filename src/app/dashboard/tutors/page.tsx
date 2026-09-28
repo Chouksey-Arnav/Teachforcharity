@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Search, Sparkles } from "lucide-react";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCandidates, getCurrentTutorIds, getFamilyStudents, relatedSubjectIds, searchTutors, toStudentProfile } from "@/lib/data";
+import { consentState, getCandidates, getCurrentTutorIds, getFamilyStudents, relatedSubjectIds, searchTutors, toStudentProfile, type ConsentState } from "@/lib/data";
 import { matchTutors, type Tier } from "@/lib/matching";
 import { LEVEL_INFO } from "@/lib/constants";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -31,7 +31,7 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
   const supabase = await createClient();
   const config = await getPublicConfig();
   const [students, { data: subjects }] = await Promise.all([
-    getFamilyStudents(supabase, viewer.id, config?.consent_version),
+    getFamilyStudents(supabase, viewer.id, config),
     supabase.from("subjects").select("id, slug, name, family").eq("is_active", true).order("name"),
   ]);
   const view = sp.view === "all" ? "all" : "matches";
@@ -81,7 +81,7 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
             Add a student and their instrument to see ranked matches.
           </Empty>
         ) : (
-          <MatchesView studentId={student.id} targetId={target.subject_id} qs={qs} students={ready} subjects={subjects ?? []} consented={Boolean(student.consent)} />
+          <MatchesView studentId={student.id} targetId={target.subject_id} qs={qs} students={ready} subjects={subjects ?? []} consent={consentState(student)} phone={student.consent?.phone ?? null} />
         )
       ) : (
         <BrowseView q={q} filterSubject={filterSubject} page={page} subjects={subjects ?? []} qs={qs} studentId={student?.id} />
@@ -95,14 +95,16 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
     qs,
     students,
     subjects,
-    consented,
+    consent,
+    phone,
   }: {
     studentId: string;
     targetId: string;
     qs: (p: Record<string, string | undefined>) => string;
     students: typeof ready;
     subjects: { id: string; slug: string; name: string; family: string }[];
-    consented: boolean;
+    consent: ConsentState;
+    phone: string | null;
   }) {
     const s = students.find((x) => x.id === studentId)!;
     const t = s.subjects.find((x) => x.subject_id === targetId)!;
@@ -150,7 +152,14 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
           </div>
         </div>
 
-        {!consented &&
+        {consent === "pending" && (
+          <Notice tone="info" className="mb-6" title={isStudent ? "Your parent said yes — one quick check left" : "We’ll call you to confirm consent"}>
+            {isStudent
+              ? "Someone from the program will call your parent to make sure it was really them. You can request lessons right after that call."
+              : `Someone from the program will call ${phone ?? "the number on your form"}, usually within two days, to confirm you’re the parent or guardian. You can request lessons right after that call.`}
+          </Notice>
+        )}
+        {consent === "none" &&
           (isStudent ? (
             <Notice tone="warning" className="mb-6" title="Waiting for your parent’s OK" action={<LinkButton href="/dashboard" size="sm" variant="secondary">Resend</LinkButton>}>
               Look around and find tutors you like. You can request a lesson as soon as your parent approves your account from the email we sent them.

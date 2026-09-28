@@ -11,11 +11,12 @@ export const metadata: Metadata = { title: { default: "Admin", template: "%s · 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const me = await requireAdmin();
   const db = await adminDb();
-  const [r, f] = await Promise.all([
+  const [r, f, c] = await Promise.all([
     db.from("incidents").select("id", { count: "exact", head: true }).neq("status", "resolved"),
     db.from("moderation_flags").select("id", { count: "exact", head: true }).eq("status", "open").in("severity", ["high", "critical"]),
+    db.from("consents").select("id", { count: "exact", head: true }).eq("verification_status", "pending").is("revoked_at", null),
   ]);
-  const counts = { reports: r.count ?? 0, flags: f.count ?? 0 };
+  const counts = { reports: r.count ?? 0, flags: f.count ?? 0, calls: c.count ?? 0 };
 
   return (
     <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[240px_1fr]">

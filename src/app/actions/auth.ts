@@ -1,8 +1,10 @@
 "use server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
-import type { ActionState } from "@/lib/errors";
+import { toActionError, type ActionState } from "@/lib/errors";
+import { kickEmails } from "@/lib/email/kick";
 import { safeNext } from "@/lib/redirect";
 import {
   CODE_LENGTH,
@@ -10,6 +12,7 @@ import {
   SETUP_ERROR,
   checkEmailCode,
   clearEmailCode,
+  clientIp,
   findAuthUser,
   normalizeCode,
   sendAccountExistsNotice,
@@ -21,7 +24,8 @@ import { recordSignInDevice } from "@/lib/auth/sign-in-device";
 import { logAppEvent } from "@/lib/audit";
 
 const signUpSchema = z.object({
-  role: z.enum(["student", "family", "tutor"]),
+  // Students can't create accounts (a parent signs them up); see requestParentInvite.
+  role: z.enum(["family", "tutor"], { message: "Choose one to continue." }),
   fullName: z.string().trim().min(2, "Please enter a full name.").max(120),
   email: z.string().trim().toLowerCase().email("Please enter a valid email address."),
   password: z
@@ -30,6 +34,8 @@ const signUpSchema = z.object({
     .max(72, "Use 72 characters or fewer.")
     .refine((p) => /[a-zA-Z]/.test(p) && /[0-9]/.test(p), "Use at least one letter and one number."),
   eligible: z.literal("on", { message: "Please confirm this to continue." }),
+  // First name of the child who invited this parent (from the invitation link), used to pre-fill onboarding.
+  invitedChild: z.string().trim().max(40).optional(),
 });
 
 function fieldErrorsOf(issues: { path: PropertyKey[]; message: string }[]) {
@@ -76,7 +82,7 @@ export async function verifySignup(_: ActionState, form: FormData): Promise<Acti
   if (!parsed.success) return { ok: false, error: { message: "Something in your details changed. Go back and check them." } };
   const code = normalizeCode(form.get("code"));
   if (!code) return { ok: false, error: { message: `Enter the ${CODE_LENGTH}-digit code from the email.` } };
-  const { role, fullName, email, password } = parsed.data;
+  const { role, fullName, email, password, invitedChild } = parsed.data;
 
   const check = await checkEmailCode(email, "signup", code);
   if (check === "error") return { ok: false, error: SETUP_ERROR };
@@ -100,7 +106,7 @@ export async function verifySignup(_: ActionState, form: FormData): Promise<Acti
     email,
     password,
     email_confirm: true,
-    user_metadata: { role, full_name: fullName },
+    user_metadata: { role, full_name: fullName, ...(role === "family" && invitedChild ? { invited_child: invitedChild } : {}) },
   });
   if (createErr) {
     console.error("[auth] createUser failed:", createErr.message);
@@ -121,6 +127,47 @@ export async function verifySignup(_: ActionState, form: FormData): Promise<Acti
   }
   await recordSignInDevice(signedIn.user.id);
   redirect("/onboarding");
+}
+
+const parentInviteSchema = z.object({
+  childFirst: z
+    .string()
+    .trim()
+    .min(1, "Enter your first name.")
+    .max(40, "Just your first name, please.")
+    .refine((v) => !/[0-9@/:]/.test(v), "Just your first name, please."),
+  parentEmail: z.string().trim().toLowerCase().email("Enter your parent or guardian’s email address."),
+});
+
+/**
+ * "I'm a student": the only thing a middle schooler can do on the sign-up page.
+ * We email their parent an invitation to sign up; we keep just the parent's
+ * email and the child's first name, and delete them after 14 days.
+ */
+export async function requestParentInvite(
+  _: ActionState<{ parentEmail: string; childFirst: string }>,
+  form: FormData,
+): Promise<ActionState<{ parentEmail: string; childFirst: string }>> {
+  const parsed = parentInviteSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) {
+    return { ok: false, error: { message: "Please fix the highlighted fields." }, fieldErrors: fieldErrorsOf(parsed.error.issues) };
+  }
+  const admin = serviceOrNull();
+  if (!admin) return { ok: false, error: SETUP_ERROR };
+  const ip = await clientIp();
+  const { error } = await admin.rpc("request_parent_invite", {
+    p_child_first: parsed.data.childFirst,
+    p_parent_email: parsed.data.parentEmail,
+    p_ip_hash: ip ? createHash("sha256").update(`tfac-invite:${ip}`).digest("hex") : undefined,
+  });
+  if (error) {
+    if (error.hint === "BAD_NAME") return { ok: false, error: { message: error.message }, fieldErrors: { childFirst: error.message } };
+    if (error.hint === "BAD_EMAIL") return { ok: false, error: { message: error.message }, fieldErrors: { parentEmail: error.message } };
+    return { ok: false, error: toActionError(error, "We couldn’t send that right now. Please try again.") };
+  }
+  kickEmails();
+  // "already_sent" looks the same: the parent was emailed a few minutes ago.
+  return { ok: true, data: parsed.data };
 }
 
 /** "Send a new code" on step 2 of sign-up or password reset. */

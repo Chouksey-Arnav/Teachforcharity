@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { GraduationCap, Music2, Users } from "lucide-react";
-import { signUp, verifySignup } from "@/app/actions/auth";
+import { requestParentInvite, signUp, verifySignup } from "@/app/actions/auth";
 import { CodeStep } from "@/components/auth/code-step";
 import { Checkbox, Field, Input } from "@/components/ui/field";
 import { PasswordInput } from "@/components/ui/secret-inputs";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 
 export type Role = "student" | "family" | "tutor";
 
-export function SignupForm({ initialRole }: { initialRole: Role | null }) {
+export function SignupForm({ initialRole, invitedEmail, invitedChild }: { initialRole: Role | null; invitedEmail?: string; invitedChild?: string }) {
   const [role, setRole] = useState<Role | null>(initialRole);
   const [state, action] = useActionState(signUp, null);
   const [verifyState, verifyAction] = useActionState(verifySignup, null);
@@ -57,6 +57,7 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
           email: String(fd.get("email") ?? "").trim().toLowerCase(),
           password: String(fd.get("password") ?? ""),
           eligible: String(fd.get("eligible") ?? ""),
+          ...(fd.get("invitedChild") ? { invitedChild: String(fd.get("invitedChild")) } : {}),
         });
         action(fd);
       }}
@@ -68,7 +69,7 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
         <div className="grid gap-3 sm:grid-cols-3">
           {(
             [
-              { key: "student", icon: Music2, title: "A student", body: "Grades 6–8, I want lessons" },
+              { key: "student", icon: Music2, title: "A student", body: "Grades 6–8, ask a parent" },
               { key: "family", icon: Users, title: "A parent", body: "Signing up my middle schooler" },
               { key: "tutor", icon: GraduationCap, title: "A tutor", body: "Grades 9–12, I want to teach" },
             ] as const
@@ -92,23 +93,19 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
         {fe.role && <p className="mt-2 text-[13px] text-clay-700">Choose one to continue.</p>}
       </fieldset>
 
-      {role && (
+      {role && role !== "student" && (
         <div className="animate-rise space-y-5">
-          {role === "student" && (
-            <Notice tone="info" title="You’ll need a parent’s OK">
-              After you sign up, we’ll email your parent or guardian. You can set up your profile and look at tutors right away — messaging and
-              lessons unlock once they approve.
+          {role === "family" && invitedChild && (
+            <Notice tone="info" title={`${invitedChild} asked you to sign them up`}>
+              Create your parent account, then add {invitedChild} and sign the consent form. It takes about five minutes.
             </Notice>
           )}
+          {role === "family" && invitedChild && <input type="hidden" name="invitedChild" value={invitedChild} />}
           <Field
-            label={role === "family" ? "Your name (parent or guardian)" : role === "student" ? "Your first name" : "Your full name"}
+            label={role === "family" ? "Your name (parent or guardian)" : "Your full name"}
             htmlFor="fullName"
             hint={
-              role === "tutor"
-                ? "Use the name your school knows you by — it goes on your hours record."
-                : role === "student"
-                  ? "Just your first name. Tutors only ever see your first name."
-                  : undefined
+              role === "tutor" ? "Use the name your school knows you by — it goes on your hours record." : undefined
             }
             error={fe.fullName}
           >
@@ -116,25 +113,29 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
               id="fullName"
               name="fullName"
               defaultValue={details.fullName}
-              autoComplete={role === "student" ? "given-name" : "name"}
-              maxLength={role === "student" ? 40 : 120}
+              autoComplete="name"
+              maxLength={120}
               required
               aria-invalid={Boolean(fe.fullName)}
             />
           </Field>
           <Field
-            label={role === "student" ? "Your email" : "Email"}
+            label="Email"
             htmlFor="email"
             error={fe.email}
             hint={
-              role === "family"
-                ? "Use the parent’s email — all lesson updates go here."
-                : role === "student"
-                  ? "Your own email (a school email is fine if it can get outside mail). Not your parent’s — we’ll ask for that next."
-                  : undefined
+              role === "family" ? "Use the parent’s email — all lesson updates go here." : undefined
             }
           >
-            <Input id="email" name="email" type="email" defaultValue={details.email} autoComplete="email" required aria-invalid={Boolean(fe.email)} />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              defaultValue={details.email ?? (role === "family" ? invitedEmail : undefined)}
+              autoComplete="email"
+              required
+              aria-invalid={Boolean(fe.email)}
+            />
           </Field>
           <Field label="Password" htmlFor="password" error={fe.password} hint="At least 8 characters, with a letter and a number.">
             <PasswordInput id="password" name="password" defaultValue={details.password} autoComplete="new-password" required aria-invalid={Boolean(fe.password)} />
@@ -148,9 +149,7 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
               label={
                 role === "family"
                   ? "I’m the student’s parent or legal guardian, and I’m 18 or older."
-                  : role === "student"
-                    ? "I’m in grades 6–8, and I’ll ask my parent or guardian to approve my account."
-                    : "I’m a high school student in grades 9–12, and my parent or guardian knows I’m volunteering."
+                  : "I’m a high school student in grades 9–12, and I’ll ask my parent or guardian to approve my volunteering."
               }
             />
             {fe.eligible && <p className="mt-1.5 pl-7 text-[13px] text-clay-700">{fe.eligible}</p>}
@@ -172,6 +171,45 @@ export function SignupForm({ initialRole }: { initialRole: Role | null }) {
           </p>
         </div>
       )}
+      {role === "student" && <StudentAskParent />}
     </form>
+  );
+}
+
+/**
+ * What a middle schooler sees: no account, no password — just their first
+ * name and a parent's email so we can invite the parent to sign them up.
+ */
+function StudentAskParent() {
+  const [state, action] = useActionState(requestParentInvite, null);
+  const fe = state && !state.ok ? state.fieldErrors ?? {} : {};
+  if (state?.ok && state.data) {
+    return (
+      <div className="animate-rise rounded-2xl border border-pine-200 bg-pine-50 p-5" role="status">
+        <p className="display text-2xl">We emailed your parent!</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">
+          Ask them to check <strong>{state.data.parentEmail}</strong> (and the spam folder). They’ll create the account, add you, and choose your tutor
+          with you. There’s nothing else you need to do here.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="animate-rise space-y-5">
+      <Notice tone="info" title="A parent signs you up">
+        Middle schoolers don’t make their own accounts. Tell us your first name and your parent or guardian’s email, and we’ll send them everything they
+        need. We don’t save anything else about you.
+      </Notice>
+      <Field label="Your first name" htmlFor="childFirst" error={fe.childFirst}>
+        <Input id="childFirst" name="childFirst" autoComplete="given-name" maxLength={40} required aria-invalid={Boolean(fe.childFirst)} />
+      </Field>
+      <Field label="Your parent or guardian’s email" htmlFor="parentEmail" error={fe.parentEmail} hint="Not your own email — theirs.">
+        <Input id="parentEmail" name="parentEmail" type="email" autoComplete="off" required aria-invalid={Boolean(fe.parentEmail)} />
+      </Field>
+      {state && !state.ok && !Object.keys(fe).length && <Notice tone="danger">{state.error.message}</Notice>}
+      <Submit className="w-full" size="lg" pendingText="Sending…" formAction={action}>
+        Email my parent
+      </Submit>
+    </div>
   );
 }

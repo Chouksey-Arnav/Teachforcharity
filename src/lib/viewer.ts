@@ -54,6 +54,7 @@ export interface PublicConfig {
   messaging_terms_version: string;
   tutor_agreement_version: string;
   require_tutor_approval: boolean;
+  require_consent_verification: boolean;
   partner: {
     id: string;
     name: string;
@@ -64,7 +65,13 @@ export interface PublicConfig {
     website_url: string | null;
     partnership_confirmed: boolean;
   } | null;
-  stats: { active_tutors: number; instruments: number; verified_hours: number };
+  stats: {
+    active_tutors: number;
+    instruments: number;
+    verified_hours: number;
+    /** Tutors currently taking new students, per instrument. */
+    open_by_instrument: { name: string; family: string; tutors: number }[];
+  };
 }
 
 export const getPublicConfig = cache(async (): Promise<PublicConfig | null> => {

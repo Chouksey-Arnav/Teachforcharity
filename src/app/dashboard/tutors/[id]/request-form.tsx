@@ -12,10 +12,11 @@ import { easternDateOffset, easternToUtc, validateSlot } from "@/lib/time";
 import { messageViolation } from "@/lib/moderation";
 import { RELATED_GROUPS } from "@/lib/matching";
 import type { ActionState } from "@/lib/errors";
+import type { ConsentState } from "@/lib/data";
 
 interface Props {
   tutor: { id: string; name: string; sessionMinutes: number[]; subjects: { id: string; slug: string; name: string }[] };
-  students: { id: string; name: string; consented: boolean; preferredMinutes: number; subjects: { id: string; slug: string; name: string }[] }[];
+  students: { id: string; name: string; consent: ConsentState; preferredMinutes: number; subjects: { id: string; slug: string; name: string }[] }[];
   initialStudentId?: string;
   initialSubjectId?: string;
   canRequest: boolean;
@@ -43,7 +44,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
 
   const noteIssue = note ? messageViolation(note) : null;
   const slotIssue = dt.date && dt.time ? validateSlot(easternToUtc(dt.date, dt.time), dt.minutes) : "Choose a date and time.";
-  const blocked = !student?.consented || !canRequest || !subjectId;
+  const blocked = student?.consent !== "active" || !canRequest || !subjectId;
 
   if (result?.ok) {
     return (
@@ -122,7 +123,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
           <Textarea id="rs-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={2} placeholder="e.g. Working on the concert music, measures 20–40" />
         </Field>
 
-        {!student?.consented && (
+        {student?.consent === "none" && (
           <Notice tone="warning">
             Consent for {student?.name} isn’t signed yet.{" "}
             <Link href="/dashboard/students" className="underline underline-offset-2">
@@ -131,6 +132,9 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
             .
           </Notice>
         )}
+        {student?.consent === "pending" && (
+          <Notice tone="info">We’ll call to confirm consent for {student?.name} first — you can send requests right after that call.</Notice>
+        )}
         {!canRequest && <Notice tone="info">{tutor.name.split(" ")[0]} isn’t taking new students right now.</Notice>}
         {result && !result.ok && <Notice tone="danger">{result.error.message}</Notice>}
 
@@ -138,7 +142,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
           <Send className="size-4" /> Send request
         </Button>
 
-        {student?.consented && (
+        {student?.consent === "active" && (
           <button
             type="button"
             disabled={hiPending}

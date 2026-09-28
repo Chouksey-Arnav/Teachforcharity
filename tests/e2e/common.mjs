@@ -73,3 +73,42 @@ export async function clearInbox() {
 
 /** The 6-digit code in a verification email. */
 export const codeIn = (mail) => mail.text.match(/\b(\d{6})\b/)?.[1];
+
+// ---- Admin console sign-in (password + authenticator code) ----
+const ADMIN_SECRET_FILE = `${SHOTS}/.admin-totp.json`;
+
+/** Signs in to /admin as e2e-admin@ in a new context, enrolling two-factor the first time. */
+export async function adminLogin(browser, viewport = { width: 1360, height: 900 }) {
+  const fs = await import("node:fs");
+  const ctx = await browser.newContext({ viewport });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => console.log("  [pageerror]", e.message));
+  await page.goto(`${BASE}/admin/login`);
+  await page.getByLabel("Email").fill("e2e-admin@tfac-e2e.test");
+  await page.getByLabel("Password", { exact: true }).fill(PW);
+  await page.getByRole("button", { name: "Continue" }).click();
+  const setup = page.getByRole("button", { name: "Show my QR code" });
+  const codeHeading = page.getByRole("heading", { name: "Enter your code" });
+  await setup.or(codeHeading).waitFor();
+  let state = fs.existsSync(ADMIN_SECRET_FILE) ? JSON.parse(fs.readFileSync(ADMIN_SECRET_FILE, "utf8")) : null;
+  if (await setup.isVisible()) {
+    await setup.click();
+    await page.getByText("Can’t scan it?").click();
+    state = { secret: (await page.locator("details code").innerText()).trim(), lastWindow: 0 };
+  }
+  if (!state) throw new Error("Admin already has two-factor but the test secret is missing — rerun cleanup.sql + setup.sql");
+  // A code can't be used twice: wait for a fresh 30-second window if needed.
+  while (Math.floor(Date.now() / 30000) <= state.lastWindow) await page.waitForTimeout(1000);
+  state.lastWindow = Math.floor(Date.now() / 30000);
+  fs.mkdirSync(SHOTS, { recursive: true });
+  fs.writeFileSync(ADMIN_SECRET_FILE, JSON.stringify(state));
+  await page.getByLabel("6-digit code").fill(await totp(state.secret));
+  await page.waitForURL((u) => u.pathname === "/admin", { timeout: 20000 });
+  return { ctx, page };
+}
+
+/** Deletes the saved admin authenticator secret (call after setup.sql recreates the admin). */
+export async function forgetAdminSecret() {
+  const fs = await import("node:fs");
+  fs.rmSync(ADMIN_SECRET_FILE, { force: true });
+}

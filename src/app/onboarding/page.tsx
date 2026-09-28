@@ -90,6 +90,7 @@ export default async function OnboardingPage() {
                 : 5;
     return (
       <FamilyWizard
+        invitedChild={await invitedChildName(supabase)}
         initialStep={consent ? 5 : initialStep}
         subjects={subjects ?? []}
         profile={{ fullName: p.full_name, phone: p.phone ?? "" }}
@@ -182,4 +183,11 @@ export default async function OnboardingPage() {
   }
 
   redirect("/dashboard");
+}
+
+/** The child's first name saved from a parent invitation at sign-up, if any. */
+async function invitedChildName(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | undefined> {
+  const { data } = await supabase.auth.getUser();
+  const v = data.user?.user_metadata?.invited_child;
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, 40) : undefined;
 }

@@ -11,6 +11,8 @@ declare
   ok boolean; hint text; log text := ''; run bigint; g_id uuid;
   slot timestamptz := ((current_date + 3)::timestamp + time '17:00') at time zone 'America/New_York';
 begin
+  -- Phone-checked consent is covered by v3_program_test.sql; this suite tests what comes after consent.
+  update public.app_settings set require_consent_verification = false;
   select id into clar from public.subjects where slug = 'clarinet';
   select id into tpt from public.subjects where slug = 'trumpet';
 
@@ -19,7 +21,9 @@ begin
     (par, 'v2-parent@example.test', 'authenticated', 'authenticated', '{"role":"family","full_name":"Pat Parent"}'),
     (tut, 'v2-tutor@example.test', 'authenticated', 'authenticated', '{"role":"tutor","full_name":"Maya Rodriguez"}'),
     (tut2, 'v2-tutor2@example.test', 'authenticated', 'authenticated', '{"role":"tutor","full_name":"Sam Lee"}');
-  if (select account_kind from public.profiles where id = stu) <> 'student' then raise exception 'FAIL student kind'; end if;
+  -- New sign-ups can't create student accounts any more (v3 tests that); this suite covers existing ones.
+  if (select account_kind from public.profiles where id = stu) <> 'parent' then raise exception 'FAIL student sign-up not turned into a parent account'; end if;
+  update public.profiles set account_kind = 'student' where id = stu;
   if (select account_kind from public.profiles where id = par) <> 'parent' then raise exception 'FAIL parent kind'; end if;
   if (select account_kind from public.profiles where id = tut) is not null then raise exception 'FAIL tutor kind'; end if;
   if not exists (select 1 from public.audit_log where action = 'account.created' and target_id = stu::text) then
@@ -265,7 +269,7 @@ begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data)
     values (old_stu, 'v2-old@example.test', 'authenticated', 'authenticated', '{"role":"student","full_name":"Old"}');
   insert into public.students (family_id, first_name, grade) values (old_stu, 'Old', 7);
-  update public.profiles set created_at = now() - interval '15 days' where id = old_stu;
+  update public.profiles set created_at = now() - interval '15 days', account_kind = 'student' where id = old_stu;
   perform private.run_maintenance();
   if exists (select 1 from auth.users where id = old_stu) then raise exception 'FAIL unapproved student not deleted'; end if;
   if not exists (select 1 from auth.users where id = stu) then raise exception 'FAIL approved student deleted'; end if;

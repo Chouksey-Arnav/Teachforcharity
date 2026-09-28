@@ -20,6 +20,7 @@ export type Database = {
           consent_version: string
           id: boolean
           messaging_terms_version: string
+          require_consent_verification: boolean
           require_tutor_approval: boolean
           terms_version: string
           tutor_agreement_version: string
@@ -30,6 +31,7 @@ export type Database = {
           consent_version?: string
           id?: boolean
           messaging_terms_version?: string
+          require_consent_verification?: boolean
           require_tutor_approval?: boolean
           terms_version?: string
           tutor_agreement_version?: string
@@ -40,6 +42,7 @@ export type Database = {
           consent_version?: string
           id?: boolean
           messaging_terms_version?: string
+          require_consent_verification?: boolean
           require_tutor_approval?: boolean
           terms_version?: string
           tutor_agreement_version?: string
@@ -103,6 +106,10 @@ export type Database = {
           signed_at: string
           student_id: string
           user_agent: string | null
+          verification_note: string | null
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
           version: string
         }
         Insert: {
@@ -122,6 +129,10 @@ export type Database = {
           signed_at?: string
           student_id: string
           user_agent?: string | null
+          verification_note?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           version: string
         }
         Update: {
@@ -141,6 +152,10 @@ export type Database = {
           signed_at?: string
           student_id?: string
           user_agent?: string | null
+          verification_note?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           version?: string
         }
         Relationships: [
@@ -156,6 +171,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -675,6 +697,36 @@ export type Database = {
           scanned?: number
           source?: string
           started_at?: string
+        }
+        Relationships: []
+      }
+      parent_invites: {
+        Row: {
+          child_first_name: string
+          created_at: string
+          id: string
+          ip_hash: string | null
+          last_sent_at: string
+          parent_email: string
+          send_count: number
+        }
+        Insert: {
+          child_first_name: string
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          last_sent_at?: string
+          parent_email: string
+          send_count?: number
+        }
+        Update: {
+          child_first_name?: string
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          last_sent_at?: string
+          parent_email?: string
+          send_count?: number
         }
         Relationships: []
       }
@@ -1415,6 +1467,30 @@ export type Database = {
         Args: { p_hide: boolean; p_message: string }
         Returns: undefined
       }
+      admin_list_consent_checks: {
+        Args: { p_status?: string }
+        Returns: {
+          account_created_at: string
+          account_email: string
+          account_id: string
+          account_kind: string
+          account_name: string
+          guardian_name: string
+          id: string
+          phone: string
+          phone_used_by_other_families: number
+          relationship: string
+          signed_at: string
+          student_county: string
+          student_grade: number
+          student_id: string
+          student_name: string
+          verification_note: string
+          verification_status: string
+          verified_at: string
+          verified_by_name: string
+        }[]
+      }
       admin_list_families: {
         Args: { p_search?: string }
         Returns: {
@@ -1616,7 +1692,15 @@ export type Database = {
         Returns: undefined
       }
       admin_update_settings: {
-        Args: { p_admin_emails: string[]; p_require_tutor_approval: boolean }
+        Args: {
+          p_admin_emails: string[]
+          p_require_consent_verification?: boolean
+          p_require_tutor_approval: boolean
+        }
+        Returns: undefined
+      }
+      admin_verify_consent: {
+        Args: { p_consent: string; p_note: string; p_verified: boolean }
         Returns: undefined
       }
       attest_guardian: { Args: never; Returns: undefined }
@@ -1923,6 +2007,14 @@ export type Database = {
           p_session?: string
           p_student?: string
           p_tutor?: string
+        }
+        Returns: string
+      }
+      request_parent_invite: {
+        Args: {
+          p_child_first: string
+          p_ip_hash?: string
+          p_parent_email: string
         }
         Returns: string
       }

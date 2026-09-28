@@ -183,6 +183,22 @@ export async function setRole(input: { email: string; role: "family" | "tutor" |
 }
 
 // ---------------------------------------------------------------------------
+// Parent verification calls
+// ---------------------------------------------------------------------------
+export async function verifyConsent(input: { consentId: string; verified: boolean; note: string }): Promise<ActionState> {
+  const p = z
+    .object({ consentId: uuid, verified: z.boolean(), note: z.string().trim().min(3, "Add a short note about the call.").max(500) })
+    .safeParse(input);
+  if (!p.success) return { ok: false, error: { message: p.error.issues[0].message } };
+  const db = await adminDb();
+  const { error } = await db.rpc("admin_verify_consent", { p_consent: p.data.consentId, p_verified: p.data.verified, p_note: p.data.note });
+  if (error) return { ok: false, error: toActionError(error) };
+  // No revalidation here: the card shows the outcome, then refreshes the page itself.
+  kickEmails();
+  return { ok: true, message: p.data.verified ? "Verified — the family has been emailed and lessons are unlocked." : "Consent withdrawn and the family has been told." };
+}
+
+// ---------------------------------------------------------------------------
 // Reports, messages, safety
 // ---------------------------------------------------------------------------
 export async function updateIncident(input: { id: string; status: "open" | "reviewing" | "resolved"; notes?: string }): Promise<ActionState> {
@@ -282,12 +298,16 @@ export async function setCurrentPartner(id: string): Promise<ActionState> {
   return ok("Current partner updated.");
 }
 
-export async function updateSettings(input: { requireApproval: boolean; adminEmails: string }): Promise<ActionState> {
+export async function updateSettings(input: { requireApproval: boolean; adminEmails: string; requireConsentVerification: boolean }): Promise<ActionState> {
   const emails = input.adminEmails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean);
   const bad = emails.find((e) => !z.string().email().safeParse(e).success);
   if (bad) return { ok: false, error: { message: `“${bad}” isn’t a valid email.` } };
   const db = await adminDb();
-  const { error } = await db.rpc("admin_update_settings", { p_require_tutor_approval: input.requireApproval, p_admin_emails: emails });
+  const { error } = await db.rpc("admin_update_settings", {
+    p_require_tutor_approval: input.requireApproval,
+    p_admin_emails: emails,
+    p_require_consent_verification: input.requireConsentVerification,
+  });
   if (error) return { ok: false, error: toActionError(error) };
   return ok("Settings saved.");
 }

@@ -5,7 +5,7 @@ import { Info, Music2, School } from "lucide-react";
 import { BackLink } from "@/components/dashboard/back-link";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTutorIds, getFamilyStudents, getTutor, toStudentProfile } from "@/lib/data";
+import { consentState, getCurrentTutorIds, getFamilyStudents, getTutor, toStudentProfile } from "@/lib/data";
 import { matchTutors } from "@/lib/matching";
 import { EXPLAIN_STYLES, LEVEL_INFO, TEACHING_STYLES, ensembleLabel, goalLabel } from "@/lib/constants";
 import { Avatar } from "@/components/ui/avatar";
@@ -26,7 +26,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
   const tutor = await getTutor(supabase, id);
   if (!tutor) notFound();
 
-  const students = (await getFamilyStudents(supabase, viewer.id, config?.consent_version)).filter((s) => s.subjects.length);
+  const students = (await getFamilyStudents(supabase, viewer.id, config)).filter((s) => s.subjects.length);
   const student = students.find((s) => s.id === sp.student) ?? students[0];
   const current = student ? await getCurrentTutorIds(supabase, student.id) : [];
   const target = student?.subjects.find((x) => x.subject_id === sp.subject) ?? student?.subjects[0];
@@ -189,7 +189,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
               students={students.map((s) => ({
                 id: s.id,
                 name: s.first_name,
-                consented: Boolean(s.consent),
+                consent: consentState(s),
                 preferredMinutes: s.preferred_minutes,
                 subjects: s.subjects.map((x) => ({ id: x.subject_id, slug: x.slug, name: x.name })),
               }))}

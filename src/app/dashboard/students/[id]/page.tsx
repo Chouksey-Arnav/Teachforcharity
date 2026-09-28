@@ -15,7 +15,7 @@ export default async function EditStudentPage({ params }: PageProps<"/dashboard/
   const supabase = await createClient();
   const config = await getPublicConfig();
   const [students, { data: subjects }] = await Promise.all([
-    getFamilyStudents(supabase, viewer.id, config?.consent_version),
+    getFamilyStudents(supabase, viewer.id, config),
     supabase.from("subjects").select("id, slug, name, family, aliases, is_custom").eq("is_active", true).order("name"),
   ]);
   const s = students.find((x) => x.id === id);
