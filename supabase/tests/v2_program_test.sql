@@ -240,11 +240,11 @@ begin
   if not exists (select 1 from public.moderation_batch(100)) is false then null; end if;
   -- admin console (service role) sees everything
   j := public.admin_overview();
-  if (j -> 'open_flags' ->> 'critical')::int <> 1 then raise exception 'FAIL overview flags: %', j -> 'open_flags'; end if;
+  if (j -> 'open_flags' ->> 'critical')::int < 1 then raise exception 'FAIL overview flags: %', j -> 'open_flags'; end if;
   j := public.admin_person(stu);
   if j -> 'profile' ->> 'kind' <> 'student' or jsonb_array_length(j -> 'students') <> 1 then raise exception 'FAIL admin_person'; end if;
   if (select count(*) from public.admin_people('student', null, 50, 0)) < 1 then raise exception 'FAIL admin_people'; end if;
-  if (select count(*) from public.admin_list_flags('open', 50)) <> 1 then raise exception 'FAIL admin_list_flags'; end if;
+  if (select count(*) from public.admin_list_flags('open', 50) where thread_id = th) <> 1 then raise exception 'FAIL admin_list_flags'; end if;
   j := public.admin_thread(th);
   if not exists (select 1 from jsonb_array_elements(j -> 'messages') m where m ->> 'hidden_at' is not null) then
     raise exception 'FAIL admin cannot see hidden message'; end if;

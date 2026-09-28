@@ -1,12 +1,24 @@
 # Browser end-to-end tests
 
-Drives the real site in Chromium against a real Supabase project: two tutors and a family onboard through the questionnaires, an admin approves tutors, the family gets matched, requests a lesson, the tutor counters, the family accepts, both sides message, the lesson is logged → confirmed → verified, and a safety report auto-pauses the tutor.
+Drive the real site in Chromium against the **local** Supabase stack (they read the local mail inbox and use `psql` for a few shortcuts, so never point them at production).
 
-1. Run `setup.sql` in the Supabase SQL editor (creates confirmed test accounts on `@tfac-e2e.test`, password `E2eTest-2026`).
-2. `npm run build && npm start`, then in another terminal:
-   ```bash
-   npm i --no-save playwright && npx playwright install chromium
-   node tests/e2e/phase1.mjs
-   ```
-3. Run the SQL in `time-travel.sql` (moves the booked lesson into the past), then `node tests/e2e/phase2.mjs`.
-4. **Always** run `cleanup.sql` afterwards — it removes every test account and record.
+| Test | Covers |
+|---|---|
+| `admin-mfa.mjs` | admin sign-in with an authenticator app: setup, wrong codes, password-only sessions refused |
+| `auth.mjs` | sign-up codes, breached passwords, no account enumeration, new-device alerts, safe redirects |
+| `parent-first.mjs` | a student invites a parent; the parent signs up, signs consent, and is verified by phone |
+| `tutor-approval.mjs` | a tutor's parent approves (and withdraws) from the emailed link; admin approval |
+| `journey.mjs` | the whole program: weekly booking from open times, counter-offer, joining only in the window, practice notes, one-tap email confirmation, verification, the public hours link |
+| `safety.mjs` | run after `journey.mjs`: every public page, messaging filter, a partner reviewer, report → auto-pause → reactivate, every page on a phone |
+| `a11y.mjs` | run after `journey.mjs`: axe-core scan (WCAG 2.1 AA) of public and signed-in pages |
+
+```bash
+npx supabase start                        # local stack; .env.local points at it (see README)
+npm run build && npm start                # or npm run dev
+npm i --no-save playwright @axe-core/playwright
+psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -f tests/e2e/cleanup.sql -f tests/e2e/setup.sql
+rm -f tests/e2e/screenshots/.admin-totp.json
+node tests/e2e/journey.mjs                # then safety.mjs and a11y.mjs
+```
+
+Run `cleanup.sql` + `setup.sql` before each of the other tests. Test accounts are on `@tfac-e2e.test` with password `E2eTest-2026`. If Chromium isn't found, set `CHROME_PATH`.

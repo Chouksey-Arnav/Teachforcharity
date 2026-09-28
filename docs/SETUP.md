@@ -67,7 +67,7 @@ either is missing, sign-up shows "Email sign-up isn’t available right now" and
 the server log says exactly which variable is missing.
 
 ### Password & security
-- **Turn off public sign-ups:** Authentication → Sign In / Providers → **Allow new users to sign up: OFF**. The site creates every account itself after the emailed code (with the service-role key, which isn't affected by this switch). Leaving it on lets anyone with the public key create accounts directly through the API, skipping the emailed code and the breached-password check.
+- **Turn off public sign-ups:** Authentication → Sign In / Providers → **Allow new users to sign up: OFF**. The site creates every account itself after the emailed code (with the service-role key, which isn't affected by this switch). Leaving it on lets anyone with the public key create accounts directly through the API, skipping the emailed code and the breached-password check. **Don't** turn off the **Email** provider itself (Authentication → Sign In / Providers → Email). That switch also disables password sign-in and would lock everyone out.
 - Authentication → Providers → Email: keep **Confirm email** ON. Minimum password length 8.
 - Turn on **leaked password protection** (Authentication → Attack Protection). The site already checks passwords against known breaches when they're set; this is a second check inside Supabase.
 - **Multi-factor:** Authentication → Multi-Factor → make sure **TOTP (authenticator app)** is enabled. Admins need it (§4).

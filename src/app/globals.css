@@ -11,7 +11,7 @@
   --color-ink: #16201c;
   --color-ink-2: #2b3531;
   --color-muted: #5e6a64;
-  --color-faint: #8c958f;
+  --color-faint: #646b66; /* AA (4.5:1) on paper, paper-2 and cards */
   --color-line: #e2dccf;
   --color-line-2: #d4ccbb;
 

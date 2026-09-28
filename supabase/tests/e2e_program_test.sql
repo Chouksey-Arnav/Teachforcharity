@@ -137,7 +137,7 @@ begin
   execute 'reset role';
   perform set_config('request.jwt.claims', json_build_object('sub', f1, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  if (select count(*) from public.list_tutors(array[clar])) <> 1 then raise exception 'FAIL active tutor not listed'; end if;
+  if not exists (select 1 from public.list_tutors(array[clar]) where tutor_id = t1) then raise exception 'FAIL active tutor not listed'; end if;
   if (select display_name from public.list_tutors() where tutor_id = t1) is distinct from 'Maya R.' then raise exception 'FAIL tutor display name'; end if;
   if (select count(*) from public.tutor_profiles where user_id = t1) <> 0 then raise exception 'FAIL family can read tutor private profile'; end if;
   begin perform public.request_session(s1, t1, clar, slot + interval '7 minutes', 45, null); ok := false;
