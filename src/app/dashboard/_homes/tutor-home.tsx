@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { LessonCard } from "@/components/dashboard/lesson-card";
 import { AcceptingToggle } from "@/components/dashboard/accepting-toggle";
 import { Notice } from "@/components/ui/notice";
+import { TutorGuardianStatus } from "./tutor-guardian-status";
 import { LinkButton } from "@/components/ui/button";
 import { greeting } from "./greeting";
 import { SetupSteps, type SetupStep } from "@/components/dashboard/setup-steps";
@@ -41,7 +42,8 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
   const has = (st: string[]) => all.some((s) => st.includes(s.status));
   const steps: SetupStep[] = [
     { label: "Add a photo & intro", detail: "Families are far more likely to pick a tutor with a photo and a short intro.", done: Boolean(viewer.profile.avatar_path && t.bio), href: "/dashboard/profile", cta: "Edit profile" },
-    { label: "Profile goes live", detail: "The program team is reviewing your profile — we’ll email you when families can see you.", done: t.status === "active" },
+    { label: "Parent approves", detail: "Your parent or guardian approves from the email we sent them.", done: Boolean(t.guardian_approved_at) },
+    { label: "Profile goes live", detail: "The program team reviews your profile — we’ll email you when families can see you.", done: t.status === "active" },
     { label: "Book a first lesson", detail: "Offer to teach a matched student, or accept a request under Lessons.", done: has(["scheduled", "completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/find-students", cta: "Find students" },
     { label: "Log it afterward", detail: "After a lesson ends, open Lessons and log it so the family can confirm.", done: has(["completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/lessons", cta: "Open lessons" },
     { label: "Hours verified", detail: "Once the family confirms, the partner nonprofit verifies your hours each week.", done: has(["verified"]), href: "/dashboard/hours", cta: "See hours" },
@@ -56,7 +58,10 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
         actions={t.status === "active" ? <AcceptingToggle accepting={t.accepting_students} /> : undefined}
       />
       {passwordUpdated && <Notice tone="success" className="mb-6">Your password was updated.</Notice>}
-      {t.status === "pending" && (
+      {t.status === "pending" && !t.guardian_approved_at && (
+        <TutorGuardianStatus guardianName={t.guardian_name ?? ""} guardianEmail={t.guardian_email ?? ""} lastSent={t.guardian_last_invited_at} />
+      )}
+      {t.status === "pending" && t.guardian_approved_at && (
         <Notice tone="info" className="mb-6" title="Your profile is being reviewed">
           The program team reviews every tutor before families can see them — usually within a couple of days. We’ll email you when you’re approved.
           Meanwhile, you can polish your <Link href="/dashboard/profile" className="underline underline-offset-2">profile</Link>.

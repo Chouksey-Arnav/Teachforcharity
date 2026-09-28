@@ -108,6 +108,17 @@ begin
   perform public.sign_consent(s1, 'Pat Parent', 'Mother', '919-555-0100', 'Pat Parent', true,true,true,true,true,true, 'test');
   j := public.complete_onboarding();
 
+  -- the tutor's parent approves from the emailed link (the raw token is only in the email)
+  execute 'reset role';
+  select payload ->> 'token' into msg from public.email_outbox
+  where template = 'tutor_guardian_request' and to_email = 'rosa@example.test' order by id desc limit 1;
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  execute 'set local role anon';
+  perform public.tutor_guardian_approve(msg, 'Rosa Rodriguez', 'Mother', 'Rosa Rodriguez', true, true, true);
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', f1, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+
   -- admin approves tutor; non-admin cannot
   begin perform public.admin_set_tutor_status(t1, 'active', null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'FORBIDDEN'; end;

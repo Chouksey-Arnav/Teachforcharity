@@ -70,8 +70,8 @@ $$;
 do $test$
 declare
   adm uuid := gen_random_uuid(); fam uuid := gen_random_uuid(); rev uuid := gen_random_uuid();
-  kid uuid := gen_random_uuid(); mom uuid := gen_random_uuid();
-  stu uuid; consent_id uuid;
+  kid uuid := gen_random_uuid(); mom uuid := gen_random_uuid(); tut uuid := gen_random_uuid();
+  stu uuid; consent_id uuid; tok text;
   n int; j jsonb; log text := ''; v_partner uuid;
 begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
@@ -254,6 +254,91 @@ begin
   if j::text ~* 'maya|rodriguez|@' then raise exception 'FAIL public config leaks people'; end if;
   execute 'reset role';
   log := log || 'phone-verified consent ok; ';
+
+  -- ===== 5. Tutors need their parent's approval =====
+  insert into auth.users (id, email, aud, role, raw_user_meta_data) values
+    (tut, 'v3-tutor@example.test', 'authenticated', 'authenticated', '{"role":"tutor","full_name":"Maya Rodriguez"}');
+  perform pg_temp.act_as(tut);
+  update public.tutor_profiles set grade = 11, school = 'Green Level HS', meet_url = 'https://meet.google.com/abc-defg-hij',
+    availability = '{thu_evening,sat_morning}', teaching_strengths = '{fundamentals}', teaching_style = 'structured',
+    explain_style = 'show' where user_id = tut;
+  insert into public.tutor_subjects (tutor_id, subject_id, own_level, years_playing, top_ensemble, teach_levels)
+    values (tut, (select id from public.subjects where slug = 'clarinet'), 'advanced', 6, 'all_district', '{beginner,developing}');
+  perform public.accept_terms('terms');
+  perform public.sign_tutor_agreement('Maya Rodriguez', 'Rosa Rodriguez', 'rosa@example.test', '');
+  j := public.complete_onboarding();
+  if j ->> 'status' <> 'pending' or (j ->> 'guardian_approved')::boolean then raise exception 'FAIL tutor live before parent approval: %', j; end if;
+  if pg_temp.hint_of('select 1 from public.tutor_guardian_links') <> 'DENIED' then raise exception 'FAIL tutor can read link hashes'; end if;
+  if pg_temp.hint_of('update public.tutor_profiles set guardian_email = ''me2@example.test'' where user_id = auth.uid()') <> 'DENIED' then
+    raise exception 'FAIL tutor edited parent email directly'; end if;
+  if pg_temp.hint_of('update public.tutor_profiles set guardian_approved_at = now() where user_id = auth.uid()') <> 'DENIED' then
+    raise exception 'FAIL tutor approved themselves'; end if;
+  if pg_temp.hint_of('select public.resend_tutor_guardian_request()') <> 'COOLDOWN' then raise exception 'FAIL resend not rate limited'; end if;
+  execute 'reset role';
+  tok := pg_temp.mail('tutor_guardian_request', 'rosa@example.test') ->> 'token';
+  if tok !~ '^[0-9a-f]{64}$' then raise exception 'FAIL parent not emailed an approval link'; end if;
+  if pg_temp.mail('tutor_guardian_notice', 'rosa@example.test') is not null then raise exception 'FAIL old FYI email still sent'; end if;
+
+  perform pg_temp.act_as_anon();
+  if public.tutor_guardian_view(repeat('0', 64)) is not null then raise exception 'FAIL bad link showed a tutor'; end if;
+  j := public.tutor_guardian_view(tok);
+  if j ->> 'tutor_name' <> 'Maya Rodriguez' or j ->> 'approved_at' is not null then raise exception 'FAIL parent view: %', j; end if;
+  if pg_temp.hint_of(format('select public.tutor_guardian_approve(%L, ''Rosa Rodriguez'', ''Mother'', ''Rosa Rodriguez'', true, false, true)', tok)) <> 'INCOMPLETE' then
+    raise exception 'FAIL approval without every box'; end if;
+  if pg_temp.hint_of(format('select public.tutor_guardian_approve(%L, ''Rosa Rodriguez'', ''Mother'', ''Someone'', true, true, true)', tok)) <> 'SIGNATURE_MISMATCH' then
+    raise exception 'FAIL signature mismatch accepted'; end if;
+  if pg_temp.hint_of(format('select public.tutor_guardian_approve(%L, ''Maya Rodriguez'', ''Mother'', ''Maya Rodriguez'', true, true, true)', tok)) <> 'SAME_PERSON' then
+    raise exception 'FAIL tutor approved as their own parent'; end if;
+  if pg_temp.hint_of(format('select public.tutor_guardian_approve(%L, ''Rosa Rodriguez'', ''Mother'', ''Rosa Rodriguez'', true, true, true)', repeat('0', 64))) <> 'INVALID_LINK' then
+    raise exception 'FAIL bad link approved'; end if;
+
+  -- An admin can't skip the parent.
+  perform pg_temp.act_as(adm, 'aal2', 60);
+  if pg_temp.hint_of(format('select public.admin_set_tutor_status(%L, ''active'', null)', tut)) <> 'GUARDIAN_PENDING' then
+    raise exception 'FAIL admin activated a tutor before parent approval'; end if;
+
+  perform pg_temp.act_as_anon();
+  if public.tutor_guardian_approve(tok, 'Rosa Rodriguez', 'Mother', 'rosa rodriguez', true, true, true) <> 'pending' then
+    raise exception 'FAIL tutor skipped admin review'; end if;
+  execute 'reset role';
+  if pg_temp.mail('tutor_pending_review', 'alerts@example.test') is null then raise exception 'FAIL admins not asked to review'; end if;
+  if pg_temp.mail('tutor_guardian_approved', 'v3-tutor@example.test') is null then raise exception 'FAIL tutor not told their parent approved'; end if;
+  perform pg_temp.act_as(tut);
+  if pg_temp.hint_of('select public.resend_tutor_guardian_request()') <> 'ALREADY_APPROVED' then raise exception 'FAIL resend after approval'; end if;
+  perform pg_temp.act_as(adm, 'aal2', 60);
+  perform public.admin_set_tutor_status(tut, 'active', null);
+
+  -- A new parent email means a new approval, and the tutor leaves the listings.
+  perform pg_temp.act_as(tut);
+  perform public.sign_tutor_agreement('Maya Rodriguez', 'Rosa Rodriguez', 'rosa.new@example.test', '');
+  execute 'reset role';
+  if (select status from public.tutor_profiles where user_id = tut) <> 'pending'
+     or (select guardian_approved_at from public.tutor_profiles where user_id = tut) is not null then
+    raise exception 'FAIL changing the parent email kept the old approval'; end if;
+  perform pg_temp.act_as_anon();
+  if public.tutor_guardian_view(tok) is not null then raise exception 'FAIL old parent link still works after email change'; end if;
+  execute 'reset role';
+  update public.tutor_profiles set guardian_email = 'rosa@example.test' where user_id = tut;
+  perform private.request_tutor_guardian_approval(tut, false);
+  tok := pg_temp.mail('tutor_guardian_request', 'rosa@example.test') ->> 'token';
+  perform pg_temp.act_as_anon();
+  perform public.tutor_guardian_approve(tok, 'Rosa Rodriguez', 'Mother', 'Rosa Rodriguez', true, true, true);
+  perform pg_temp.act_as(adm, 'aal2', 60);
+  perform public.admin_set_tutor_status(tut, 'active', null);
+
+  -- The parent can withdraw from the same link: the tutor is paused and admins are told.
+  perform pg_temp.act_as_anon();
+  perform public.tutor_guardian_withdraw(tok);
+  execute 'reset role';
+  if (select status from public.tutor_profiles where user_id = tut) <> 'paused' then raise exception 'FAIL withdrawal didn''t pause the tutor'; end if;
+  if pg_temp.mail('tutor_guardian_withdrew', 'alerts@example.test') is null then raise exception 'FAIL admins not told about withdrawal'; end if;
+  -- "Email me a new link" works for tutors' parents too.
+  update public.tutor_profiles set guardian_last_invited_at = now() - interval '5 minutes' where user_id = tut;
+  perform pg_temp.act_as_anon();
+  perform public.guardian_request_link('ROSA@example.test');
+  execute 'reset role';
+  if pg_temp.mail('tutor_guardian_request', 'rosa@example.test') ->> 'token' = tok then raise exception 'FAIL no fresh link for a tutor''s parent'; end if;
+  log := log || 'tutor parent approval ok; ';
 
   raise exception 'ALL V3 TESTS PASSED (rolled back): %', log;
 end $test$;

@@ -1227,6 +1227,35 @@ export type Database = {
           },
         ]
       }
+      tutor_guardian_links: {
+        Row: {
+          created_at: string
+          expires_at: string
+          token_hash: string
+          tutor_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          token_hash: string
+          tutor_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          token_hash?: string
+          tutor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_guardian_links_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: true
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tutor_offers: {
         Row: {
           created_at: string
@@ -1289,7 +1318,12 @@ export type Database = {
           created_at: string
           explain_style: string | null
           grade: number | null
+          guardian_approved_at: string | null
+          guardian_approved_name: string | null
+          guardian_approved_relationship: string | null
           guardian_email: string | null
+          guardian_invite_count: number
+          guardian_last_invited_at: string | null
           guardian_name: string | null
           guardian_phone: string | null
           interests: string[]
@@ -1318,7 +1352,12 @@ export type Database = {
           created_at?: string
           explain_style?: string | null
           grade?: number | null
+          guardian_approved_at?: string | null
+          guardian_approved_name?: string | null
+          guardian_approved_relationship?: string | null
           guardian_email?: string | null
+          guardian_invite_count?: number
+          guardian_last_invited_at?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
           interests?: string[]
@@ -1347,7 +1386,12 @@ export type Database = {
           created_at?: string
           explain_style?: string | null
           grade?: number | null
+          guardian_approved_at?: string | null
+          guardian_approved_name?: string | null
+          guardian_approved_relationship?: string | null
           guardian_email?: string | null
+          guardian_invite_count?: number
+          guardian_last_invited_at?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
           interests?: string[]
@@ -2029,6 +2073,7 @@ export type Database = {
         }
         Returns: string
       }
+      resend_tutor_guardian_request: { Args: never; Returns: undefined }
       resolve_dispute: {
         Args: { p_happened: boolean; p_note: string; p_session: string }
         Returns: undefined
@@ -2144,9 +2189,27 @@ export type Database = {
         Args: { p_email: string; p_name: string }
         Returns: undefined
       }
+      tutor_guardian_approve: {
+        Args: {
+          p_adult_guardian: boolean
+          p_name: string
+          p_read_agreement: boolean
+          p_relationship: string
+          p_signature: string
+          p_token: string
+          p_understands_format: boolean
+        }
+        Returns: Database["public"]["Enums"]["tutor_status"]
+      }
+      tutor_guardian_view: { Args: { p_token: string }; Returns: Json }
+      tutor_guardian_withdraw: { Args: { p_token: string }; Returns: undefined }
       tutor_offer: {
         Args: { p_note?: string; p_student: string; p_subject: string }
         Returns: string
+      }
+      tutor_update_guardian: {
+        Args: { p_email: string; p_name: string; p_phone?: string }
+        Returns: undefined
       }
     }
     Enums: {

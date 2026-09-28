@@ -16,7 +16,7 @@ const TEMPLATES = [
   "session_confirm_request", "confirm_reminder", "log_reminder", "new_message", "consent_receipt", "tutor_guardian_notice",
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
   "incident_reported", "incident_received", "new_sign_in", "consent_pending", "consent_verified",
-  "consent_not_verified",
+  "consent_not_verified", "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew",
 ];
 
 describe("renderEmail", () => {

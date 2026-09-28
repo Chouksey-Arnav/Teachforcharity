@@ -16,8 +16,8 @@ type J = Record<string, unknown>;
 interface Person {
   profile: J & { id: string; full_name: string; email: string; role: string; kind: string; phone: string | null; created_at: string; onboarded_at: string | null; terms_accepted_at: string | null; adult_attested_at: string | null };
   auth: { last_sign_in_at: string | null; email_confirmed_at: string | null; banned_until: string | null } | null;
-  tutor: (J & { status: string; status_reason: string | null; grade: number | null; school: string | null; county: string | null; bio: string | null; meet_url: string | null; guardian_name: string | null; guardian_email: string | null; guardian_phone: string | null; max_students: number; accepting_students: boolean; availability: string[]; teaching_strengths: string[]; interests: string[]; agreement_signed_at: string | null; subjects: { name: string; own_level: Level; years: number; ensemble: string; teach_levels: Level[] }[]; active_students: number; verified_minutes: number }) | null;
-  students: (J & { id: string; first_name: string; grade: number; county: string | null; school: string | null; is_active: boolean; goals: string[]; interests: string[]; availability: string[]; notes: string | null; consent_ok: boolean; subjects: { name: string; level: Level; years: number }[]; consents: { version: string; guardian_name: string; relationship: string; phone: string; signed_at: string; revoked_at: string | null }[]; guardian: { name: string; email: string; invite_count: number; last_invited_at: string; last_viewed_at: string | null } | null })[];
+  tutor: (J & { status: string; status_reason: string | null; grade: number | null; school: string | null; county: string | null; bio: string | null; meet_url: string | null; guardian_name: string | null; guardian_email: string | null; guardian_phone: string | null; guardian_approved_at: string | null; guardian_approved_name: string | null; guardian_approved_relationship: string | null; guardian_last_invited_at: string | null; guardian_invite_count: number; max_students: number; accepting_students: boolean; availability: string[]; teaching_strengths: string[]; interests: string[]; agreement_signed_at: string | null; subjects: { name: string; own_level: Level; years: number; ensemble: string; teach_levels: Level[] }[]; active_students: number; verified_minutes: number }) | null;
+  students: (J & { id: string; first_name: string; grade: number; county: string | null; school: string | null; is_active: boolean; goals: string[]; interests: string[]; availability: string[]; notes: string | null; consent_ok: boolean; subjects: { name: string; level: Level; years: number }[]; consents: { version: string; guardian_name: string; verification_status?: "pending" | "verified" | "rejected"; relationship: string; phone: string; signed_at: string; revoked_at: string | null }[]; guardian: { name: string; email: string; invite_count: number; last_invited_at: string; last_viewed_at: string | null } | null })[];
   sessions: { id: string; status: string; start_at: string; minutes: number; subject: string; tutor_id: string; tutor: string; student: string; family_id: string }[];
   threads: { id: string; tutor: string; tutor_id: string; student: string; family_id: string; last_message_at: string | null; messages: number }[];
   incidents: { id: string; category: string; status: string; description: string; created_at: string; about_me: boolean }[];
@@ -88,6 +88,18 @@ export default async function PersonPage({ params }: PageProps<"/admin/people/[i
                 ["Students", `${t.active_students} of ${t.max_students}${t.accepting_students ? "" : " · not accepting"}`],
                 ["Meet link", t.meet_url ? <a key="m" href={t.meet_url} target="_blank" rel="noreferrer" className="text-pine-700 underline">{t.meet_url}</a> : null],
                 ["Guardian", [t.guardian_name, t.guardian_email, t.guardian_phone].filter(Boolean).join(" · ")],
+                [
+                  "Parent approval",
+                  t.guardian_approved_at ? (
+                    <span key="ga" className="text-pine-800">
+                      Approved {when(t.guardian_approved_at)} by {t.guardian_approved_name} ({t.guardian_approved_relationship})
+                    </span>
+                  ) : (
+                    <span key="ga" className="text-brass-800">
+                      Not yet{t.guardian_last_invited_at ? ` · emailed ${t.guardian_invite_count}× (last ${ago(t.guardian_last_invited_at)})` : " · not emailed yet"}
+                    </span>
+                  ),
+                ],
                 ["Agreement signed", t.agreement_signed_at ? when(t.agreement_signed_at) : "No"],
                 ["Strengths", t.teaching_strengths.map(goalLabel).join(", ")],
                 ["Likes", t.interests?.map(interestLabel).join(", ")],
@@ -125,6 +137,11 @@ export default async function PersonPage({ params }: PageProps<"/admin/people/[i
                     consent ? (
                       <span key="c" className="text-pine-800">
                         Signed {when(consent.signed_at)} by {consent.guardian_name} ({consent.relationship}) · {consent.phone}
+                        {consent.verification_status === "pending" && (
+                          <Link href="/admin/consents" className="ml-2 text-brass-800 underline">
+                            awaiting phone check
+                          </Link>
+                        )}
                       </span>
                     ) : (
                       <span key="c" className="text-brass-800">Not on file</span>

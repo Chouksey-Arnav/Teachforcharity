@@ -168,7 +168,7 @@ export function TutorWizard({
         <p className="mx-auto mt-4 max-w-lg text-[16px] leading-relaxed text-muted">
           {active
             ? "Families can now find you. When someone requests a lesson, you’ll get an email and see it on your dashboard."
-            : "The program team will review your profile — usually within a couple of days. We’ll email you the moment you’re approved. We also sent a short note to your parent or guardian."}
+            : `We just emailed ${p.guardianEmail || "your parent or guardian"} a link to approve you — tutors are minors too, so a parent says yes first. After that, the program team reviews your profile (usually within a couple of days) and we’ll email you the moment families can see you.`}
         </p>
         <LinkButton href="/dashboard" size="lg" className="mt-8">
           Go to my dashboard
@@ -410,9 +410,9 @@ export function TutorWizard({
   return (
     <WizardShell
       {...shared}
-      nextLabel={requireApproval ? "Sign & submit for review" : "Sign & go live"}
+      nextLabel="Sign & ask my parent"
       title="The tutor agreement"
-      description="These are the rules that keep students — and you — safe. We’ll also let your parent or guardian know you’ve signed up."
+      description={`These are the rules that keep students — and you — safe. Then we’ll email your parent or guardian to approve${requireApproval ? ", and the program team reviews your profile" : ""}.`}
     >
       <div className="space-y-6">
         <div className="divide-y divide-line rounded-2xl border border-line bg-card">
@@ -441,7 +441,7 @@ export function TutorWizard({
           <Field label="Parent/guardian name" htmlFor="gn">
             <Input id="gn" value={p.guardianName} onChange={(e) => set({ guardianName: e.target.value })} />
           </Field>
-          <Field label="Parent/guardian email" htmlFor="ge" hint="We’ll send them a short note about the program.">
+          <Field label="Parent/guardian email" htmlFor="ge" hint="They’ll get a link to approve you. Families can’t see you until they do.">
             <Input id="ge" type="email" value={p.guardianEmail} onChange={(e) => set({ guardianEmail: e.target.value })} />
           </Field>
           <Field label="Parent/guardian phone" htmlFor="gp" optional>

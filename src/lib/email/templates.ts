@@ -319,6 +319,52 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         ],
       });
 
+    case "tutor_guardian_request": {
+      const url = link(`/guardian/tutor/${encodeURIComponent(str(p.token))}`);
+      if (p.approved)
+        return make(`Your parent link for ${str(p.tutor_first)}`, {
+          heading: "Here’s your new link",
+          paragraphs: [hi(p), `Use this private link to see ${esc(p.tutor_first)}’s volunteer status or withdraw your approval. Earlier links no longer work.`],
+          cta: { label: "Open your parent page", href: url },
+          note: "The link works for 30 days. Don’t forward it.",
+          footer: `You asked for this link on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. If you didn’t, you can ignore this email.`,
+        });
+      return make(`${p.reminder ? "Reminder: " : ""}${str(p.tutor_first)} needs your OK to volunteer as a music tutor`, {
+        heading: `Approve ${str(p.tutor_first)} to volunteer`,
+        paragraphs: [
+          hi(p),
+          `<strong>${esc(p.tutor_name)}</strong>${p.grade ? ` (grade ${esc(p.grade)}${p.school ? `, ${esc(p.school)}` : ""})` : ""} signed up to teach free music lessons to middle schoolers with ${esc(SITE.name)} and listed you as their parent or guardian.`,
+          "Because tutors are minors too, they can’t teach until a parent or guardian approves. The page below explains exactly what volunteering involves — one-on-one video lessons, never recorded, with every message monitored — and takes about two minutes.",
+        ],
+        cta: { label: "Review and approve", href: url },
+        note: `If you don’t approve, ${esc(p.tutor_first)}’s profile stays hidden. The link works for 30 days. If you don’t know who this is, ignore this email.${SITE.contactEmail ? ` Questions: ${esc(SITE.contactEmail)}` : ""}`,
+        footer: `You’re getting this because a high school student entered your email as their parent or guardian on ${esc(SITE.url.replace(/^https?:\/\//, ""))}.`,
+      });
+    }
+
+    case "tutor_guardian_approved":
+      return make("Your parent approved you to volunteer", {
+        heading: "One step closer!",
+        paragraphs: [
+          hi(p),
+          `${esc(p.guardian_first) || "Your parent"} approved you to volunteer.`,
+          p.needs_review
+            ? "Next, the program team reviews your profile — usually within a couple of days. We’ll email you the moment families can see you."
+            : "Your profile is live: families can now find you and request lessons.",
+        ],
+        cta: { label: "Open your dashboard", href: link("/dashboard") },
+      });
+
+    case "tutor_guardian_withdrew":
+      return make(`A parent withdrew approval for tutor ${str(p.tutor_name)}`, {
+        heading: "Parent withdrew approval",
+        paragraphs: [
+          `The parent or guardian of <strong>${esc(p.tutor_name)}</strong> withdrew their approval from their private link. The tutor is paused and their upcoming lessons were cancelled.`,
+          "Consider contacting the parent to understand why.",
+        ],
+        cta: { label: "Open the tutor", href: link(`/admin/people/${encodeURIComponent(str(p.tutor_id))}`) },
+      });
+
     case "tutor_guardian_notice":
       return make(`${str(p.tutor_name)} signed up to volunteer with ${SITE.name}`, {
         heading: "A note for parents and guardians",

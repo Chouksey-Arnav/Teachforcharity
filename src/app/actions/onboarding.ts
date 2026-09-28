@@ -495,3 +495,29 @@ export async function signTutorAgreement(input: z.input<typeof agreement>): Prom
   revalidatePath("/dashboard", "layout");
   return { ok: true, data: { status: String((done.data as { status?: string } | null)?.status ?? "pending") } };
 }
+
+/** Tutor dashboard: email the parent/guardian approval link again. */
+export async function resendTutorGuardianRequest(): Promise<ActionState> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("resend_tutor_guardian_request");
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  return { ok: true, message: "Sent! Ask your parent to check their email (and spam folder)." };
+}
+
+const tutorGuardian = z.object({
+  name: z.string().trim().min(2, "Enter your parent or guardian's name.").max(120),
+  email: z.string().trim().toLowerCase().email("Enter your parent or guardian's email."),
+});
+
+/** Tutor dashboard: fix or change the parent/guardian who approves. A new email resets approval. */
+export async function updateTutorGuardian(input: z.input<typeof tutorGuardian>): Promise<ActionState> {
+  const p = tutorGuardian.safeParse(input);
+  if (!p.success) return { ok: false, error: { message: p.error.issues[0].message } };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("tutor_update_guardian", { p_name: p.data.name, p_email: p.data.email });
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  revalidatePath("/dashboard");
+  return { ok: true, message: `Sent to ${p.data.email}.` };
+}

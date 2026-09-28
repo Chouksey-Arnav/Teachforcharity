@@ -47,8 +47,14 @@ begin
   perform public.accept_terms('terms');
   perform public.sign_tutor_agreement('Maya Rodriguez', 'Rosa Rodriguez', 'rosa@example.test', '');
   j := public.complete_onboarding();
-  if j ->> 'status' <> 'active' then raise exception 'FAIL tutor not auto-active: %', j; end if;
+  if j ->> 'status' <> 'pending' then raise exception 'FAIL tutor live before their parent approved: %', j; end if;
   execute 'reset role';
+  -- With admin review off, the parent's approval is the last step.
+  update public.app_settings set require_tutor_approval = false;
+  if public.tutor_guardian_approve(
+       (select payload ->> 'token' from public.email_outbox where template = 'tutor_guardian_request' and to_email = 'rosa@example.test' order by id desc limit 1),
+       'Rosa Rodriguez', 'Mother', 'Rosa Rodriguez', true, true, true) <> 'active' then
+    raise exception 'FAIL tutor not auto-active after parent approval'; end if;
   log := log || 'auto-activate ok; ';
 
   -- ===== student account =====

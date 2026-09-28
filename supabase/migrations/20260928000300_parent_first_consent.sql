@@ -346,3 +346,8 @@ select private.patch_function('public.complete_onboarding()'::regprocedure,
 select private.patch_function('public.student_set_guardian(text,text)'::regprocedure,
   $o$if private.has_consent(v_student.id) and g.email <> v_email then$o$,
   $n$if private.has_signed_consent(v_student.id) and g.email <> v_email then$n$);
+
+-- The admin's person page shows each consent's phone-check status.
+select private.patch_function('public.admin_person(uuid)'::regprocedure,
+  $o$jsonb_build_object('version', c.version, 'guardian_name', c.guardian_name,$o$,
+  $n$jsonb_build_object('version', c.version, 'guardian_name', c.guardian_name, 'verification_status', c.verification_status,$n$);
