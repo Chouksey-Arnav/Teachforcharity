@@ -2,6 +2,7 @@ import "server-only";
 import { createServiceClient } from "../supabase/admin";
 import { renderEmail } from "./templates";
 import { emailProvider } from "./provider";
+import { pushForEmail } from "../push/send";
 
 export interface DrainResult {
   configured: boolean;
@@ -63,8 +64,11 @@ export async function drainOutbox(maxBatches = 4): Promise<DrainResult> {
           console.error(`[email] #${row.id} could not record ${sent ? "sent" : "failure"}:`, finishErr.message);
           await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
         }
-        if (sent) result.sent++;
-        else result.failed++;
+        if (sent) {
+          result.sent++;
+          // Only after a definite send, so a retried email never buzzes twice.
+          await pushForEmail(supabase, row.to_email, row.template, (row.payload ?? {}) as Record<string, unknown>);
+        } else result.failed++;
       }),
     );
     if (rows.length < 25) break;

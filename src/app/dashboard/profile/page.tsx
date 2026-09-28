@@ -8,6 +8,7 @@ import { AvatarUpload } from "@/components/forms/avatar-upload";
 import { Submit } from "@/components/ui/submit";
 import { signOutEverywhere } from "@/app/actions/auth";
 import { AccountForm } from "./account-form";
+import { PushToggle } from "@/components/dashboard/push-toggle";
 import { TutorSettings } from "./tutor-settings";
 import type { Level } from "@/lib/constants";
 
@@ -74,6 +75,15 @@ export default async function ProfilePage() {
             </p>
           </div>
         </Card>
+        {process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && (
+          <Card className="p-5 sm:p-7">
+            <h2 className="display text-3xl">Notifications on this device</h2>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
+              Get a notification for new messages, lesson requests, bookings and reminders — the same things we email you about. Notifications never show message text.
+            </p>
+            <PushToggle publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY} />
+          </Card>
+        )}
         <Card className="p-5 sm:p-7">
           <h2 className="display text-3xl">Security</h2>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">

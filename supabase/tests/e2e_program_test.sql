@@ -101,7 +101,7 @@ begin
   execute 'reset role';
   perform set_config('request.jwt.claims', json_build_object('sub', f1, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  if (select count(*) from public.list_tutors()) <> 0 then raise exception 'FAIL pending tutor listed'; end if;
+  if exists (select 1 from public.list_tutors() where tutor_id in (t1, t2)) then raise exception 'FAIL pending tutor listed'; end if;
   begin perform public.request_session(s1, t1, clar, slot, 45, null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'CONSENT_REQUIRED'; end;
   if not ok then raise exception 'FAIL request allowed without consent (hint=%)', hint; end if;
@@ -138,7 +138,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', f1, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   if (select count(*) from public.list_tutors(array[clar])) <> 1 then raise exception 'FAIL active tutor not listed'; end if;
-  if (select display_name from public.list_tutors()) <> 'Maya R.' then raise exception 'FAIL tutor display name'; end if;
+  if (select display_name from public.list_tutors() where tutor_id = t1) is distinct from 'Maya R.' then raise exception 'FAIL tutor display name'; end if;
   if (select count(*) from public.tutor_profiles where user_id = t1) <> 0 then raise exception 'FAIL family can read tutor private profile'; end if;
   begin perform public.request_session(s1, t1, clar, slot + interval '7 minutes', 45, null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'BAD_TIME'; end;

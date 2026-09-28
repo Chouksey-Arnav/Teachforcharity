@@ -578,5 +578,38 @@ begin
   perform private.run_program_jobs();
   log := log || 'engagement ok; ';
 
+
+  -- ===== 9. Push notifications =====
+  tok := 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM';
+  perform pg_temp.act_as_anon();
+  if pg_temp.hint_of(format('select public.save_push_subscription(%L, %L, %L)', 'https://fcm.googleapis.com/fcm/send/abc', tok, 'tBHItJI5svbpez7KI4CCXg')) <> 'DENIED' then
+    raise exception 'FAIL anon saved a push subscription'; end if;
+  perform pg_temp.act_as(mom);
+  -- The server POSTs to the endpoint, so only real push services are allowed.
+  if pg_temp.hint_of(format('select public.save_push_subscription(%L, %L, %L)', 'http://127.0.0.1:54321/rest/v1/', tok, 'tBHItJI5svbpez7KI4CCXg')) <> 'BAD_INPUT'
+     or pg_temp.hint_of(format('select public.save_push_subscription(%L, %L, %L)', 'https://fcm.googleapis.com.evil.test/x', tok, 'tBHItJI5svbpez7KI4CCXg')) <> 'BAD_INPUT'
+     or pg_temp.hint_of(format('select public.save_push_subscription(%L, %L, %L)', 'https://evil.test/fcm.googleapis.com/x', tok, 'tBHItJI5svbpez7KI4CCXg')) <> 'BAD_INPUT'
+     or pg_temp.hint_of(format('select public.save_push_subscription(%L, %L, %L)', 'https://fcm.googleapis.com/fcm/send/abc', 'short', 'tBHItJI5svbpez7KI4CCXg')) <> 'BAD_INPUT' then
+    raise exception 'FAIL a non-push-service endpoint or bad key was accepted'; end if;
+  consent_id := public.save_push_subscription('https://fcm.googleapis.com/fcm/send/abc', tok, 'tBHItJI5svbpez7KI4CCXg', 'Chrome on Android');
+  perform public.save_push_subscription('https://web.push.apple.com/QOtherDevice', tok, 'tBHItJI5svbpez7KI4CCXg', 'Safari on iPhone');
+  if (select count(*) from public.push_subscriptions) <> 2 then raise exception 'FAIL own devices not listed'; end if;
+  if pg_temp.hint_of('select p256dh from public.push_subscriptions') <> 'DENIED' then raise exception 'FAIL browser keys readable by the user'; end if;
+  for n in 1..11 loop perform public.save_push_subscription('https://updates.push.services.mozilla.com/wpush/v2/d' || n, tok, 'tBHItJI5svbpez7KI4CCXg'); end loop;
+  if (select count(*) from public.push_subscriptions) <> 10 then raise exception 'FAIL device cap not applied'; end if;
+  perform pg_temp.act_as(tut);
+  if exists (select 1 from public.push_subscriptions) then raise exception 'FAIL someone else''s devices visible'; end if;
+  delete from public.push_subscriptions;
+  -- The same browser signing in as someone else moves the subscription to them.
+  perform public.save_push_subscription('https://updates.push.services.mozilla.com/wpush/v2/d11', tok, 'tBHItJI5svbpez7KI4CCXg');
+  execute 'reset role';
+  if (select count(*) from public.push_subscriptions where user_id = mom) <> 9 or (select user_id from public.push_subscriptions where endpoint like '%/d11') <> tut then
+    raise exception 'FAIL shared-device handover (or a user deleted someone else''s devices)'; end if;
+  perform pg_temp.act_as(mom);
+  perform public.forget_push_devices();
+  execute 'reset role';
+  if exists (select 1 from public.push_subscriptions where user_id = mom) then raise exception 'FAIL sign-out-everywhere kept devices'; end if;
+  log := log || 'push ok; ';
+
   raise exception 'ALL V3 TESTS PASSED (rolled back): %', log;
 end $test$;

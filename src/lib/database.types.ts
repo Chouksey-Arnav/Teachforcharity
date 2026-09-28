@@ -938,6 +938,47 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          label: string | null
+          last_sent_at: string | null
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          label?: string | null
+          last_sent_at?: string | null
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          label?: string | null
+          last_sent_at?: string | null
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_events: {
         Row: {
           actor_id: string | null
@@ -1935,6 +1976,7 @@ export type Database = {
         Args: { p_error?: string; p_id: number; p_ok: boolean }
         Returns: undefined
       }
+      forget_push_devices: { Args: never; Returns: undefined }
       get_public_config: { Args: never; Returns: Json }
       guardian_delete_account: {
         Args: { p_confirm: string; p_token: string }
@@ -2292,6 +2334,15 @@ export type Database = {
       }
       revoke_consent: { Args: { p_student: string }; Returns: number }
       revoke_user_sessions: { Args: { p_user: string }; Returns: undefined }
+      save_push_subscription: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_label?: string
+          p_p256dh: string
+        }
+        Returns: string
+      }
       send_message: {
         Args: { p_body?: string; p_template?: string; p_thread: string }
         Returns: string

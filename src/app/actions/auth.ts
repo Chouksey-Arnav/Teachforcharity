@@ -22,6 +22,8 @@ import {
 import { LEAKED_PASSWORD_MESSAGE, isLeakedPassword } from "@/lib/auth/pwned";
 import { recordSignInDevice } from "@/lib/auth/sign-in-device";
 import { logAppEvent } from "@/lib/audit";
+import { cookies } from "next/headers";
+import { PUSH_COOKIE } from "@/lib/push/cookie";
 
 const signUpSchema = z.object({
   // Students can't create accounts (a parent signs them up); see requestParentInvite.
@@ -280,6 +282,8 @@ export async function signOutEverywhere() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (data.user) await logAppEvent(data.user.id, "auth.sign_out_everywhere", "profile", data.user.id);
+  if (data.user) await supabase.rpc("forget_push_devices");
+  (await cookies()).delete(PUSH_COOKIE);
   await supabase.auth.signOut({ scope: "global" });
   redirect("/login?signedout=everywhere");
 }
@@ -288,6 +292,11 @@ export async function signOut() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (data.user) await logAppEvent(data.user.id, "auth.sign_out", "profile", data.user.id);
+  // Stop this device's notifications: the next person to use it shouldn't see them.
+  const jar = await cookies();
+  const pushId = jar.get(PUSH_COOKIE)?.value;
+  if (data.user && pushId && /^[0-9a-f-]{36}$/.test(pushId)) await supabase.from("push_subscriptions").delete().eq("id", pushId);
+  jar.delete(PUSH_COOKIE);
   await supabase.auth.signOut();
   redirect("/");
 }

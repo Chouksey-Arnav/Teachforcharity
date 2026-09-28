@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     siteName: SITE.name,
   },
   robots: { index: true, follow: true },
+  appleWebApp: { capable: true, title: SITE.name, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
