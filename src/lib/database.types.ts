@@ -14,27 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      admin_login_attempts: {
-        Row: {
-          created_at: string
-          id: number
-          ip: string | null
-          ok: boolean
-        }
-        Insert: {
-          created_at?: string
-          id?: never
-          ip?: string | null
-          ok: boolean
-        }
-        Update: {
-          created_at?: string
-          id?: never
-          ip?: string | null
-          ok?: boolean
-        }
-        Relationships: []
-      }
       app_settings: {
         Row: {
           admin_emails: string[]
@@ -1369,7 +1348,6 @@ export type Database = {
     }
     Functions: {
       accept_terms: { Args: { p_kind: string }; Returns: undefined }
-      admin_cron_http: { Args: never; Returns: Json }
       admin_activity: {
         Args: { p_action?: string; p_before?: number; p_limit?: number }
         Returns: {
@@ -1384,6 +1362,7 @@ export type Database = {
           target_type: string
         }[]
       }
+      admin_cron_http: { Args: never; Returns: Json }
       admin_erase_account: {
         Args: { p_reason: string; p_user: string }
         Returns: string
@@ -1533,11 +1512,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      admin_login_allowed: { Args: { p_ip: string }; Returns: boolean }
-      admin_login_record: {
-        Args: { p_ip: string; p_ok: boolean }
-        Returns: undefined
-      }
       admin_overview: { Args: never; Returns: Json }
       admin_people: {
         Args: {
@@ -1657,6 +1631,11 @@ export type Database = {
         Args: { p_email: string; p_purpose: string; p_send_id?: number }
         Returns: undefined
       }
+      complete_onboarding: { Args: never; Returns: Json }
+      confirm_session: {
+        Args: { p_happened: boolean; p_note?: string; p_session: string }
+        Returns: Database["public"]["Enums"]["session_status"]
+      }
       connected_student_kinds: {
         Args: never
         Returns: {
@@ -1664,11 +1643,6 @@ export type Database = {
           kind: string
           student_id: string
         }[]
-      }
-      complete_onboarding: { Args: never; Returns: Json }
-      confirm_session: {
-        Args: { p_happened: boolean; p_note?: string; p_session: string }
-        Returns: Database["public"]["Enums"]["session_status"]
       }
       finish_outbox: {
         Args: { p_error?: string; p_id: number; p_ok: boolean }
@@ -2080,12 +2054,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2109,11 +2083,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2134,11 +2108,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2159,11 +2133,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2176,11 +2150,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

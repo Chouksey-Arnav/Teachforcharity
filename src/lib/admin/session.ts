@@ -1,99 +1,69 @@
 import "server-only";
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import { cache } from "react";
 import { redirect } from "next/navigation";
+import { createClient } from "../supabase/server";
 import { createServiceClient } from "../supabase/admin";
-import { ADMIN_COOKIE } from "./cookie";
+import { adminSessionState, type AdminSessionState } from "./mfa";
 
 /**
  * Admin console sign-in.
  *
- * The password comes from the ADMIN_PASSWORD environment variable (set it in
- * Vercel → Settings → Environment Variables, then redeploy). If it's missing,
- * the fallback below is used and the console shows a red warning on every page:
- * this repository is public, so the fallback is effectively public too.
+ * Admins are ordinary accounts whose profile role is "admin". The console
+ * only opens for a session that has also passed a two-factor (TOTP) check
+ * within the last 12 hours. The database enforces the same rule on its own:
+ * private.is_admin() is false unless the session's JWT says aal2, so a
+ * stolen password alone can't read anything.
  *
- * A successful sign-in sets an HttpOnly, SameSite=Strict cookie holding an
- * expiry and an HMAC over it. The HMAC key is derived from the password and
- * the service-role key, so changing ADMIN_PASSWORD signs everyone out.
- * Failed attempts are rate limited in the database (10 per IP / 50 total per
- * 15 minutes) and every attempt is written to the audit log.
+ * Every console query runs as the signed-in admin (not the service role), so
+ * the activity log records which person did what.
  */
-export const FALLBACK_ADMIN_PASSWORD = "123987";
-const COOKIE = ADMIN_COOKIE;
-const TTL_SECONDS = 12 * 60 * 60;
-
-export function adminPassword(): string {
-  return process.env.ADMIN_PASSWORD?.trim() || FALLBACK_ADMIN_PASSWORD;
+export interface AdminSession {
+  state: AdminSessionState;
+  userId: string | null;
+  email: string | null;
+  name: string | null;
 }
 
-export function usingFallbackPassword(): boolean {
-  return !process.env.ADMIN_PASSWORD?.trim();
-}
-
-function key(): Buffer {
-  return createHash("sha256")
-    .update(`tfac-admin:${adminPassword()}:${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""}`)
-    .digest();
-}
-
-function sign(exp: number): string {
-  return createHmac("sha256", key()).update(String(exp)).digest("hex");
-}
-
-/** Constant-time password check (both sides hashed to a fixed length first). */
-export function passwordMatches(input: string): boolean {
-  const a = createHash("sha256").update(input).digest();
-  const b = createHash("sha256").update(adminPassword()).digest();
-  return timingSafeEqual(a, b);
-}
-
-export function makeSessionToken(now = Date.now()): { value: string; maxAge: number } {
-  const exp = Math.floor(now / 1000) + TTL_SECONDS;
-  return { value: `${exp}.${sign(exp)}`, maxAge: TTL_SECONDS };
-}
-
-export function verifySessionToken(value: string | undefined, now = Date.now()): boolean {
-  if (!value) return false;
-  const [expStr, mac] = value.split(".");
-  const exp = Number(expStr);
-  if (!Number.isFinite(exp) || exp * 1000 < now || !/^[0-9a-f]{64}$/.test(mac ?? "")) return false;
-  const want = Buffer.from(sign(exp), "hex");
-  const got = Buffer.from(mac, "hex");
-  return want.length === got.length && timingSafeEqual(want, got);
-}
+export const getAdminSession = cache(async (): Promise<AdminSession> => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return { state: "signed_out", userId: null, email: null, name: null };
+  const { data: profile } = await supabase.from("profiles").select("role, full_name, email").eq("id", claims.sub).maybeSingle();
+  return {
+    state: adminSessionState({ role: profile?.role ?? "none", aal: claims.aal, amr: claims.amr, now: Date.now() }),
+    userId: claims.sub,
+    email: profile?.email ?? (typeof claims.email === "string" ? claims.email : null),
+    name: profile?.full_name ?? null,
+  };
+});
 
 export async function isAdmin(): Promise<boolean> {
-  const jar = await cookies();
-  return verifySessionToken(jar.get(COOKIE)?.value);
+  return (await getAdminSession()).state === "ok";
 }
 
-export async function setAdminCookie() {
-  const jar = await cookies();
-  const { value, maxAge } = makeSessionToken();
-  jar.set(COOKIE, value, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge });
-}
-
-export async function clearAdminCookie() {
-  const jar = await cookies();
-  jar.delete(COOKIE);
-}
-
-/** For admin pages: redirects to the sign-in page unless signed in. */
-export async function requireAdmin() {
-  if (!(await isAdmin())) redirect("/admin/login");
+/** For admin pages and actions: sends anyone without a fully signed-in admin session to the sign-in page. */
+export async function requireAdmin(): Promise<AdminSession> {
+  const session = await getAdminSession();
+  if (session.state !== "ok") redirect("/admin/login");
+  return session;
 }
 
 export class AdminSetupError extends Error {}
 
-/**
- * The service-role database client, only after the admin cookie checks out.
- * Every admin function in the database also re-checks that the caller is
- * the service role (or an admin user).
- */
+/** The signed-in admin's own database client (RLS and private.is_admin() apply). */
 export async function adminDb() {
   await requireAdmin();
+  return createClient();
+}
+
+/**
+ * The service-role client, for the few console jobs the database can't do as
+ * a user (draining the email queue, resetting another admin's two-factor).
+ */
+export async function adminServiceDb() {
+  const session = await requireAdmin();
   const db = createServiceClient();
   if (!db) throw new AdminSetupError("SUPABASE_SERVICE_ROLE_KEY is not set in this deployment.");
-  return db;
+  return { db, session };
 }

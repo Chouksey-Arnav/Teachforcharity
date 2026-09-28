@@ -111,7 +111,10 @@ begin
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'FORBIDDEN'; end;
   if not ok then raise exception 'FAIL family used admin function'; end if;
   execute 'reset role';
-  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated')::text, true);
+  -- Admins act with a two-factor session (aal2 + a recent TOTP check).
+  perform set_config('request.jwt.claims', json_build_object('sub', adm, 'role', 'authenticated', 'aal', 'aal2',
+    'amr', json_build_array(json_build_object('method', 'password', 'timestamp', extract(epoch from now())::bigint),
+                            json_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint)))::text, true);
   execute 'set local role authenticated';
   perform public.admin_set_tutor_status(t1, 'active', null);
   if (public.admin_overview() -> 'tutors' ->> 'active')::int < 1 then raise exception 'FAIL overview'; end if;

@@ -31,6 +31,14 @@ export async function updateSession(request: NextRequest) {
   const signedIn = Boolean(data?.claims?.sub);
   const path = request.nextUrl.pathname;
 
+  // Admin pages: sign in on the admin page, remembering where they were headed
+  // (e.g. a safety-alert email link). The page itself checks the admin role and two-factor.
+  if (!signedIn && (path === "/admin" || path.startsWith("/admin/")) && path !== "/admin/login") {
+    const to = request.nextUrl.clone();
+    to.pathname = "/admin/login";
+    to.search = path === "/admin" ? "" : `?next=${encodeURIComponent(path + request.nextUrl.search)}`;
+    return copyCookies(response, NextResponse.redirect(to));
+  }
   if (!signedIn && PROTECTED.some((p) => path === p || path.startsWith(`${p}/`))) {
     const to = request.nextUrl.clone();
     to.pathname = "/login";

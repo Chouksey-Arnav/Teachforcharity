@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, CircleAlert } from "lucide-react";
-import { adminDb, usingFallbackPassword } from "@/lib/admin/session";
+import { adminDb } from "@/lib/admin/session";
 import { AdminPage, Panel, PersonLink, SeverityBadge, Stat, actionLabel, ago } from "@/components/admin/ui";
 import { WeekBars } from "@/components/admin/week-bars";
 import { CATEGORY_LABEL } from "@/lib/safety/lexicon";
@@ -47,7 +47,6 @@ export default async function AdminOverview() {
   const hrs = (ov.verified_minutes / 60).toFixed(1).replace(/\.0$/, "");
 
   const attention: { text: string; href: string; tone: "danger" | "warn" }[] = [];
-  if (usingFallbackPassword()) attention.push({ text: "Set ADMIN_PASSWORD in Vercel — the default password is public", href: "/admin/settings#health", tone: "danger" });
   if (ov.alert_recipients === 0) attention.push({ text: "Nobody receives safety alerts — add alert emails", href: "/admin/settings", tone: "danger" });
   if (urgent) attention.push({ text: `${urgent} high/critical safety flag${urgent === 1 ? "" : "s"} to review`, href: "/admin/safety", tone: "danger" });
   if (ov.open_incidents) attention.push({ text: `${ov.open_incidents} open report${ov.open_incidents === 1 ? "" : "s"}`, href: "/admin/reports", tone: "danger" });

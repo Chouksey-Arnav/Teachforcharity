@@ -7,15 +7,17 @@ import { kickEmails } from "@/lib/email/kick";
 import { drainOutbox } from "@/lib/email/worker";
 import { emailProvider } from "@/lib/email/provider";
 import { SITE } from "@/lib/site";
-import { adminDb, clearAdminCookie, passwordMatches, setAdminCookie } from "@/lib/admin/session";
-import { createServiceClient } from "@/lib/supabase/admin";
-import { clientIp } from "@/lib/auth/email-code";
+import { adminDb, adminServiceDb } from "@/lib/admin/session";
+import { createClient } from "@/lib/supabase/server";
+import { logAppEvent } from "@/lib/audit";
+import { safeNext } from "@/lib/redirect";
 import { runSafetyScan } from "@/lib/safety/scanner";
 
 /**
- * Admin console actions. Every one goes through adminDb(), which requires the
- * signed admin cookie before handing out the service-role client — and every
- * admin database function re-checks the caller on its own.
+ * Admin console actions. Every one goes through adminDb(), which requires a
+ * signed-in admin with a fresh two-factor check and returns that admin's own
+ * database client — and every admin database function re-checks the caller
+ * (private.is_admin()) on its own.
  */
 const uuid = z.string().uuid();
 
@@ -26,30 +28,118 @@ function ok(message?: string): ActionState {
 }
 
 // ---------------------------------------------------------------------------
-// Sign in / out
+// Sign in / out (password, then a code from an authenticator app)
 // ---------------------------------------------------------------------------
-export async function adminLogin(_: ActionState, form: FormData): Promise<ActionState> {
+const DENIED = "That email and password don’t match an admin account.";
+
+/** Step 1: email + password. Only admin accounts stay signed in; the page then asks for a code. */
+export async function adminSignIn(_: ActionState<{ email: string }>, form: FormData): Promise<ActionState<{ email: string }>> {
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  const db = createServiceClient();
-  if (!db) return { ok: false, error: { message: "The server is missing SUPABASE_SERVICE_ROLE_KEY. Add it in Vercel and redeploy." } };
-  const ip = (await clientIp()) ?? "unknown";
-  const { data: allowed, error } = await db.rpc("admin_login_allowed", { p_ip: ip });
-  if (error) return { ok: false, error: { message: "Sign-in is unavailable right now. Try again shortly." } };
-  if (!allowed) return { ok: false, error: { message: "Too many attempts. Wait 15 minutes and try again." } };
-  const good = password.length > 0 && passwordMatches(password);
-  await db.rpc("admin_login_record", { p_ip: ip, p_ok: good });
-  if (!good) {
-    await new Promise((r) => setTimeout(r, 400)); // slows guessing a little more
-    return { ok: false, error: { message: "That password isn’t right." } };
+  if (!email || !password) return { ok: false, error: { message: "Enter your email and password." }, data: { email } };
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.user) {
+    await logAppEvent(null, "admin.login_failed", "admin", null, { email });
+    return { ok: false, error: { message: /rate limit/i.test(error?.message ?? "") ? "Too many attempts. Please wait a few minutes." : DENIED }, data: { email } };
   }
-  await setAdminCookie();
-  const next = String(form.get("next") ?? "");
-  redirect(next.startsWith("/admin") && !next.startsWith("//") ? next : "/admin");
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+  if (profile?.role !== "admin") {
+    await supabase.auth.signOut();
+    await logAppEvent(data.user.id, "admin.login_denied", "admin", data.user.id, { email });
+    return { ok: false, error: { message: DENIED }, data: { email } };
+  }
+  await logAppEvent(data.user.id, "admin.password_ok", "admin", data.user.id);
+  redirect(`/admin/login${nextQuery(form.get("next"))}`);
+}
+
+async function signedInAdminId(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; id: string } | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const id = data?.claims?.sub;
+  if (!id) return null;
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", id).maybeSingle();
+  return profile?.role === "admin" ? { supabase, id } : null;
+}
+
+/** Step 2a (first sign-in only): create an authenticator-app factor and return its QR code. */
+export async function adminStartEnroll(): Promise<ActionState<{ factorId: string; qr: string; secret: string }>> {
+  const me = await signedInAdminId();
+  if (!me) return { ok: false, error: { message: "Your session ended. Sign in again." } };
+  const { data: factors, error: listErr } = await me.supabase.auth.mfa.listFactors();
+  if (listErr) return { ok: false, error: { message: "Two-factor setup isn’t available right now. Try again shortly." } };
+  if (factors.totp.length) return { ok: false, error: { message: "Two-factor is already set up for this account. Enter a code from your app." } };
+  // Clear half-finished setups (e.g. a closed tab) so they don't pile up.
+  for (const f of factors.all.filter((f) => f.factor_type === "totp" && f.status !== "verified")) {
+    await me.supabase.auth.mfa.unenroll({ factorId: f.id });
+  }
+  const { data, error } = await me.supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Admin console", issuer: SITE.name });
+  if (error || !data) {
+    console.error("[admin] mfa enroll failed:", error?.message);
+    return { ok: false, error: { message: "Two-factor setup isn’t available right now. Check that TOTP is enabled in Supabase → Authentication → Multi-Factor." } };
+  }
+  return { ok: true, data: { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret } };
+}
+
+/** Step 2b: check a 6-digit code. Upgrades the session to two-factor, then opens the console. */
+export async function adminVerifyCode(_: ActionState, form: FormData): Promise<ActionState> {
+  const code = String(form.get("code") ?? "").replace(/[\s-]/g, "");
+  if (!/^\d{6}$/.test(code)) return { ok: false, error: { message: "Enter the 6-digit code from your authenticator app." } };
+  const me = await signedInAdminId();
+  if (!me) return { ok: false, error: { message: "Your session ended. Sign in again." } };
+  let factorId = String(form.get("factorId") ?? "");
+  if (!factorId) {
+    const { data: factors } = await me.supabase.auth.mfa.listFactors();
+    factorId = factors?.totp[0]?.id ?? "";
+  }
+  if (!factorId) return { ok: false, error: { message: "Two-factor isn’t set up yet. Reload the page to set it up." } };
+  const { error } = await me.supabase.auth.mfa.challengeAndVerify({ factorId, code });
+  if (error) {
+    await logAppEvent(me.id, "admin.mfa_failed", "admin", me.id);
+    return {
+      ok: false,
+      error: { message: /rate|too many/i.test(error.message) ? "Too many tries. Wait a minute, then use a new code." : "That code didn’t work. Check your app’s clock and use the newest code." },
+    };
+  }
+  await logAppEvent(me.id, "admin.login", "admin", me.id);
+  redirect(adminNext(form.get("next")) ?? "/admin");
 }
 
 export async function adminLogout() {
-  await clearAdminCookie();
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (data?.claims?.sub) await logAppEvent(data.claims.sub, "admin.logout", "admin", data.claims.sub);
+  await supabase.auth.signOut();
   redirect("/admin/login");
+}
+
+/** Removes another admin's authenticator (e.g. a lost phone) and signs them out everywhere. */
+export async function resetAdminTwoFactor(userId: string): Promise<ActionState> {
+  if (!uuid.safeParse(userId).success) return { ok: false, error: { message: "Invalid request." } };
+  const { db, session } = await adminServiceDb();
+  if (userId === session.userId) return { ok: false, error: { message: "Ask another admin to reset your two-factor." } };
+  const { data: target } = await db.from("profiles").select("role, email").eq("id", userId).maybeSingle();
+  if (target?.role !== "admin") return { ok: false, error: { message: "That account isn’t an admin." } };
+  const { data: factors, error } = await db.auth.admin.mfa.listFactors({ userId });
+  if (error) return { ok: false, error: { message: error.message } };
+  for (const f of factors.factors) {
+    const { error: delErr } = await db.auth.admin.mfa.deleteFactor({ userId, id: f.id });
+    if (delErr) return { ok: false, error: { message: delErr.message } };
+  }
+  await db.rpc("revoke_user_sessions", { p_user: userId });
+  await logAppEvent(session.userId, "admin.mfa_reset", "profile", userId, { email: target.email });
+  return ok(`Two-factor reset for ${target.email}. They’ll set it up again at their next sign-in.`);
+}
+
+/** A same-site path inside the admin console, or null. */
+function adminNext(next: unknown): string | null {
+  const n = safeNext(next, "");
+  return n === "/admin" || n.startsWith("/admin/") || n.startsWith("/admin?") ? n : null;
+}
+
+function nextQuery(next: unknown): string {
+  const n = adminNext(next);
+  return n ? `?next=${encodeURIComponent(n)}` : "";
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +267,6 @@ export async function savePartner(input: z.input<typeof partner>): Promise<Actio
   };
   const { error } = p.data.id ? await db.from("partners").update(row).eq("id", p.data.id) : await db.from("partners").insert(row);
   if (error) return { ok: false, error: toActionError(error) };
-  await db.rpc("log_app_event", { p_actor: null as unknown as string, p_action: "partner.save", p_target_type: "partner", p_target_id: (p.data.id ?? "new") as string, p_data: row as never });
   revalidatePath("/", "layout");
   return ok("Saved.");
 }

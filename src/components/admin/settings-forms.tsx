@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { setRole, updateSettings } from "@/app/actions/admin";
+import { resetAdminTwoFactor, setRole, updateSettings } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
@@ -30,7 +30,7 @@ export function SettingsForm({ requireApproval, adminEmails }: { requireApproval
 }
 
 export function RoleForm({ partners }: { partners: { id: string; name: string }[] }) {
-  const [v, setV] = useState<{ email: string; role: "reviewer" | "family"; partnerId: string }>({ email: "", role: "reviewer", partnerId: partners[0]?.id ?? "" });
+  const [v, setV] = useState<{ email: string; role: "reviewer" | "admin" | "family"; partnerId: string }>({ email: "", role: "reviewer", partnerId: partners[0]?.id ?? "" });
   const [res, setRes] = useState<ActionState>(null);
   const [pending, start] = useTransition();
   return (
@@ -39,7 +39,8 @@ export function RoleForm({ partners }: { partners: { id: string; name: string }[
       <Field label="Role" htmlFor="rr">
         <Select id="rr" value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as typeof v.role })}>
           <option value="reviewer">Partner reviewer</option>
-          <option value="family">Remove reviewer access</option>
+          <option value="admin">Admin (signs in with two-factor)</option>
+          <option value="family">Remove reviewer / admin access</option>
         </Select>
       </Field>
       <Field label="Partner" htmlFor="rp">
@@ -50,5 +51,28 @@ export function RoleForm({ partners }: { partners: { id: string; name: string }[
       <Button type="submit" pending={pending}>Set role</Button>
       {res && <div className="sm:col-span-4">{res.ok ? <Notice tone="success">{res.message}</Notice> : <Notice tone="danger">{res.error.message}</Notice>}</div>}
     </form>
+  );
+}
+
+export function ResetTwoFactorButton({ userId, email }: { userId: string; email: string }) {
+  const [res, setRes] = useState<ActionState>(null);
+  const [pending, start] = useTransition();
+  if (res?.ok) return <span className="text-xs text-muted">Reset — signed out</span>;
+  return (
+    <span className="flex items-center gap-2">
+      {res && !res.ok && <span className="text-xs text-clay-700">{res.error.message}</span>}
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        pending={pending}
+        onClick={() => {
+          if (!window.confirm(`Reset two-factor for ${email}? They’ll be signed out everywhere and set it up again at their next sign-in.`)) return;
+          start(async () => setRes(await resetAdminTwoFactor(userId)));
+        }}
+      >
+        Reset two-factor
+      </Button>
+    </span>
   );
 }

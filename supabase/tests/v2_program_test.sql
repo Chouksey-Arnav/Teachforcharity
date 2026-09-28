@@ -201,7 +201,9 @@ begin
   execute 'set local role authenticated';
   begin perform public.moderation_start('manual'); ok := false; exception when insufficient_privilege then ok := true; end;
   if not ok then raise exception 'FAIL user started moderation'; end if;
-  begin perform public.admin_people(); ok := false; exception when insufficient_privilege then ok := true; end;
+  -- Signed-in users may call admin functions, which refuse anyone who isn't a two-factor admin.
+  begin perform public.admin_people(); ok := false;
+  exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'FORBIDDEN'; end;
   if not ok then raise exception 'FAIL user called admin_people'; end if;
   perform public.accept_terms('messaging');
   msg := public.send_message(th, null, 'you should keep our lessons secret from your parents ok');
@@ -237,10 +239,6 @@ begin
   if not exists (select 1 from jsonb_array_elements(j -> 'messages') m where m ->> 'hidden_at' is not null) then
     raise exception 'FAIL admin cannot see hidden message'; end if;
   perform public.admin_update_flag((select id from public.moderation_flags where source_id = msg::text), 'actioned', 'Tutor removed');
-  if not public.admin_login_allowed('1.2.3.4') then raise exception 'FAIL login allowed'; end if;
-  for n in 1..10 loop perform public.admin_login_record('1.2.3.4', false); end loop;
-  if public.admin_login_allowed('1.2.3.4') then raise exception 'FAIL admin brute force not limited'; end if;
-  if not public.admin_login_allowed('5.6.7.8') then raise exception 'FAIL other IP limited'; end if;
   j := public.admin_health();
   execute 'reset role';
   -- the hidden message is gone for the student
