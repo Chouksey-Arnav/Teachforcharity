@@ -112,3 +112,11 @@ export async function forgetAdminSecret() {
   const fs = await import("node:fs");
   fs.rmSync(ADMIN_SECRET_FILE, { force: true });
 }
+
+// ---- Direct SQL (local stack only: moving lessons in time, test setup) ----
+export const DB_URL = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+export async function sql(query) {
+  if (!/127\.0\.0\.1|localhost/.test(DB_URL)) throw new Error("sql() only runs against a local database");
+  const { execFileSync } = await import("node:child_process");
+  return execFileSync("psql", [DB_URL, "-At", "-v", "ON_ERROR_STOP=1", "-c", query], { encoding: "utf8" }).trim();
+}

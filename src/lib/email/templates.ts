@@ -82,6 +82,10 @@ function layout(b: Block): { html: string; text: string } {
 }
 
 const hi = (p: P) => `Hi ${esc(str(p.recipient_first) || "there")},`;
+/** True for a weekly series (2+ lessons). */
+const isSeries = (p: P) => Number(p.weeks) > 1;
+/** "Thursdays at 5:00 PM ET, 8 weeks (Oct 2 – Nov 20)" for a series; the single date otherwise. */
+const whenText = (p: P) => (isSeries(p) ? `${str(p.weekly)}, ${str(p.weeks)} weeks (${str(p.when)} to ${str(p.until)})` : str(p.when));
 const hiText = (p: P) => `Hi ${str(p.recipient_first) || "there"},`;
 const lessonsLink = (p: P) => link(`/dashboard/lessons${p.session_id ? `?focus=${encodeURIComponent(str(p.session_id))}` : ""}`);
 
@@ -95,27 +99,39 @@ function make(subject: string, b: Omit<Block, "textLines"> & { textLines?: strin
 export function renderEmail(template: string, p: P): RenderedEmail | null {
   switch (template) {
     case "session_requested":
-      return make(`${str(p.student_name)} wants a ${str(p.subject)} lesson — ${str(p.when)}`, {
-        heading: "You have a new lesson request",
+      return make(
+        isSeries(p)
+          ? `${str(p.student_name)} wants weekly ${str(p.subject)} lessons — ${str(p.weekly)}`
+          : `${str(p.student_name)} wants a ${str(p.subject)} lesson — ${str(p.when)}`,
+        {
+        heading: isSeries(p) ? "You have a weekly lesson request" : "You have a new lesson request",
         paragraphs: [
           hi(p),
-          `<strong>${esc(p.student_name)}</strong> (grade ${esc(p.student_grade)}) would like a ${esc(p.minutes)}-minute <strong>${esc(p.subject)}</strong> lesson with you. Check your dashboard to accept it, suggest another time, or decline.`,
+          isSeries(p)
+            ? `<strong>${esc(p.student_name)}</strong> (grade ${esc(p.student_grade)}) would like ${esc(p.weeks)} weekly ${esc(p.minutes)}-minute <strong>${esc(p.subject)}</strong> lessons with you. You can accept them all at once, suggest a different weekly time, or decline.`
+            : `<strong>${esc(p.student_name)}</strong> (grade ${esc(p.student_grade)}) would like a ${esc(p.minutes)}-minute <strong>${esc(p.subject)}</strong> lesson with you. Check your dashboard to accept it, suggest another time, or decline.`,
         ],
         details: [
-          ["When", esc(p.when)],
+          ["When", esc(whenText(p))],
           ["Length", `${esc(p.minutes)} minutes`],
           ...(p.note ? ([["Their note", esc(p.note)]] as [string, string][]) : []),
         ],
         cta: { label: "Review the request", href: lessonsLink(p) },
         note: "Requests expire automatically if the time passes without an answer.",
-      });
+        },
+      );
 
     case "session_countered":
-      return make(`New time suggested: ${str(p.when)}`, {
+      return make(`New time suggested: ${isSeries(p) ? str(p.weekly) : str(p.when)}`, {
         heading: "A different time was suggested",
-        paragraphs: [hi(p), `${esc(p.other_name)} suggested a new time for the ${esc(p.subject)} lesson.`],
+        paragraphs: [
+          hi(p),
+          isSeries(p)
+            ? `${esc(p.other_name)} suggested a new weekly time for the ${esc(p.weeks)} ${esc(p.subject)} lessons.`
+            : `${esc(p.other_name)} suggested a new time for the ${esc(p.subject)} lesson.`,
+        ],
         details: [
-          ["New time", esc(p.when)],
+          ["New time", esc(isSeries(p) ? `${str(p.weekly)}, starting ${str(p.when)}` : str(p.when))],
           ["Length", `${esc(p.minutes)} minutes`],
           ...(p.note ? ([["Note", esc(p.note)]] as [string, string][]) : []),
         ],
@@ -124,21 +140,29 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
 
     case "session_booked": {
       const role = str(p.role);
+      const dates = Array.isArray(p.dates)
+        ? (p.dates as { start_iso: string; end_iso: string; session_id: string }[])
+        : p.start_iso && p.end_iso
+          ? [{ start_iso: str(p.start_iso), end_iso: str(p.end_iso), session_id: str(p.session_id) }]
+          : [];
       const ics =
-        p.start_iso && p.end_iso
+        dates.length
           ? buildIcs({
-              uid: str(p.session_id),
-              start: str(p.start_iso),
-              end: str(p.end_iso),
+              events: dates.map((d) => ({ uid: d.session_id, start: d.start_iso, end: d.end_iso })),
               summary: `${str(p.subject)} lesson${role === "tutor" ? ` with ${str(p.student_name)}` : ` with ${str(p.other_name)}`} · ${SITE.name}`,
               description: `Join from your Lessons page — the Google Meet button appears 15 minutes before the start: ${lessonsLink(p)}\nLessons are never recorded. A parent or guardian must be home or nearby and reachable during the lesson.`,
               location: lessonsLink(p),
             })
           : null;
       return make(
-        `Booked: ${str(p.subject)} lesson, ${str(p.when)}`,
+        isSeries(p) ? `Booked: ${str(p.weeks)} weekly ${str(p.subject)} lessons, ${str(p.weekly)}` : `Booked: ${str(p.subject)} lesson, ${str(p.when)}`,
         {
-          heading: role === "guardian" ? `${str(p.student_name)} booked a lesson` : "Your lesson is booked",
+          heading:
+            role === "guardian"
+              ? `${str(p.student_name)} booked ${isSeries(p) ? "weekly lessons" : "a lesson"}`
+              : isSeries(p)
+                ? "Your weekly lessons are booked"
+                : "Your lesson is booked",
           paragraphs: [
             hi(p),
             role === "tutor"
@@ -148,7 +172,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
                 : `<strong>${esc(p.student_name)}</strong>'s ${esc(p.subject)} lesson with ${esc(p.other_name)} is confirmed.`,
           ],
           details: [
-            ["When", esc(p.when)],
+            ["When", esc(whenText(p))],
             ["Length", `${esc(p.minutes)} minutes`],
             ["How to join", "The Google Meet button appears on your Lessons page 15 minutes before the start."],
           ],
@@ -156,7 +180,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           note:
             role === "tutor"
               ? "Reminder: never record lessons, keep all contact on the platform, and log the lesson afterward so the family can confirm it."
-              : "Reminder: a parent or guardian must be home or nearby and reachable for the whole lesson. Lessons are never recorded. A calendar invite is attached.",
+              : `Reminder: a parent or guardian must be home or nearby and reachable for the whole lesson. Lessons are never recorded. ${isSeries(p) ? "Calendar invites for every week are attached." : "A calendar invite is attached."}`,
         },
         ics ? [{ name: "lesson.ics", content: Buffer.from(ics).toString("base64") }] : undefined,
       );
@@ -180,22 +204,24 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
       });
 
     case "session_declined":
-      return make(`Lesson request not accepted — ${str(p.when)}`, {
+      return make(`Lesson request not accepted — ${isSeries(p) ? str(p.weekly) : str(p.when)}`, {
         heading: "That time didn't work out",
         paragraphs: [
           hi(p),
-          `${esc(p.other_name)} couldn't take the ${esc(p.subject)} lesson on ${esc(p.when)}.${p.reason ? ` Their note: “${esc(p.reason)}”` : ""}`,
+          `${esc(p.other_name)} couldn't take the ${esc(p.subject)} ${isSeries(p) ? `lessons ${esc(p.weekly)} from ${esc(p.when)}` : `lesson on ${esc(p.when)}`}.${p.reason ? ` Their note: “${esc(p.reason)}”` : ""}`,
           "You can send a request for a different time, or look at other matches.",
         ],
         cta: { label: "Find another time", href: link("/dashboard/tutors") },
       });
 
     case "session_cancelled":
-      return make(`Cancelled: ${str(p.subject)} lesson, ${str(p.when)}`, {
-        heading: "A lesson was cancelled",
+      return make(Number(p.count) > 1 ? `Cancelled: ${str(p.count)} ${str(p.subject)} lessons from ${str(p.when)}` : `Cancelled: ${str(p.subject)} lesson, ${str(p.when)}`, {
+        heading: Number(p.count) > 1 ? "Lessons were cancelled" : "A lesson was cancelled",
         paragraphs: [
           hi(p),
-          `The ${esc(p.subject)} lesson${p.student_name ? ` for ${esc(p.student_name)}` : ""} on <strong>${esc(p.when)}</strong> was cancelled${p.other_name ? ` by ${esc(p.other_name)}` : ""}.${p.reason ? ` Note: “${esc(p.reason)}”` : ""}`,
+          Number(p.count) > 1
+            ? `${esc(p.count)} ${esc(p.subject)} lessons${p.student_name ? ` for ${esc(p.student_name)}` : ""}, starting <strong>${esc(p.when)}</strong>, were cancelled${p.other_name ? ` by ${esc(p.other_name)}` : ""}.${p.reason ? ` Note: “${esc(p.reason)}”` : ""}`
+            : `The ${esc(p.subject)} lesson${p.student_name ? ` for ${esc(p.student_name)}` : ""} on <strong>${esc(p.when)}</strong> was cancelled${p.other_name ? ` by ${esc(p.other_name)}` : ""}.${p.reason ? ` Note: “${esc(p.reason)}”` : ""}`,
         ],
         cta: { label: "Open dashboard", href: link("/dashboard/lessons") },
       });

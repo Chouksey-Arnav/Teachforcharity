@@ -71,7 +71,7 @@ do $test$
 declare
   adm uuid := gen_random_uuid(); fam uuid := gen_random_uuid(); rev uuid := gen_random_uuid();
   kid uuid := gen_random_uuid(); mom uuid := gen_random_uuid(); tut uuid := gen_random_uuid();
-  stu uuid; consent_id uuid; tok text; sess uuid;
+  stu uuid; consent_id uuid; tok text; sess uuid; clar uuid; thu timestamptz; first_id uuid; ser uuid;
   n int; j jsonb; log text := ''; v_partner uuid;
 begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
@@ -371,6 +371,96 @@ begin
   execute 'reset role';
   if exists (select 1 from public.email_outbox where payload ? 'meet_url') then raise exception 'FAIL an email still carries the Meet link'; end if;
   log := log || 'Meet gating ok; ';
+
+  -- ===== 7. Weekly lessons =====
+  -- Weekly times keep the same Eastern wall-clock time across the end of DST (Nov 1, 2026).
+  if (private.weekly_start(timestamptz '2026-10-29 17:00 America/New_York', 1) at time zone 'America/New_York')::time <> time '17:00' then
+    raise exception 'FAIL weekly time drifted across DST'; end if;
+  clar := (select id from public.subjects where slug = 'clarinet');
+  insert into public.student_subjects (student_id, subject_id, level, years_playing, has_instrument)
+    values (stu, clar, 'developing', 1, true) on conflict do nothing;
+  update public.tutor_profiles set session_minutes = '{30,45,60}', accepting_students = true, max_students = 5 where user_id = tut;
+  -- next Thursday at least 8 days out, 5 PM Eastern
+  thu := ((current_date + 8 + ((4 - extract(dow from current_date + 8)::int + 7) % 7))::timestamp + time '17:00') at time zone 'America/New_York';
+
+  perform pg_temp.act_as(mom);
+  first_id := public.request_session(stu, tut, clar, thu, 45, 'Concert prep', 4);
+  execute 'reset role';
+  select series_id into ser from public.sessions where id = first_id;
+  if ser is null or (select count(*) from public.sessions where series_id = ser and status = 'pending') <> 4 then
+    raise exception 'FAIL weekly request didn''t create 4 pending lessons'; end if;
+  if exists (select 1 from public.sessions where series_id = ser
+             and ((start_at at time zone 'America/New_York')::time <> time '17:00' or extract(dow from start_at at time zone 'America/New_York') <> 4)) then
+    raise exception 'FAIL weekly lessons not all Thursdays at 5 PM ET'; end if;
+  if pg_temp.mail_count('session_requested', 'v3-tutor@example.test') <> 1
+     or (pg_temp.mail('session_requested', 'v3-tutor@example.test') ->> 'weeks')::int <> 4 then
+    raise exception 'FAIL expected one email for the whole series'; end if;
+
+  -- A series counts as one open request.
+  perform pg_temp.act_as(mom);
+  for n in 1..4 loop perform public.request_session(stu, tut, clar, thu + make_interval(days => 1, hours => n - 5), 30); end loop;
+  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 30)', stu, tut, clar, thu + interval '2 days 3 hours')) <> 'TOO_MANY_PENDING' then
+    raise exception 'FAIL open-request limit ignored'; end if;
+  execute 'reset role';
+  update public.sessions set status = 'cancelled' where student_id = stu and status = 'pending' and series_id is null;
+
+  -- Too far out, or a clash in week 3, is refused up front.
+  perform pg_temp.act_as(mom);
+  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 45, null, 12)', stu, tut, clar, thu + interval '35 days')) <> 'TOO_FAR' then
+    raise exception 'FAIL 12 weeks past the 90-day window accepted'; end if;
+  execute 'reset role';
+  insert into public.sessions (tutor_id, student_id, family_id, subject_id, start_at, duration_minutes, end_at, status, proposed_by)
+    values (tut, stu, mom, clar, private.weekly_start(thu + interval '1 day', 2), 45, private.weekly_start(thu + interval '1 day', 2) + interval '45 minutes', 'scheduled', 'family')
+    returning id into sess;
+  perform pg_temp.act_as(mom);
+  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 45, null, 4)', stu, tut, clar, thu + interval '1 day')) <> 'SLOT_TAKEN' then
+    raise exception 'FAIL clash in week 3 not caught'; end if;
+  execute 'reset role';
+  delete from public.sessions where id = sess;
+
+  -- The tutor suggests Saturdays at 10 AM instead: every week moves.
+  perform pg_temp.act_as(tut);
+  perform public.respond_session(first_id, 'counter',
+    (((thu at time zone 'America/New_York')::date + 2)::timestamp + time '10:00') at time zone 'America/New_York', 60, 'Saturdays work better');
+  execute 'reset role';
+  if exists (select 1 from public.sessions where series_id = ser
+             and ((start_at at time zone 'America/New_York')::time <> time '10:00' or extract(dow from start_at at time zone 'America/New_York') <> 6
+                  or duration_minutes <> 60 or proposed_by <> 'tutor')) then
+    raise exception 'FAIL counter didn''t move the whole series'; end if;
+  if pg_temp.mail_count('session_countered', 'v3-mom@example.test') <> 1 then raise exception 'FAIL expected one counter email'; end if;
+  perform pg_temp.act_as(tut);
+  if pg_temp.hint_of(format('select public.respond_session(%L, ''accept'')', (select id from public.sessions where series_id = ser and series_index = 3))) <> 'NOT_YOUR_TURN' then
+    raise exception 'FAIL tutor accepted their own suggestion'; end if;
+
+  -- The family accepts once: all four are booked.
+  perform pg_temp.act_as(mom);
+  perform public.respond_session((select id from public.sessions where series_id = ser and series_index = 2), 'accept');
+  execute 'reset role';
+  if (select count(*) from public.sessions where series_id = ser and status = 'scheduled') <> 4 then raise exception 'FAIL series not fully booked'; end if;
+  if jsonb_array_length(pg_temp.mail('session_booked', 'v3-mom@example.test') -> 'dates') <> 4
+     or pg_temp.mail_count('session_booked', 'v3-tutor@example.test') <> 1 then
+    raise exception 'FAIL booking email doesn''t cover the whole series'; end if;
+  perform pg_temp.act_as(mom);
+  if (select series_size from public.my_sessions('upcoming') where id = first_id) <> 4 then raise exception 'FAIL my_sessions series size'; end if;
+
+  -- Cancel one week, then "this and all later weeks".
+  if public.cancel_session((select id from public.sessions where series_id = ser and series_index = 2), 'Recital', 'one') <> 1 then
+    raise exception 'FAIL single cancel'; end if;
+  if public.cancel_session((select id from public.sessions where series_id = ser and series_index = 3), 'Done for the season', 'rest') <> 2 then
+    raise exception 'FAIL cancel rest of series'; end if;
+  execute 'reset role';
+  if (select string_agg(status::text, ',' order by series_index) from public.sessions where series_id = ser) <> 'scheduled,cancelled,cancelled,cancelled' then
+    raise exception 'FAIL series statuses after cancelling: %', (select string_agg(status::text, ',' order by series_index) from public.sessions where series_id = ser); end if;
+
+  -- Open times: families who could book see busy blocks (no details); others see nothing.
+  perform pg_temp.act_as(mom);
+  if (select count(*) from public.tutor_busy_times(tut, now(), now() + interval '30 days')) < 1 then raise exception 'FAIL busy times hidden from a family'; end if;
+  perform pg_temp.act_as(fam);
+  if (select count(*) from public.tutor_busy_times(tut, now(), now() + interval '30 days')) <> 0 then raise exception 'FAIL busy times shown to a family without consent'; end if;
+  perform pg_temp.act_as_anon();
+  if pg_temp.hint_of(format('select public.tutor_busy_times(%L, now(), now() + interval ''1 day'')', tut)) <> 'DENIED' then raise exception 'FAIL anon read busy times'; end if;
+  execute 'reset role';
+  log := log || 'weekly lessons ok; ';
 
   raise exception 'ALL V3 TESTS PASSED (rolled back): %', log;
 end $test$;

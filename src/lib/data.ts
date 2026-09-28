@@ -251,6 +251,13 @@ export type MySession = {
   /** When the Join button opens and closes (scheduled lessons only). The Meet link itself is never sent to the page. */
   join_opens_at: string | null;
   join_closes_at: string | null;
+  /** Weekly series: which week this is, of how many. */
+  series_id: string | null;
+  series_index: number | null;
+  series_size: number | null;
+  /** Set on the one card that stands for a pending weekly request (see collapsePendingSeries). */
+  pending_weeks?: number;
+  pending_until?: string;
   my_side: "family" | "tutor";
   awaiting_me: boolean;
   thread_id: string | null;
@@ -259,7 +266,30 @@ export type MySession = {
 
 export async function getMySessions(supabase: Supa, scope: "all" | "upcoming" | "action" | "history", limit = 100): Promise<MySession[]> {
   const { data } = await supabase.rpc("my_sessions", { p_scope: scope, p_limit: limit });
-  return (data ?? []) as MySession[];
+  return collapsePendingSeries((data ?? []) as MySession[]);
+}
+
+/**
+ * A weekly request is answered as a whole, so its pending weeks show as one
+ * card: the earliest week, carrying how many weeks are pending and the last
+ * date. Booked weeks stay separate (each is logged and confirmed on its own).
+ */
+export function collapsePendingSeries(rows: MySession[]): MySession[] {
+  const groups = new Map<string, MySession[]>();
+  for (const r of rows) if (r.status === "pending" && r.series_id) groups.set(r.series_id, [...(groups.get(r.series_id) ?? []), r]);
+  const out: MySession[] = [];
+  for (const r of rows) {
+    if (!(r.status === "pending" && r.series_id)) {
+      out.push(r);
+      continue;
+    }
+    const g = groups.get(r.series_id)!;
+    const first = g.reduce((a, b) => (a.start_at <= b.start_at ? a : b));
+    if (r.id !== first.id) continue;
+    const last = g.reduce((a, b) => (a.start_at >= b.start_at ? a : b));
+    out.push({ ...first, pending_weeks: g.length, pending_until: last.start_at });
+  }
+  return out;
 }
 
 export type MyThread = {

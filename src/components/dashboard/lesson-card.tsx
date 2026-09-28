@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { ArrowRightLeft, BadgeCheck, CheckCircle2, Clock, MessageCircle, Video, X, XCircle } from "lucide-react";
+import { ArrowRightLeft, BadgeCheck, CheckCircle2, Clock, MessageCircle, Repeat, Video, X, XCircle } from "lucide-react";
 import type { MySession } from "@/lib/data";
 import { SESSION_STATUS_LABEL } from "@/lib/constants";
-import { formatDay, formatTime, easternDateOffset, easternParts } from "@/lib/time";
+import { formatDate, formatDay, formatTime, easternDateOffset, easternParts } from "@/lib/time";
 import { Badge, sessionTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -60,6 +60,11 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const day = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", day: "numeric" }).format(d);
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" }).format(d);
 
+  const weeksPending = s.pending_weeks ?? 0;
+  const isWeekly = weeksPending > 1;
+  const laterWeeks = s.series_id && s.series_size && s.series_index ? s.series_size - s.series_index : 0;
+  const [cancelRest, setCancelRest] = useState(false);
+
   let statusLine: string | null = null;
   if (s.status === "pending") {
     statusLine = s.awaiting_me
@@ -90,14 +95,30 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               {SESSION_STATUS_LABEL[s.status] ?? s.status}
             </Badge>
             {s.awaiting_me && <Badge tone="brass">Needs you</Badge>}
+            {isWeekly && (
+              <Badge tone="pine">
+                <Repeat className="size-3" aria-hidden /> {weeksPending} weekly lessons
+              </Badge>
+            )}
+            {!isWeekly && s.series_index && s.series_size && s.status !== "pending" && (
+              <Badge tone="neutral">
+                Week {s.series_index} of {s.series_size}
+              </Badge>
+            )}
           </div>
           <h3 className="mt-2 text-[15px] font-semibold leading-snug">
             {s.subject_name} with {other}
           </h3>
           <p className="mt-0.5 flex items-center gap-1.5 text-[13.5px] text-muted">
             <Clock className="size-3.5" />
+            {isWeekly ? `${new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(d)}s, ` : ""}
             {formatTime(s.start_at)}–{formatTime(s.end_at)} ET · {s.duration_minutes} min
           </p>
+          {isWeekly && s.pending_until && (
+            <p className="mt-0.5 text-[13px] text-muted">
+              {formatDate(s.start_at).replace(/, \d{4}$/, "")} to {formatDate(s.pending_until).replace(/, \d{4}$/, "")} · answering covers every week
+            </p>
+          )}
           {statusLine && <p className="mt-2 text-[13.5px] text-ink-2">{statusLine}</p>}
           {s.request_note && s.status === "pending" && <p className="mt-1.5 rounded-lg bg-paper-2 px-3 py-2 text-[13px] text-ink-2">“{s.request_note}”</p>}
           {s.status === "declined" && s.decline_reason && <p className="mt-1.5 text-[13px] text-muted">Note: “{s.decline_reason}”</p>}
@@ -193,9 +214,9 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         <div className="animate-fade border-t border-line px-4 py-4 sm:px-5">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">
-              {panel === "counter" && "Suggest a different time"}
-              {panel === "decline" && "Decline this request"}
-              {panel === "cancel" && (s.status === "pending" ? "Withdraw this request" : "Cancel this lesson")}
+              {panel === "counter" && (isWeekly ? `Suggest a different weekly time (all ${weeksPending} weeks move)` : "Suggest a different time")}
+              {panel === "decline" && (isWeekly ? `Decline all ${weeksPending} weekly lessons` : "Decline this request")}
+              {panel === "cancel" && (s.status === "pending" ? (isWeekly ? `Withdraw the request for ${weeksPending} weekly lessons` : "Withdraw this request") : "Cancel this lesson")}
               {panel === "log-no" && "What happened?"}
               {panel === "confirm-no" && "Tell us what happened"}
             </p>
@@ -208,6 +229,12 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             <Notice tone="warning" className="mb-3">
               This lesson is less than 24 hours away. Please also send a quick message so they aren’t waiting.
             </Notice>
+          )}
+          {panel === "cancel" && s.status === "scheduled" && laterWeeks > 0 && (
+            <label className="mb-2 flex items-center gap-2 text-[13px] text-ink-2">
+              <input type="checkbox" checked={cancelRest} onChange={(e) => setCancelRest(e.target.checked)} className="accent-pine-700" />
+              Also cancel the {laterWeeks} later week{laterWeeks === 1 ? "" : "s"} of this series
+            </label>
           )}
           {panel === "confirm-no" && (
             <p className="mb-2 text-[13px] text-muted">This flags the lesson for review — it won’t count toward the tutor’s hours. If something made you uncomfortable, please also use “Report a concern.”</p>
@@ -232,7 +259,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
                 run(() => {
                   if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note });
                   if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note });
-                  if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note });
+                  if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" });
                   if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note });
                   return confirmLesson({ sessionId: s.id, happened: false, note });
                 })

@@ -473,6 +473,65 @@ export type Database = {
           },
         ]
       }
+      lesson_series: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          student_id: string
+          subject_id: string
+          tutor_id: string
+          weeks: number
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          student_id: string
+          subject_id: string
+          tutor_id: string
+          weeks: number
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          student_id?: string
+          subject_id?: string
+          tutor_id?: string
+          weeks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_series_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_series_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_series_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_series_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           audience: string
@@ -905,6 +964,8 @@ export type Database = {
           proposed_by: string
           request_note: string | null
           review_note: string | null
+          series_id: string | null
+          series_index: number | null
           start_at: string
           status: Database["public"]["Enums"]["session_status"]
           student_id: string
@@ -933,6 +994,8 @@ export type Database = {
           proposed_by: string
           request_note?: string | null
           review_note?: string | null
+          series_id?: string | null
+          series_index?: number | null
           start_at: string
           status?: Database["public"]["Enums"]["session_status"]
           student_id: string
@@ -961,6 +1024,8 @@ export type Database = {
           proposed_by?: string
           request_note?: string | null
           review_note?: string | null
+          series_id?: string | null
+          series_index?: number | null
           start_at?: string
           status?: Database["public"]["Enums"]["session_status"]
           student_id?: string
@@ -986,6 +1051,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_series"
             referencedColumns: ["id"]
           },
           {
@@ -1762,8 +1834,8 @@ export type Database = {
         }[]
       }
       cancel_session: {
-        Args: { p_reason?: string; p_session: string }
-        Returns: undefined
+        Args: { p_reason?: string; p_scope?: string; p_session: string }
+        Returns: number
       }
       check_email_code: {
         Args: { p_code_hash: string; p_email: string; p_purpose: string }
@@ -2012,6 +2084,9 @@ export type Database = {
           proposed_by: string
           request_note: string
           review_note: string
+          series_id: string
+          series_index: number
+          series_size: number
           start_at: string
           status: Database["public"]["Enums"]["session_status"]
           student_grade: number
@@ -2078,6 +2153,7 @@ export type Database = {
           p_student: string
           p_subject: string
           p_tutor: string
+          p_weeks?: number
         }
         Returns: string
       }
@@ -2196,6 +2272,13 @@ export type Database = {
       student_set_guardian: {
         Args: { p_email: string; p_name: string }
         Returns: undefined
+      }
+      tutor_busy_times: {
+        Args: { p_from: string; p_to: string; p_tutor: string }
+        Returns: {
+          end_at: string
+          start_at: string
+        }[]
       }
       tutor_guardian_approve: {
         Args: {

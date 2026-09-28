@@ -67,6 +67,23 @@ describe("renderEmail", () => {
     }
   });
 
+  it("weekly series emails describe every week and attach one calendar event per lesson", () => {
+    const dates = [0, 7, 14, 21].map((d, i) => ({
+      start_iso: new Date(Date.UTC(2026, 9, 1 + d, 21)).toISOString(),
+      end_iso: new Date(Date.UTC(2026, 9, 1 + d, 21, 45)).toISOString(),
+      session_id: `s-${i}`,
+    }));
+    const series = { ...base, weeks: 4, weekly: "Thursdays at 5:00 PM ET", until: "Thursday, October 22 at 5:00 PM ET", dates };
+    const booked = renderEmail("session_booked", series)!;
+    expect(booked.subject).toBe("Booked: 4 weekly Clarinet lessons, Thursdays at 5:00 PM ET");
+    expect(booked.text).toContain("Thursdays at 5:00 PM ET, 4 weeks");
+    const ics = Buffer.from(booked.attachments![0].content, "base64").toString();
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(4);
+    expect(ics).toContain("UID:s-3@teachforacause");
+    expect(renderEmail("session_requested", series)!.subject).toContain("weekly Clarinet lessons");
+    expect(renderEmail("session_cancelled", { ...base, count: 3 })!.subject).toContain("3 Clarinet lessons");
+  });
+
   it("never includes message bodies in new-message emails", () => {
     const r = renderEmail("new_message", { ...base, body: "SECRET BODY" })!;
     expect(r.html).not.toContain("SECRET BODY");

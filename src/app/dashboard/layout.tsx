@@ -10,6 +10,7 @@ import { navFor } from "@/components/dashboard/nav-config";
 import { NavTrail } from "@/components/dashboard/back-link";
 import { LiveRefresh } from "@/components/dashboard/live-refresh";
 import { signOut } from "@/app/actions/auth";
+import { collapsePendingSeries, type MySession } from "@/lib/data";
 
 const ROLE_LABEL = { family: "Parent account", tutor: "Tutor", reviewer: "Partner reviewer", admin: "Program admin" } as const;
 
@@ -25,7 +26,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       supabase.rpc("my_sessions", { p_scope: "action", p_limit: 100 }),
       supabase.rpc("my_threads"),
     ]);
-    counts.action = actions.data?.length ?? 0;
+    // A pending weekly request is one thing to answer, not one per week.
+    counts.action = collapsePendingSeries((actions.data ?? []) as MySession[]).length;
     counts.unread = (threads.data ?? []).filter((t) => t.unread).length;
   }
   const nav = navFor(viewer.role, counts, viewer.profile.account_kind);
