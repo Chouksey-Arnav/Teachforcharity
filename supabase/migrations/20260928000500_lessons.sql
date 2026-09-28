@@ -523,6 +523,71 @@ grant execute on function public.request_session(uuid, uuid, uuid, timestamptz, 
   public.tutor_busy_times(uuid, timestamptz, timestamptz) to authenticated, service_role;
 revoke execute on function private.weekly_start(timestamptz, int), private.fmt_weekly(timestamptz) from public, anon, authenticated;
 
+-- ===========================================================================
+-- What to practice
+--
+-- When a tutor logs a lesson they can leave a short note for the student and
+-- family: what was covered and what to practice before next time. It's
+-- filtered like a message, shown on the lesson, and included in the
+-- "did it happen?" email and the weekly parent summary.
+-- ===========================================================================
+alter table public.sessions add column practice_plan text check (char_length(practice_plan) <= 1000);
+
+drop function public.log_session(uuid, boolean, text);
+create function public.log_session(p_session uuid, p_happened boolean, p_note text default null, p_practice text default null)
+returns public.session_status language plpgsql security definer set search_path = '' as $$
+declare
+  s public.sessions;
+  v_fprof public.profiles;
+  v_tprof public.profiles;
+  v_student public.students;
+  v_subject public.subjects;
+  v_note text := nullif(btrim(coalesce(p_note, '')), '');
+  v_practice text := nullif(btrim(coalesce(p_practice, '')), '');
+begin
+  select * into s from public.sessions where id = p_session for update;
+  if not found or s.tutor_id <> auth.uid() then raise exception 'Lesson not found.' using hint = 'NOT_FOUND'; end if;
+  if s.status <> 'scheduled' then
+    raise exception 'This lesson has already been logged.' using hint = 'ALREADY_LOGGED';
+  end if;
+  if now() < s.end_at then
+    raise exception 'You can log a lesson once it has ended.' using hint = 'TOO_EARLY';
+  end if;
+  if v_note is not null and private.message_violation(v_note) is not null then
+    raise exception 'Your note can''t include %.', private.message_violation(v_note) using hint = 'MESSAGE_BLOCKED';
+  end if;
+  if v_practice is not null and private.message_violation(v_practice) is not null then
+    raise exception 'The practice notes can''t include %.', private.message_violation(v_practice) using hint = 'MESSAGE_BLOCKED';
+  end if;
+  if p_happened then
+    update public.sessions set status = 'completed', tutor_logged_at = now(), tutor_log_note = left(v_note, 500),
+      practice_plan = left(v_practice, 1000)
+    where id = s.id;
+    perform private.log_event(s.id, 'scheduled', 'completed', s.start_at, v_note);
+    select * into v_fprof from public.profiles where id = s.family_id;
+    select * into v_tprof from public.profiles where id = s.tutor_id;
+    select * into v_student from public.students where id = s.student_id;
+    select * into v_subject from public.subjects where id = s.subject_id;
+    perform private.system_message(s.tutor_id, s.student_id, s.family_id,
+      format('%s logged the %s lesson%s. Please confirm it happened so the hours can be verified.',
+        private.short_name(v_tprof.full_name), private.fmt_when(s.start_at),
+        case when v_practice is not null then ' and left practice notes on the lesson card' else '' end), s.id);
+    perform private.enqueue_email(v_fprof.email, v_fprof.full_name, 'session_confirm_request', jsonb_build_object(
+      'recipient_first', private.first_name(v_fprof.full_name), 'student_name', v_student.first_name,
+      'other_name', private.short_name(v_tprof.full_name), 'subject', v_subject.name,
+      'when', private.fmt_when(s.start_at), 'practice', v_practice, 'session_id', s.id), 'session_confirm_request:' || s.id);
+    return 'completed';
+  else
+    update public.sessions set status = 'cancelled', tutor_logged_at = now(),
+      cancel_reason = coalesce(left(v_note, 300), 'Did not take place'), cancelled_by = auth.uid()
+    where id = s.id;
+    perform private.log_event(s.id, 'scheduled', 'cancelled', s.start_at, coalesce(v_note, 'Did not take place'));
+    return 'cancelled';
+  end if;
+end $$;
+revoke execute on function public.log_session(uuid, boolean, text, text) from public, anon;
+grant execute on function public.log_session(uuid, boolean, text, text) to authenticated, service_role;
+
 -- ---- my_sessions: no Meet link (just when joining opens), plus weekly-series details ----
 drop function public.my_sessions(text, int, int);
 create function public.my_sessions(p_scope text default 'all', p_limit int default 50, p_offset int default 0)
@@ -532,7 +597,7 @@ returns table (
   student_id uuid, student_name text, student_grade smallint, family_name text,
   proposed_by text, proposal_round smallint, request_note text, decline_reason text, cancel_reason text,
   tutor_logged_at timestamptz, tutor_log_note text, family_responded_at timestamptz, family_response_note text,
-  verified_at timestamptz, review_note text, verifier_org text,
+  verified_at timestamptz, review_note text, verifier_org text, practice_plan text,
   join_opens_at timestamptz, join_closes_at timestamptz,
   series_id uuid, series_index smallint, series_size int,
   my_side text, awaiting_me boolean, thread_id uuid, created_at timestamptz
@@ -554,8 +619,11 @@ returns table (
          f.tutor_id, private.short_name(tp.full_name), tp.avatar_path,
          f.student_id, st.first_name, st.grade, private.first_name(fp.full_name),
          f.proposed_by, f.proposal_round, f.request_note, f.decline_reason, f.cancel_reason,
-         f.tutor_logged_at, f.tutor_log_note, f.family_responded_at, f.family_response_note,
+         -- Each side's private note (for the program and reviewers) stays off the other side's screen.
+         f.tutor_logged_at, case when f.side = 'tutor' then f.tutor_log_note end,
+         f.family_responded_at, case when f.side = 'family' then f.family_response_note end,
          f.verified_at, f.review_note, coalesce(org.short_name, org.name, case when f.verified_at is not null then 'Program admin' end),
+         f.practice_plan,
          case when f.status = 'scheduled' then f.start_at - interval '15 minutes' end,
          case when f.status = 'scheduled' then f.end_at + interval '15 minutes' end,
          f.series_id, f.series_index,

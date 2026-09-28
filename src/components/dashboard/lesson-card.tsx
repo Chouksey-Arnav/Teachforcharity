@@ -15,7 +15,7 @@ import { cancelLesson, confirmLesson, logLesson, respondLesson } from "@/app/act
 import type { ActionState } from "@/lib/errors";
 import { cn } from "@/lib/cn";
 
-type Panel = null | "counter" | "decline" | "cancel" | "log-no" | "confirm-no" | "join";
+type Panel = null | "counter" | "decline" | "cancel" | "log-yes" | "log-no" | "confirm-no" | "join";
 
 function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(() => Date.now());
@@ -64,6 +64,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const isWeekly = weeksPending > 1;
   const laterWeeks = s.series_id && s.series_size && s.series_index ? s.series_size - s.series_index : 0;
   const [cancelRest, setCancelRest] = useState(false);
+  const [practice, setPractice] = useState("");
 
   let statusLine: string | null = null;
   if (s.status === "pending") {
@@ -135,6 +136,12 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
           )}
           {s.status === "disputed" && <p className="mt-2 text-[13.5px] text-clay-800">{isTutor ? `${s.student_name}’s side` : "You"} said this lesson didn’t happen. The program team is reviewing it.</p>}
           {s.status === "rejected" && s.review_note && <p className="mt-2 text-[13.5px] text-clay-800">Not verified: “{s.review_note}”</p>}
+          {s.practice_plan && ["completed", "confirmed", "verified", "disputed"].includes(s.status) && (
+            <div className="mt-3 rounded-xl bg-paper-2/70 px-3.5 py-2.5 text-[13.5px]">
+              <p className="font-semibold">What to practice</p>
+              <p className="mt-0.5 whitespace-pre-line text-ink-2">{s.practice_plan}</p>
+            </div>
+          )}
         </div>
         <div className="hidden shrink-0 sm:block">
           <Avatar name={isTutor ? s.student_name : s.tutor_name} path={isTutor ? null : s.tutor_avatar} size={40} />
@@ -176,7 +183,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             )}
             {isTutor && ended && (
               <>
-                <Button size="sm" pending={pending && panel === null} onClick={() => run(() => logLesson({ sessionId: s.id, happened: true }))}>
+                <Button size="sm" onClick={() => setPanel(panel === "log-yes" ? null : "log-yes")} aria-expanded={panel === "log-yes"}>
                   <CheckCircle2 className="size-4" /> It happened
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setPanel(panel === "log-no" ? null : "log-no")}>
@@ -217,6 +224,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               {panel === "counter" && (isWeekly ? `Suggest a different weekly time (all ${weeksPending} weeks move)` : "Suggest a different time")}
               {panel === "decline" && (isWeekly ? `Decline all ${weeksPending} weekly lessons` : "Decline this request")}
               {panel === "cancel" && (s.status === "pending" ? (isWeekly ? `Withdraw the request for ${weeksPending} weekly lessons` : "Withdraw this request") : "Cancel this lesson")}
+              {panel === "log-yes" && "Log this lesson"}
               {panel === "log-no" && "What happened?"}
               {panel === "confirm-no" && "Tell us what happened"}
             </p>
@@ -239,9 +247,25 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
           {panel === "confirm-no" && (
             <p className="mb-2 text-[13px] text-muted">This flags the lesson for review — it won’t count toward the tutor’s hours. If something made you uncomfortable, please also use “Report a concern.”</p>
           )}
+          {panel === "log-yes" && (
+            <>
+              <label htmlFor={`practice-${s.id}`} className="block text-[13px] font-medium">
+                What should {s.student_name} practice? <span className="font-normal text-faint">Optional — the family sees this</span>
+              </label>
+              <Textarea
+                id={`practice-${s.id}`}
+                className="mt-1.5 min-h-20"
+                placeholder="e.g. Long tones for 5 minutes a day. Measures 20–40 of the concert piece, slowly, then at 80 bpm."
+                value={practice}
+                onChange={(e) => setPractice(e.target.value)}
+                maxLength={1000}
+                rows={3}
+              />
+            </>
+          )}
           <Textarea
             className="mt-3 min-h-16"
-            placeholder={panel === "confirm-no" ? "Required: briefly, what happened?" : "Optional note (no contact info)"}
+            placeholder={panel === "confirm-no" ? "Required: briefly, what happened?" : panel === "log-yes" ? "Optional private note for the program (not shown to the family)" : "Optional note (no contact info)"}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={300}
@@ -253,19 +277,20 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             </Button>
             <Button
               size="sm"
-              variant={panel === "counter" ? "primary" : "danger"}
+              variant={panel === "counter" || panel === "log-yes" ? "primary" : "danger"}
               pending={pending}
               onClick={() =>
                 run(() => {
                   if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note });
                   if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note });
                   if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" });
+                  if (panel === "log-yes") return logLesson({ sessionId: s.id, happened: true, note, practice });
                   if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note });
                   return confirmLesson({ sessionId: s.id, happened: false, note });
                 })
               }
             >
-              {panel === "counter" ? "Send new time" : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : "Submit"}
+              {panel === "counter" ? "Send new time" : panel === "log-yes" ? "Log lesson" : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : "Submit"}
             </Button>
           </div>
         </div>

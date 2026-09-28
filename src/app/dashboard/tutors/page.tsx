@@ -12,6 +12,7 @@ import { Notice } from "@/components/ui/notice";
 import { Empty } from "@/components/ui/empty";
 import { LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { WaitlistButton } from "@/components/dashboard/waitlist-button";
 
 export const metadata: Metadata = { title: "Find tutors" };
 
@@ -110,6 +111,13 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
     const t = s.subjects.find((x) => x.subject_id === targetId)!;
     const [cands, current] = await Promise.all([getCandidates(supabase, relatedSubjectIds(t.slug, subjects)), getCurrentTutorIds(supabase, s.id)]);
     const matches = matchTutors(toStudentProfile(s, current), t.subject_id, cands);
+    const nobodyOpen = !matches.some((m) => m.canRequest);
+    const { data: waiting } = nobodyOpen
+      ? await supabase.from("instrument_waitlist").select("notified_at").eq("student_id", s.id).eq("subject_id", t.subject_id).maybeSingle()
+      : { data: null };
+    const waitlist = nobodyOpen ? (
+      <WaitlistButton studentId={s.id} subjectId={t.subject_id} subjectName={t.name} joined={Boolean(waiting && !waiting.notified_at)} />
+    ) : null;
     const tiers = (["ideal", "stretch", "related", "full"] as Tier[]).map((tier) => ({ tier, items: matches.filter((m) => m.tier === tier) })).filter((g) => g.items.length);
 
     return (
@@ -173,10 +181,17 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
         {matches.length === 0 ? (
           <Empty title={`No ${t.name.toLowerCase()} tutors yet`}>
             We don’t have an approved tutor for {t.name.toLowerCase()} yet. The program team can see that {s.first_name} is waiting and recruits for the
-            instruments families need most. We’ll show matches here as soon as one joins.
+            instruments families need most.
+            {waitlist}
           </Empty>
         ) : (
           <div className="space-y-12">
+            {waitlist && (
+              <div className="rounded-2xl border border-brass-300/70 bg-brass-50 p-5 text-sm leading-relaxed text-ink-2">
+                Every {t.name.toLowerCase()} tutor is full or not taking new students right now. New tutors join often.
+                {waitlist}
+              </div>
+            )}
             {tiers.map(({ tier, items }) => (
               <section key={tier}>
                 <div className="mb-4">

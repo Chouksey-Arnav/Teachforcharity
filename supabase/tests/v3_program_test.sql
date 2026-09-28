@@ -62,6 +62,8 @@ create or replace function pg_temp.mail(p_template text, p_to text)
 returns jsonb language sql security definer as $$
   select payload from public.email_outbox where template = p_template and to_email = lower(p_to) order by id desc limit 1
 $$;
+create or replace function pg_temp.student_first(p_student uuid)
+returns text language sql security definer as $$ select first_name from public.students where id = p_student $$;
 create or replace function pg_temp.mail_count(p_template text, p_to text)
 returns int language sql security definer as $$
   select count(*)::int from public.email_outbox where template = p_template and to_email = lower(p_to)
@@ -461,6 +463,120 @@ begin
   if pg_temp.hint_of(format('select public.tutor_busy_times(%L, now(), now() + interval ''1 day'')', tut)) <> 'DENIED' then raise exception 'FAIL anon read busy times'; end if;
   execute 'reset role';
   log := log || 'weekly lessons ok; ';
+
+
+  -- ===== 8. Practice notes, one-tap confirmation, waitlist, hour verification, digest =====
+  insert into public.sessions (tutor_id, student_id, family_id, subject_id, start_at, duration_minutes, end_at, status, proposed_by)
+    values (tut, stu, mom, clar, now() - interval '2 days', 45, now() - interval '2 days' + interval '45 minutes', 'scheduled', 'family')
+    returning id into sess;
+  perform pg_temp.act_as(tut);
+  perform public.log_session(sess, true, 'Worked on long tones', 'Long tones 10 min a day; scales in F and B-flat');
+  execute 'reset role';
+  if (select status from public.sessions where id = sess) <> 'completed'
+     or (select practice_plan from public.sessions where id = sess) not like 'Long tones%' then
+    raise exception 'FAIL practice plan not saved with the log'; end if;
+  -- Each side sees only its own private note; both see the practice plan.
+  perform pg_temp.act_as(mom);
+  select to_jsonb(x) into j from public.my_sessions('all') x where x.id = sess;
+  if j ->> 'practice_plan' is null then raise exception 'FAIL family can''t see the practice plan'; end if;
+  if j ->> 'tutor_log_note' is not null then raise exception 'FAIL family sees the tutor''s private log note'; end if;
+
+  -- The signed-link functions are server-only.
+  if pg_temp.hint_of(format('select public.confirm_session_by_link(%L, true)', sess)) <> 'DENIED' then raise exception 'FAIL family called confirm_session_by_link directly'; end if;
+  if pg_temp.hint_of(format('select public.lesson_for_link(%L)', sess)) <> 'DENIED' then raise exception 'FAIL family called lesson_for_link'; end if;
+  perform pg_temp.act_as_anon();
+  if pg_temp.hint_of(format('select public.confirm_session_by_link(%L, true)', sess)) <> 'DENIED' then raise exception 'FAIL anon confirmed a lesson'; end if;
+  perform pg_temp.act_as_service();
+  j := public.lesson_for_link(sess);
+  if j ->> 'student_name' is null or j ? 'tutor_note' or j ? 'family_id' then raise exception 'FAIL lesson_for_link shape: %', j; end if;
+  if pg_temp.hint_of(format('select public.confirm_session_by_link(%L, false)', sess)) <> 'NOTE_REQUIRED' then raise exception 'FAIL dispute without a note'; end if;
+  if public.confirm_session_by_link(sess, true) <> 'confirmed' then raise exception 'FAIL one-tap confirm'; end if;
+  if pg_temp.hint_of(format('select public.confirm_session_by_link(%L, false, ''no'')', sess)) <> 'NOT_AWAITING' then raise exception 'FAIL confirmed twice'; end if;
+  execute 'reset role';
+  if not exists (select 1 from public.audit_log where action = 'lesson.confirmed_by_link' and target_id = sess::text) then raise exception 'FAIL link confirmation not audited'; end if;
+  perform pg_temp.act_as(tut);
+  select to_jsonb(x) into j from public.my_sessions('all') x where x.id = sess;
+  if j ->> 'tutor_log_note' is null then raise exception 'FAIL tutor lost their own log note'; end if;
+  if j ->> 'family_response_note' is not null then raise exception 'FAIL tutor sees the family''s private note'; end if;
+
+  -- Waitlist
+  perform pg_temp.act_as(fam);
+  if pg_temp.hint_of(format('select public.set_waitlist(%L, (select id from public.subjects where slug = ''cello''), true)', stu)) <> 'NOT_FOUND' then
+    raise exception 'FAIL outsider joined a waitlist for someone else''s child'; end if;
+  perform pg_temp.act_as(mom);
+  if pg_temp.hint_of(format('select public.set_waitlist(%L, (select id from public.subjects where slug = ''cello''), true)', stu)) <> 'SUBJECT_NOT_ON_PROFILE' then
+    raise exception 'FAIL waitlist for an instrument not on the profile'; end if;
+  execute 'reset role';
+  insert into public.student_subjects (student_id, subject_id, level, years_playing, has_instrument)
+    values (stu, (select id from public.subjects where slug = 'cello'), 'beginner', 0, true) on conflict do nothing;
+  perform pg_temp.act_as(mom);
+  perform public.set_waitlist(stu, (select id from public.subjects where slug = 'cello'), true);
+  perform public.set_waitlist(stu, (select id from public.subjects where slug = 'cello'), true);
+  if (select count(*) from public.instrument_waitlist where student_id = stu) <> 1 then raise exception 'FAIL waitlist row not visible or duplicated'; end if;
+  execute 'reset role';
+  insert into public.tutor_subjects (tutor_id, subject_id, own_level, years_playing, teach_levels)
+    values (tut, (select id from public.subjects where slug = 'cello'), 'advanced', 6, '{beginner,developing}');
+  if pg_temp.mail('waitlist_match', 'v3-mom@example.test') ->> 'subject' is distinct from 'Cello' then raise exception 'FAIL waitlist family not emailed'; end if;
+  if (select notified_at from public.instrument_waitlist where student_id = stu) is null then raise exception 'FAIL waitlist entry not marked notified'; end if;
+  update public.tutor_profiles set accepting_students = false where user_id = tut;
+  update public.tutor_profiles set accepting_students = true where user_id = tut;
+  if pg_temp.mail_count('waitlist_match', 'v3-mom@example.test') <> 1 then raise exception 'FAIL waitlist emailed twice'; end if;
+  perform pg_temp.act_as(mom);
+  perform public.set_waitlist(stu, (select id from public.subjects where slug = 'cello'), false);
+  if exists (select 1 from public.instrument_waitlist where student_id = stu) then raise exception 'FAIL leaving the waitlist'; end if;
+
+  -- Hour verification links: nothing public until the tutor makes one.
+  execute 'reset role';
+  update public.sessions set status = 'verified', verified_at = now(), verified_by = rev where id = sess;
+  perform pg_temp.act_as(tut);
+  if public.my_verify_code() is not null then raise exception 'FAIL a verification link existed before the tutor asked'; end if;
+  tok := public.my_verify_code('create');
+  if tok !~ '^[a-z2-9]{10}$' then raise exception 'FAIL bad verification code %', tok; end if;
+  if public.my_verify_code('create') <> tok or public.my_verify_code() <> tok then raise exception 'FAIL create replaced an existing code'; end if;
+  if pg_temp.hint_of('select public.my_verify_code(''delete'')') <> 'INVALID' then raise exception 'FAIL unknown action accepted'; end if;
+  perform pg_temp.act_as_anon();
+  j := public.hours_certificate(tok);
+  if j is null or (j ->> 'minutes')::int <> 45 or (j ->> 'lessons')::int <> 1 or j ->> 'tutor_name' is null then raise exception 'FAIL certificate: %', j; end if;
+  if strpos(j::text, (select pg_temp.student_first(stu))) > 0 then raise exception 'FAIL certificate names a student'; end if;
+  if public.hours_certificate(upper(tok)) is not null or public.hours_certificate('') is not null or public.hours_certificate(null) is not null then
+    raise exception 'FAIL certificate for a malformed code'; end if;
+  if pg_temp.hint_of('select public.my_verify_code()') <> 'DENIED' then raise exception 'FAIL anon called my_verify_code'; end if;
+  perform pg_temp.act_as(mom);
+  if pg_temp.hint_of('select public.my_verify_code(''create'')') <> 'FORBIDDEN' then raise exception 'FAIL non-tutor made a verification code'; end if;
+  perform pg_temp.act_as(tut);
+  if public.my_verify_code('new') = tok then raise exception 'FAIL new code same as old'; end if;
+  perform pg_temp.act_as_anon();
+  if public.hours_certificate(tok) is not null then raise exception 'FAIL replaced code still works'; end if;
+  perform pg_temp.act_as(tut);
+  tok := public.my_verify_code();
+  if public.my_verify_code('off') is not null then raise exception 'FAIL turning off returned a code'; end if;
+  perform pg_temp.act_as_anon();
+  if public.hours_certificate(tok) is not null then raise exception 'FAIL turned-off code still works'; end if;
+  perform pg_temp.act_as(tut);
+  if pg_temp.hint_of('update public.tutor_profiles set verify_code = ''aaaaaaaaaa'' where user_id = auth.uid()') <> 'DENIED' then
+    raise exception 'FAIL tutor picked their own code'; end if;
+
+  -- Sunday summary: sent once a week per child; parents can switch it off.
+  execute 'reset role';
+  insert into public.sessions (tutor_id, student_id, family_id, subject_id, start_at, duration_minutes, end_at, status, proposed_by)
+    values (tut, stu, mom, clar, now() + interval '3 days', 45, now() + interval '3 days 45 minutes', 'scheduled', 'family');
+  delete from public.email_outbox where template = 'weekly_digest';
+  n := private.send_weekly_digests();
+  perform private.send_weekly_digests();
+  j := pg_temp.mail('weekly_digest', 'v3-mom@example.test');
+  if j is null or pg_temp.mail_count('weekly_digest', 'v3-mom@example.test') <> 1 then raise exception 'FAIL digest not sent exactly once'; end if;
+  if jsonb_array_length(j -> 'upcoming') < 1 or jsonb_array_length(j -> 'past') < 1 or not jsonb_path_exists(j, '$.past[*] ? (@.practice != null)') then
+    raise exception 'FAIL digest contents: %', j; end if;
+  if pg_temp.mail_count('weekly_digest', 'v3-family@example.test') <> 0 then raise exception 'FAIL digest to a family without lessons'; end if;
+  perform pg_temp.act_as(mom);
+  update public.profiles set weekly_digest = false where id = mom;
+  execute 'reset role';
+  if (select weekly_digest from public.profiles where id = mom) then raise exception 'FAIL parent couldn''t turn the digest off'; end if;
+  delete from public.email_outbox where template = 'weekly_digest';
+  perform private.send_weekly_digests();
+  if pg_temp.mail_count('weekly_digest', 'v3-mom@example.test') <> 0 then raise exception 'FAIL digest sent after opting out'; end if;
+  perform private.run_program_jobs();
+  log := log || 'engagement ok; ';
 
   raise exception 'ALL V3 TESTS PASSED (rolled back): %', log;
 end $test$;

@@ -248,6 +248,8 @@ export type MySession = {
   verified_at: string | null;
   review_note: string | null;
   verifier_org: string | null;
+  /** The tutor's "what to practice" notes, left when logging the lesson. */
+  practice_plan: string | null;
   /** When the Join button opens and closes (scheduled lessons only). The Meet link itself is never sent to the page. */
   join_opens_at: string | null;
   join_closes_at: string | null;

@@ -145,6 +145,78 @@ try {
   expect((await sql(`select family_join_ack_at is not null from sessions where id = '${firstId}'`)) === "t", "family confirmation not recorded");
   step("join works only in the window, after confirming a parent is nearby; opens the tutor’s Meet");
 
+  // ---------- Log with a practice plan → one-tap confirm from the email → verified hours ----------
+  await sql(`update sessions set start_at = now() - interval '2 hours', end_at = now() - interval '75 minutes' where id = '${firstId}'`);
+  await tutor.goto(`${BASE}/dashboard/lessons?tab=action`);
+  const toLog = tutor.locator(`#lesson-${firstId}`);
+  await toLog.getByRole("button", { name: "It happened" }).click();
+  await toLog.getByLabel(/What should Leo practice/).fill("Long tones for 5 minutes a day.\nMeasures 20–40, slowly.");
+  await toLog.getByPlaceholder(/Optional private note/).fill("Great focus today.");
+  await shot(tutor, "journey-03-log-with-practice");
+  await toLog.getByRole("button", { name: "Log lesson" }).click();
+  await tutor.waitForTimeout(1500);
+  expect((await sql(`select status from sessions where id = '${firstId}'`)) === "completed", "lesson not logged");
+  step("tutor logged the lesson with a practice plan");
+
+  const ask = await waitForEmail(mom, /Did Leo's lesson happen\?/);
+  const confirmUrl = ask.html.match(/href="([^"]*\/confirm\/[^"]+)"/)?.[1]?.replace(/&amp;/g, "&");
+  expect(confirmUrl, "confirmation email has no one-tap link");
+  // A fresh browser with no session: the link alone is enough, and just opening it changes nothing.
+  const lctx = await b.newContext();
+  const linkPage = await lctx.newPage();
+  await linkPage.goto(confirmUrl);
+  await linkPage.getByText("What to practice").waitFor();
+  expect((await sql(`select status from sessions where id = '${firstId}'`)) === "completed", "opening the link changed the lesson");
+  await shot(linkPage, "journey-04-one-tap-confirm");
+  await linkPage.getByRole("button", { name: "Yes, it happened" }).click();
+  await linkPage.getByRole("status").or(linkPage.getByText(/Thank/)).first().waitFor();
+  expect((await sql(`select status from sessions where id = '${firstId}'`)) === "confirmed", "one-tap confirmation not saved");
+  await linkPage.reload();
+  await linkPage.getByText("Already confirmed").waitFor();
+  const forged = confirmUrl.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
+  await linkPage.goto(forged);
+  await linkPage.getByText("This link doesn’t work").waitFor();
+  await lctx.close();
+  step("family confirmed from the email link without signing in; forged links refused");
+
+  // The family sees the practice plan, but not the tutor's private note.
+  await fam.goto(`${BASE}/dashboard/lessons?tab=history`);
+  const famCard = fam.locator(`#lesson-${firstId}`);
+  await famCard.getByText("Long tones for 5 minutes a day.").waitFor();
+  expect((await famCard.getByText("Great focus today.").count()) === 0, "family sees the tutor's private note");
+
+  await admin.goto(`${BASE}/admin/lessons?status=confirmed`);
+  await admin.getByText("Select all").click();
+  await admin.getByRole("button", { name: "Verify selected" }).click();
+  await admin.waitForTimeout(2000);
+  expect((await sql(`select status from sessions where id = '${firstId}'`)) === "verified", "hours not verified");
+  step("admin verified the hours");
+
+  // ---------- Hours record → verification link → public page ----------
+  await tutor.goto(`${BASE}/dashboard/hours`);
+  expect((await tutor.locator('[aria-label="QR code for the verification link"]').count()) === 0, "a public link existed before the tutor asked");
+  await tutor.getByRole("button", { name: "Create a verification link" }).click();
+  const qr = tutor.locator('[aria-label="QR code for the verification link"]');
+  await qr.waitFor();
+  const verifyUrl = (await tutor.locator("span.font-mono").first().innerText()).trim();
+  expect(/\/verify\/[a-z2-9]{10}$/.test(verifyUrl), `bad verification url ${verifyUrl}`);
+  await shot(tutor, "journey-05-hours-with-qr");
+  const vctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const advisor = await vctx.newPage();
+  await advisor.goto(verifyUrl);
+  await advisor.getByRole("heading", { name: "Maya Rodriguez" }).waitFor();
+  await advisor.getByText("verified hours").waitFor();
+  expect((await advisor.getByText("Leo").count()) === 0, "verification page names a student");
+  expect(await advisor.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "verification page scrolls sideways on a phone");
+  await shot(advisor, "journey-06-verify-page-phone");
+  tutor.once("dialog", (d) => d.accept());
+  await tutor.getByRole("button", { name: "Turn off" }).click();
+  await tutor.getByText(/Link turned off/).waitFor();
+  await advisor.reload();
+  await advisor.getByText("We couldn’t find this record").waitFor();
+  await vctx.close();
+  step("tutor shared a verification link; an advisor saw the totals on a phone; turning it off retires it");
+
   for (const c of [actx, fctx, tctx]) await c.close();
   console.log("JOURNEY E2E PASSED");
 } finally {

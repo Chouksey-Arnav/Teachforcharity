@@ -118,12 +118,18 @@ export async function cancelLesson(input: { sessionId: string; reason?: string; 
   return done(data && data > 1 ? `Cancelled ${data} lessons. We let the other side know.` : "Cancelled. We let the other side know.");
 }
 
-export async function logLesson(input: { sessionId: string; happened: boolean; note?: string }): Promise<ActionState> {
+export async function logLesson(input: { sessionId: string; happened: boolean; note?: string; practice?: string }): Promise<ActionState> {
   if (!uuid.safeParse(input.sessionId).success) return { ok: false, error: { message: "Lesson not found." } };
-  const bad = checkNote(input.note);
+  const bad = checkNote(input.note) ?? checkNote(input.practice);
   if (bad) return { ok: false, error: { message: bad } };
+  if ((input.practice ?? "").length > 1000) return { ok: false, error: { message: "Keep practice notes under 1,000 characters." } };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("log_session", { p_session: input.sessionId, p_happened: input.happened, p_note: input.note?.trim().slice(0, 500) || undefined });
+  const { error } = await supabase.rpc("log_session", {
+    p_session: input.sessionId,
+    p_happened: input.happened,
+    p_note: input.note?.trim().slice(0, 500) || undefined,
+    p_practice: input.happened ? input.practice?.trim() || undefined : undefined,
+  });
   if (error) return { ok: false, error: toActionError(error) };
   return done(input.happened ? "Logged. We asked the family to confirm." : "Marked as not happened.");
 }
@@ -155,4 +161,14 @@ export async function offerToTeach(input: { studentId: string; subjectId: string
   // The offer opens a conversation, so the thread list and unread badges change too.
   revalidatePath("/dashboard", "layout");
   return { ok: true, data: { threadId: data as string } };
+}
+
+/** "Email me when a tutor for this instrument joins" (or stop). */
+export async function setWaitlist(input: { studentId: string; subjectId: string; on: boolean }): Promise<ActionState> {
+  if (!uuid.safeParse(input.studentId).success || !uuid.safeParse(input.subjectId).success) return { ok: false, error: { message: "Invalid request." } };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_waitlist", { p_student: input.studentId, p_subject: input.subjectId, p_on: input.on });
+  if (error) return { ok: false, error: toActionError(error) };
+  revalidatePath("/dashboard/tutors");
+  return { ok: true, message: input.on ? "Done — we’ll email you as soon as one joins." : "OK, we won’t email you about this." };
 }

@@ -44,7 +44,8 @@ describe("openSlots", () => {
       ),
       { numRuns: 150 },
     );
-  });
+    // ~150 runs × a week of slots, each re-checked through Intl: slow under a loaded parallel run.
+  }, 30_000);
 });
 
 describe("weeklyStarts", () => {

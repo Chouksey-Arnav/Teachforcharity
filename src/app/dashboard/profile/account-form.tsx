@@ -6,7 +6,7 @@ import { Checkbox, Field, Input } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import type { ActionState } from "@/lib/errors";
 
-export function AccountForm({ role, kind, initial }: { role: string; kind?: string | null; initial: { fullName: string; phone: string; emailNotifications: boolean } }) {
+export function AccountForm({ role, kind, initial }: { role: string; kind?: string | null; initial: { fullName: string; phone: string; emailNotifications: boolean; weeklyDigest: boolean } }) {
   const [v, setV] = useState(initial);
   const [res, setRes] = useState<ActionState>(null);
   const [pending, start] = useTransition();
@@ -34,6 +34,14 @@ export function AccountForm({ role, kind, initial }: { role: string; kind?: stri
         label="Email me when I get a new message"
         description="Lesson requests, bookings, cancellations, and safety notices are always emailed."
       />
+      {kind === "parent" && (
+        <Checkbox
+          checked={v.weeklyDigest}
+          onChange={(e) => setV({ ...v, weeklyDigest: e.target.checked })}
+          label="Send me a Sunday summary"
+          description="Last week’s lessons, what to practice, and what’s coming up. Only sent in weeks with lessons."
+        />
+      )}
       {res && (res.ok ? <Notice tone="success">{res.message}</Notice> : <Notice tone="danger">{res.error.message}</Notice>)}
       <Button type="submit" pending={pending}>
         Save account

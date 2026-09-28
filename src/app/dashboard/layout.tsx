@@ -40,14 +40,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   };
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr] print:block">
       <a
         href="#main"
         className="sr-only z-50 rounded-full bg-ink px-4 py-2 text-sm text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-3"
       >
         Skip to content
       </a>
-      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-line bg-paper-2/40 px-4 py-6 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh flex-col print:!hidden overflow-y-auto border-r border-line bg-paper-2/40 px-4 py-6 lg:flex">
         <Logo href="/dashboard" className="px-2" />
         <div className="mt-8 flex flex-1 flex-col">
           <SidebarNav nav={nav} />
@@ -70,7 +70,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </aside>
 
       <div className="min-w-0">
-        <MobileChrome nav={nav} account={account} />
+        <div className="print:hidden">
+          <MobileChrome nav={nav} account={account} />
+        </div>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
           {children}
         </main>

@@ -1,5 +1,6 @@
 import { SITE } from "../site";
 import { buildIcs } from "./ics";
+import { signLessonToken } from "../links";
 
 export interface RenderedEmail {
   subject: string;
@@ -227,25 +228,26 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
       });
 
     case "session_confirm_request":
-      return make(`Did ${str(p.student_name)}'s lesson happen?`, {
-        heading: "Please confirm the lesson",
+    case "confirm_reminder": {
+      const reminder = template === "confirm_reminder";
+      const token = signLessonToken(str(p.session_id));
+      const confirmUrl = token ? link(`/confirm/${encodeURIComponent(token)}`) : lessonsLink(p);
+      return make(reminder ? `Reminder: confirm ${str(p.student_name)}'s lesson` : `Did ${str(p.student_name)}'s lesson happen?`, {
+        heading: reminder ? "One quick click" : "Please confirm the lesson",
         paragraphs: [
           hi(p),
-          `${esc(p.other_name)} logged ${esc(p.student_name)}'s ${esc(p.subject)} lesson from ${esc(p.when)}. It takes one click to confirm whether it happened.`,
+          reminder
+            ? `We're still waiting to hear whether ${esc(p.student_name)}'s ${esc(p.subject)} lesson with ${esc(p.other_name)} on ${esc(p.when)} happened.`
+            : `${esc(p.other_name)} logged ${esc(p.student_name)}'s ${esc(p.subject)} lesson from ${esc(p.when)}. It takes one click to confirm whether it happened — no sign-in needed.`,
+          ...(p.practice
+            ? [`<strong>What to practice</strong>, from ${esc(p.other_name)}:<br><span style="white-space:pre-line">${esc(p.practice)}</span>`]
+            : []),
           "Your confirmation is what lets our partner nonprofit verify the tutor's volunteer hours — unconfirmed lessons don't count.",
         ],
-        cta: { label: "Confirm the lesson", href: lessonsLink(p) },
+        cta: { label: token ? "Yes, it happened — or report a problem" : "Confirm the lesson", href: confirmUrl },
+        note: token ? "The button opens a short page with two choices. The link works for 30 days and only for this lesson." : undefined,
       });
-
-    case "confirm_reminder":
-      return make(`Reminder: confirm ${str(p.student_name)}'s lesson`, {
-        heading: "One quick click",
-        paragraphs: [
-          hi(p),
-          `We're still waiting to hear whether ${esc(p.student_name)}'s ${esc(p.subject)} lesson with ${esc(p.other_name)} on ${esc(p.when)} happened.`,
-        ],
-        cta: { label: "Confirm or report a problem", href: lessonsLink(p) },
-      });
+    }
 
     case "log_reminder":
       return make(`Log your lesson with ${str(p.student_name)}`, {
@@ -390,6 +392,55 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         ],
         cta: { label: "Open the tutor", href: link(`/admin/people/${encodeURIComponent(str(p.tutor_id))}`) },
       });
+
+    case "waitlist_match":
+      return make(`A ${str(p.subject)} tutor just joined`, {
+        heading: `Good news for ${str(p.student_name)}`,
+        paragraphs: [
+          hi(p),
+          `A volunteer tutor who teaches <strong>${esc(p.subject)}</strong> just became available. You asked us to let you know.`,
+          "Tutors fill up quickly — have a look and request a time if they’re a good fit.",
+        ],
+        cta: { label: "See tutor matches", href: link(`/dashboard/tutors${p.student_id ? `?student=${encodeURIComponent(str(p.student_id))}` : ""}`) },
+      });
+
+    case "weekly_digest": {
+      type Past = { when: string; subject: string; tutor: string; status: string; practice?: string | null };
+      type Next = { when: string; subject: string; tutor: string };
+      const past = (Array.isArray(p.past) ? p.past : []) as Past[];
+      const upcoming = (Array.isArray(p.upcoming) ? p.upcoming : []) as Next[];
+      const statusWord: Record<string, string> = {
+        scheduled: "not logged by the tutor yet",
+        completed: "waiting for your confirmation",
+        confirmed: "confirmed",
+        verified: "confirmed",
+        disputed: "under review",
+      };
+      const practice = past.filter((x) => x.practice);
+      return make(`${str(p.student_name)}’s week in music`, {
+        heading: `${str(p.student_name)}’s week`,
+        paragraphs: [
+          hi(p),
+          past.length
+            ? `This week: ${past.map((x) => `${esc(x.subject)} with ${esc(x.tutor)} on ${esc(x.when)} (${esc(statusWord[x.status] ?? x.status)})`).join("; ")}.`
+            : "No lessons this past week.",
+          ...(practice.length
+            ? [`<strong>What to practice:</strong><br>${practice.map((x) => `<span style="white-space:pre-line">• ${esc(x.practice)}</span>`).join("<br>")}`]
+            : []),
+          upcoming.length
+            ? `Coming up: ${upcoming.map((x) => `${esc(x.subject)} with ${esc(x.tutor)} on ${esc(x.when)}`).join("; ")}.`
+            : "Nothing booked for the coming week yet.",
+          Number(p.messages) > 0
+            ? `${esc(p.messages)} message${Number(p.messages) === 1 ? " was" : "s were"} exchanged with tutors this week${p.guardian ? " — you can read them all on your parent page" : " — you can read them all in Messages"}.`
+            : "",
+          Number(p.to_confirm) > 0 ? `<strong>${esc(p.to_confirm)} lesson${Number(p.to_confirm) === 1 ? " needs" : "s need"} your confirmation</strong> so the tutor’s hours count.` : "",
+        ].filter(Boolean),
+        cta: p.guardian ? { label: "Open your parent page", href: link("/guardian") } : { label: "Open your dashboard", href: link("/dashboard/lessons") },
+        footer: p.guardian
+          ? undefined
+          : `You get this summary on Sundays when there’s lesson activity. Turn it off in your <a href="${esc(link("/dashboard/profile"))}" style="color:#1F5446">account settings</a>.`,
+      });
+    }
 
     case "tutor_guardian_notice":
       return make(`${str(p.tutor_name)} signed up to volunteer with ${SITE.name}`, {
