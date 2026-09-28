@@ -29,7 +29,11 @@ The Supabase database (**Teach For Charity**, project ref `nkpdiglnyqgblqcqvbdp`
 | `BREVO_SENDER_NAME` | `Teach for a Cause` | no |
 | `CRON_SECRET` | any long random string (e.g. `openssl rand -hex 32`) | **YES** |
 | `SUPABASE_CRON_SECRET` | the secret Supabase's scheduled jobs send (§5). Must equal the Vault secret `tfac_cron_secret` | **YES** |
-| `ADMIN_PASSWORD` | the password for `/admin`. **Set this.** Without it the public fallback `123987` works | **YES** |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | *optional, phone notifications* — from `npx web-push generate-vapid-keys` | no |
+| `VAPID_PRIVATE_KEY` | *optional* — the private half of the same pair. Never change it once set (every device would silently stop getting notifications) | **YES** |
+| `VAPID_SUBJECT` | *optional* — `mailto:` your program address | no |
+
+> **Delete `ADMIN_PASSWORD`** from Vercel if it's there. The shared admin password no longer exists (§4).
 
 3. Redeploy after adding variables.
 
@@ -63,8 +67,10 @@ either is missing, sign-up shows "Email sign-up isn’t available right now" and
 the server log says exactly which variable is missing.
 
 ### Password & security
-- Authentication → Providers → Email: keep **Confirm email** ON (it only affects anyone bypassing the site; the site creates accounts pre-confirmed after the code). Minimum password length 8.
-- Turn on **leaked password protection** (Authentication → Settings / Attack Protection). It rejects passwords found in known breaches.
+- **Turn off public sign-ups:** Authentication → Sign In / Providers → **Allow new users to sign up: OFF**. The site creates every account itself after the emailed code (with the service-role key, which isn't affected by this switch). Leaving it on lets anyone with the public key create accounts directly through the API, skipping the emailed code and the breached-password check.
+- Authentication → Providers → Email: keep **Confirm email** ON. Minimum password length 8.
+- Turn on **leaked password protection** (Authentication → Attack Protection). The site already checks passwords against known breaches when they're set; this is a second check inside Supabase.
+- **Multi-factor:** Authentication → Multi-Factor → make sure **TOTP (authenticator app)** is enabled. Admins need it (§4).
 
 ---
 
@@ -78,12 +84,19 @@ the server log says exactly which variable is missing.
 
 ## 4. The admin console (`/admin`)
 
-1. In Vercel, set `ADMIN_PASSWORD` to a long password only you know, and redeploy. (Until you do, the fallback `123987` works and the console shows a red warning. The fallback is published in this repository, so treat it as public.)
-2. Go to `https://YOUR-URL/admin` and enter the password. Sessions last 12 hours. Wrong guesses are rate-limited (10 per IP, 50 total per 15 minutes) and every attempt is written to the activity log.
-3. **Admin → Settings & health**: add at least one **alert email**. Safety reports and serious safety-scan flags are emailed there. Until one is set, nobody is notified.
-4. To change the password, change `ADMIN_PASSWORD` and redeploy. Every open admin session is signed out.
+Admins are normal accounts with role `admin`, and every admin uses two-factor sign-in with an authenticator app (Google Authenticator, 1Password, Authy…). There's no shared password.
 
-Partner reviewers (who verify volunteer hours) are regular accounts. Ask them to sign up, then enter their email under **Admin → Settings → Partner reviewers**.
+1. **Make the first admin.** Sign up on the site like anyone else, then in the Supabase **SQL Editor** run:
+   ```sql
+   update public.profiles set role = 'admin' where email = 'you@example.org';
+   ```
+2. Go to `https://YOUR-URL/admin/login`, sign in with that account's password, and scan the QR code with your authenticator app. From then on, admin sign-in asks for the 6-digit code. Admin powers last 12 hours after a code, then it asks again.
+3. **Admin → Settings & health**: add at least one **alert email**. Safety reports and serious safety-scan flags are emailed there. Until one is set, nobody is notified.
+4. More admins: they sign up, then an existing admin enters their email and picks **Admin** under **Admin → Settings → Partner reviewers** (the same form sets any role). Each sets up their own authenticator on first admin sign-in.
+
+**Lost authenticator.** Another admin opens **Admin → Settings → Admins** and clicks **Reset two-factor** next to them, and the person sets up a new one at their next sign-in. If you're the only admin, remove the factor in Supabase (Authentication → Users → the user → **Multi-factor** → delete), then sign in at `/admin/login` to set up a new one.
+
+Partner reviewers (who verify volunteer hours) are regular accounts. Ask them to sign up, then enter their email under **Admin → Settings → Partner reviewers**. Reviewers don't need two-factor. They can only see and verify hours.
 
 ---
 
@@ -94,6 +107,7 @@ Emails from user actions go out immediately. Reminder emails and retries are que
 | Job | Schedule | Calls |
 |---|---|---|
 | `tfac-maintenance` | every 15 min | database only: expires requests, queues reminders, deletes student accounts not approved in 14 days |
+| `tfac-program-jobs` | every 15 min | database only: deletes parent invitations older than 14 days, queues the Sunday parent summary (from 4 PM ET) |
 | `tfac-email-drain` | every 2 min | `/api/cron/email` |
 | `tfac-safety-scan` | hourly | `/api/cron/safety` |
 
@@ -126,8 +140,9 @@ To rotate the secret, update `tfac_cron_secret` the same way, set the same value
 
 - Run `supabase/tests/e2e_program_test.sql` in the SQL Editor. Expected output: `ERROR: ALL TESTS PASSED (rolled back): ...` (it deliberately errors to roll back all test data).
 - Sign up a test tutor and family with real inboxes you control, and walk one lesson through request → accept → log → confirm → verify.
-- Run `supabase/tests/v2_program_test.sql` the same way (student accounts, parent links, offers, safety scanner, admin erase).
-- Sign up a test **student** with a parent email you control. Approve from the emailed link, then check the parent page.
+- Run `supabase/tests/v2_program_test.sql` and `supabase/tests/v3_program_test.sql` the same way (v3: two-factor admins, parent-first sign-up and phone checks, tutor parent approval, Meet gating, weekly lessons, email confirmations, waitlist, hour verification links, push).
+- On the sign-up page choose **student** with a parent email you control: the student can't make an account, and the parent gets an invitation. Sign up as that parent, add the student and sign consent, then take the verification call yourself from **Admin → Parent calls**.
+- Sign up a test tutor with a parent email you control and approve from the emailed parent link, then approve the tutor in **Admin → People**.
 - **Admin → Emails** should show everything as `sent`. **Admin → Settings & health** should be all green.
 
 ## Plan limits worth knowing

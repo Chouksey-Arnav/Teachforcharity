@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Become a tutor", description: "High 
 const NEED = [
   "You’re in 9th–12th grade and play a band or orchestra instrument.",
   "You can make a free Google Meet link (a personal Google account works).",
-  "A parent or guardian knows you’re volunteering — we’ll email them.",
-  "An hour or two a week, on your own schedule. No waiting on approval — your profile goes live as soon as you finish."
+  "A parent or guardian who approves — we’ll email them a link to say yes.",
+  "An hour or two a week, on your own schedule. Once your parent approves and the program team takes a quick look, families can find you."
 ];
 
 export default function VolunteerPage() {

@@ -66,7 +66,7 @@ export default function HowItWorksPage() {
                 Every step sends an email that says exactly what to do next.
               </li>
               <li>
-                <strong>Once booked,</strong> both sides get the Google Meet link and a calendar invite, plus a reminder the day before.
+                <strong>Once booked,</strong> both sides get a calendar invite and a reminder the day before. The Join button (for the tutor’s Google Meet) appears on the Lessons page 15 minutes before the start.
               </li>
               <li>
                 <strong>Double-booking is impossible</strong> — the system won’t let a tutor or student be in two lessons at once.

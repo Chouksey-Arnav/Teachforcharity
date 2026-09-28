@@ -8,6 +8,7 @@ export default async function HomePage() {
   const config = await getPublicConfig();
   const stats = config?.stats;
   const showStats = Boolean(stats && stats.active_tutors >= 5);
+  const open = stats?.open_by_instrument ?? [];
 
   return (
     <>
@@ -37,11 +38,7 @@ export default async function HomePage() {
               <a href="/signup?role=family" className="font-medium text-pine-700 underline underline-offset-4">
                 Sign up for your child
               </a>{" "}
-              or{" "}
-              <a href="/guardian" className="font-medium text-pine-700 underline underline-offset-4">
-                open your parent link
-              </a>
-              .
+              — it takes about five minutes.
             </p>
             <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[13.5px] text-ink-2">
               {["No cost, ever", "Lessons are never recorded", "Parent consent before any lesson"].map((t) => (
@@ -88,6 +85,19 @@ export default async function HomePage() {
           </p>
         </div>
         <InstrumentStrip />
+        {open.length > 0 && (
+          <div className="mt-6 rounded-2xl border border-line bg-card px-4 py-4 sm:px-5">
+            <h3 className="text-sm font-semibold">Taking new students right now</h3>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {open.slice(0, 12).map((o) => (
+                <li key={o.name} className="rounded-full bg-paper-2 px-3 py-1 text-[13px] text-ink-2">
+                  {o.name} <span className="text-muted">· {o.tutors} {o.tutors === 1 ? "tutor" : "tutors"}</span>
+                </li>
+              ))}
+              {open.length > 12 && <li className="px-2 py-1 text-[13px] text-muted">+{open.length - 12} more instruments</li>}
+            </ul>
+          </div>
+        )}
       </section>
 
       {/* Who it's for */}

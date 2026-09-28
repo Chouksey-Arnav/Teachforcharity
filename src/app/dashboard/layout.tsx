@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExternalLink, LogOut } from "lucide-react";
-import { requireViewer } from "@/lib/viewer";
+import { getPublicConfig, requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
@@ -11,6 +11,7 @@ import { NavTrail } from "@/components/dashboard/back-link";
 import { LiveRefresh } from "@/components/dashboard/live-refresh";
 import { signOut } from "@/app/actions/auth";
 import { collapsePendingSeries, type MySession } from "@/lib/data";
+import { TermsBanner } from "@/components/dashboard/terms-banner";
 
 const ROLE_LABEL = { family: "Parent account", tutor: "Tutor", reviewer: "Partner reviewer", admin: "Program admin" } as const;
 
@@ -30,6 +31,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     counts.action = collapsePendingSeries((actions.data ?? []) as MySession[]).length;
     counts.unread = (threads.data ?? []).filter((t) => t.unread).length;
   }
+  // Existing users accept revised Terms here; new users accept them during onboarding.
+  const config = await getPublicConfig();
+  const termsOutdated =
+    (viewer.role === "family" || viewer.role === "tutor") && !!viewer.profile.terms_version && !!config?.terms_version && viewer.profile.terms_version !== config.terms_version;
   const nav = navFor(viewer.role, counts, viewer.profile.account_kind);
   const name = viewer.profile.full_name || viewer.email;
   const account = {
@@ -74,6 +79,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <MobileChrome nav={nav} account={account} />
         </div>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
+          {termsOutdated && <TermsBanner tutor={viewer.role === "tutor"} />}
           {children}
         </main>
       </div>

@@ -99,7 +99,7 @@ export const STEPS = [
   },
   {
     title: "Request a time",
-    body: "Pick a day and time, or accept a tutor's offer. The tutor confirms, and everyone gets an email with the Meet link and a calendar invite.",
+    body: "Pick a day and time, or accept a tutor's offer. The tutor confirms, and everyone gets an email and a calendar invite. Choose weekly to book the same time every week.",
   },
   {
     title: "Learn on Google Meet",
@@ -124,8 +124,8 @@ export function Steps({ tone = "light" }: { tone?: "light" | "card" }) {
 export const SAFETY_POINTS: { icon: typeof Wifi; title: string; body: string }[] = [
   { icon: Wifi, title: "Online only", body: "Every lesson happens on Google Meet. There are no in-person meetings — not now, not ever." },
   { icon: VideoOff, title: "Never recorded", body: "We don't record lessons and never store video of minors. The site has no recording feature at all." },
-  { icon: PhoneCall, title: "A parent is always reachable", body: "A parent or guardian must be reachable by phone or text for the whole lesson. They don't have to sit in." },
-  { icon: ShieldCheck, title: "A parent says yes first", body: "Students can sign up themselves, but nothing unlocks until a parent approves by email. Unapproved accounts are deleted after 14 days." },
+  { icon: PhoneCall, title: "A parent is always nearby", body: "A parent or guardian must be home or nearby and reachable for the whole lesson. They don't have to sit in." },
+  { icon: ShieldCheck, title: "A parent says yes first", body: "Parents create students' accounts and sign consent, and we confirm it's really them with a short phone call before anything unlocks." },
   {
     icon: MessageSquareLock,
     title: "Messages stay on the platform",
@@ -265,15 +265,15 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Who are the tutors?",
-    a: "High school students (grades 9–12) who play in their school band or orchestra, many in top ensembles or All-District groups. Each tutor fills out a skill questionnaire and signs a tutor agreement, and a parent or guardian of theirs is notified. Tutors are volunteers, not certified teachers, and skill levels are self-reported — we show you exactly what each tutor told us. Any safety report or safety-scan alert pauses a tutor immediately.",
+    a: "High school students (grades 9–12) who play in their school band or orchestra, many in top ensembles or All-District groups. Each tutor fills out a skill questionnaire and signs a tutor agreement, and their own parent or guardian has to approve before they can teach. Tutors are volunteers, not certified teachers, and skill levels are self-reported — we show you exactly what each tutor told us. Any safety report or safety-scan alert pauses a tutor immediately.",
   },
   {
     q: "Can my middle schooler sign up on their own?",
-    a: "Yes. Students in grades 6–8 can create their own account and set up their profile. We then email their parent or guardian, who reads how the program works and approves (or declines) on a private page — no account needed. Until a parent approves, the student can't message anyone or book a lesson, and unapproved accounts are deleted after 14 days. Parents can also sign up for their child instead.",
+    a: "Not quite. A parent or guardian creates the account and adds their child, and a student can't make one alone. If your student starts on the sign-up page, they can send you an invitation email, and you take it from there. After you sign the consent form, someone from the program calls to confirm it's you, usually within two days.",
   },
   {
     q: "What does a parent need to do?",
-    a: "Approve your child's account (or create a parent account yourself) and be reachable by phone or text during each lesson — you don't need to sit in. From your private parent page you can read every message, see every lesson, report a concern, or delete the account at any time.",
+    a: "Create the account, add your child, sign the consent form, and take a two-minute call from us. During each lesson, be home or nearby and reachable — you don't need to sit in. From your account you can read every message, see every lesson, get a Sunday summary with what to practice, and report a concern or withdraw consent at any time.",
   },
   {
     q: "How are students and tutors matched?",
@@ -281,7 +281,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "What if there's no tutor for my student's instrument?",
-    a: "You'll see tutors who play a closely related instrument (for example, a saxophone player for a clarinet student) clearly labelled as such, and the program team sees which instruments families are waiting on so we can recruit for them.",
+    a: "You'll see tutors who play a closely related instrument (for example, a saxophone player for a clarinet student) clearly labelled as such. You can also ask us to email you the moment a tutor for your student's instrument joins, and the program team sees which instruments families are waiting on so we can recruit for them.",
   },
   {
     q: "Do the volunteer hours count for NHS, Tri-M, or school requirements?",

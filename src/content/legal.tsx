@@ -13,6 +13,11 @@ export interface LegalDoc {
 
 const EFFECTIVE = "September 26, 2026";
 const V = "2026-09-v1";
+// Terms, Privacy, Consent and the Tutor Agreement were revised for parent-created student accounts,
+// the phone check, tutor parent approval and the lesson-time Meet link. The database's
+// app_settings versions must match (migration 20260928000800_legal_v2.sql).
+const EFFECTIVE_V2 = "October 1, 2026";
+const V2 = "2026-09-v2";
 const N = SITE.name;
 
 const Contact = () => (SITE.contactEmail ? <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> : <>{contactLine()}</>);
@@ -22,8 +27,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
     slug: "terms",
     title: "Terms of Service",
     summary: "The rules for using the site, for students, parents and tutors alike.",
-    version: V,
-    effective: EFFECTIVE,
+    version: V2,
+    effective: EFFECTIVE_V2,
     body: (
       <>
         <p>
@@ -44,20 +49,21 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <h2>2. Who can use it</h2>
         <ul>
           <li>
-            <strong>Student accounts</strong> are for middle school students in grades 6–8, who may create their own account. A Student
-            must give a parent or guardian’s email address when signing up. Until that parent or guardian opens the emailed link and
-            signs the <Link href="/legal/consent">consent form</Link>, the Student cannot request lessons, message anyone, or be seen by
-            Tutors. If no parent or guardian approves within 14 days, the account and everything in it is deleted automatically.
-          </li>
-          <li>
-            <strong>Parent accounts</strong> may instead be created by a parent or legal guardian (18 or older), who then adds and manages
-            up to six Students and signs consent for each of them.
+            <strong>Parent accounts</strong> are created by a parent or legal guardian (18 or older), who adds and manages up to six
+            Students (middle school students in grades 6–8) and signs the <Link href="/legal/consent">consent form</Link> for each. A
+            Student cannot create their own account; a Student who tries can only ask us to email their parent an invitation. Until
+            consent is signed and, where the Program requires it, confirmed by a short phone call with a Program administrator, a
+            Student cannot request lessons, message anyone, or be seen by Tutors.
           </li>
           <li>
             <strong>Tutor accounts</strong> are for high school students in grades 9–12. A Tutor must sign the{" "}
-            <Link href="/legal/tutor-agreement">Tutor Agreement</Link> and provide a parent or guardian’s name and email; we notify that
-            parent or guardian. Tutors become visible to Students once their profile is complete, and may be paused or removed at any
-            time (see section 8).
+            <Link href="/legal/tutor-agreement">Tutor Agreement</Link> and give a parent or guardian’s name and email. That parent or
+            guardian must approve the Tutor’s participation from the link we email them, and a Program administrator must approve the
+            Tutor, before the Tutor is shown to Students. A parent or guardian can withdraw their approval at any time, which pauses the
+            Tutor. Tutors may be paused or removed at any time (see section 8).
+          </li>
+          <li>
+            <strong>Administrators</strong> sign in with a password and a code from an authenticator app.
           </li>
           <li>The Program operates in North Carolina. Lessons are scheduled and shown in Eastern Time.</li>
         </ul>
@@ -67,7 +73,14 @@ export const LEGAL_DOCS: LegalDoc[] = [
           <li>Lessons are always free. No one may request, offer, or accept payment, gifts, or anything of value for a lesson.</li>
           <li>All lessons take place on Google Meet. In-person meetings arranged through the Program are prohibited.</li>
           <li>Lessons may not be recorded by anyone, by any means.</li>
-          <li>A Student’s parent or guardian must be reachable by phone or text for the full duration of every lesson.</li>
+          <li>
+            A Student’s parent or guardian must be home or nearby and reachable by phone or text for the full duration of every lesson.
+            Before joining, the family confirms this on the site.
+          </li>
+          <li>
+            The Tutor’s Google Meet link is shown only from 15 minutes before a booked lesson until 15 minutes after it ends, and is never
+            sent by email.
+          </li>
           <li>
             Requests, lessons, and messages involving a Student are shared with the Student’s parent or guardian, including through the
             parent’s private link.
@@ -87,7 +100,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
           The Program records lessons that the Tutor logs and the family confirms, and our nonprofit partner (or, until a partner is
           confirmed, the Program administrator) reviews and verifies them weekly. The Program does not guarantee that any school,
           honor society, or other organization will accept these hours toward its requirements. Hours that are not confirmed by the
-          family, or that are rejected on review, are not counted.
+          family, or that are rejected on review, are not counted. A Tutor may create a private link that lets an organization they
+          choose see their verified totals, and can turn it off at any time.
         </p>
 
         <h2>6. Matching and skill information</h2>
@@ -101,7 +115,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <h2>7. Your responsibilities</h2>
         <ul>
           <li>Provide accurate information and keep it up to date.</li>
-          <li>Keep your password secure and do not share your account.</li>
+          <li>Keep your password secure and do not share your account. Sign out on shared devices.</li>
           <li>Follow the Messaging Guidelines and Code of Conduct.</li>
           <li>Keep all Program communication on the Program’s messaging system.</li>
           <li>Report any concern immediately using “Report a concern” in your dashboard. In an emergency, call 911 first.</li>
@@ -155,8 +169,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
     slug: "privacy",
     title: "Privacy Policy",
     summary: "What we collect, why, who can see it, and how to delete it.",
-    version: V,
-    effective: EFFECTIVE,
+    version: V2,
+    effective: EFFECTIVE_V2,
     body: (
       <>
         <p>
@@ -166,50 +180,64 @@ export const LEGAL_DOCS: LegalDoc[] = [
 
         <h2>Children’s privacy</h2>
         <p>
-          Middle school Students (who may be under 13) can create their own account. When they do, we collect only what is needed to set
-          up the account and to ask a parent for permission: the Student’s first name, email address, password, grade, and their parent
-          or guardian’s email address. We use the parent’s email only to ask for, and later confirm, consent.
+          Accounts for middle school Students (who may be under 13) are created by a parent or guardian, not by the Student. If a Student
+          tries to sign up, we ask only for their first name and their parent’s email address, use them once to email the parent an
+          invitation, and delete them after 14 days (or as soon as the parent signs up).
         </p>
         <ul>
           <li>
-            Until a parent or guardian approves by signing the consent form from the emailed link, the Student’s information is not shown
-            to any Tutor, and the Student cannot message anyone or request a lesson.
+            A parent adds their child and signs the consent form. Where the Program requires it, a Program administrator then calls the
+            parent at the number on the form to confirm they are the Student’s parent or guardian. Until then, the Student’s information
+            is not shown to any Tutor, and no lessons or messages can happen.
           </li>
-          <li>We send the parent reminders. If no one approves within 14 days, we permanently delete the Student’s account and information.</li>
           <li>We never ask a Student for a phone number, home address, photo, last name, or birth date.</li>
           <li>
-            A parent or guardian can, at any time and from their private link: see their child’s profile, lessons, and messages; withdraw
-            consent; report a concern; or permanently delete the account. They can also ask us to review, correct, or delete information
-            by contacting <Contact />. A new private link can be requested at any time on the <Link href="/guardian">parents page</Link>.
+            A parent or guardian can see their child’s profile, lessons, and messages; withdraw consent; report a concern; or ask us to
+            review, correct, or delete information by contacting <Contact />. Parents of older Student accounts created before these
+            changes can also use their private link, and can request a new one on the <Link href="/guardian">parents page</Link>.
           </li>
         </ul>
         <p>
-          Parents may instead create a parent account and add their child themselves. Tutors are high school students; each Tutor provides
-          a parent or guardian’s contact information, and we notify that parent or guardian.
+          Tutors are high school students. Each Tutor gives a parent or guardian’s contact information, and that parent or guardian must
+          approve before the Tutor can teach.
         </p>
 
         <h2>What we collect</h2>
         <h3>Student and parent accounts</h3>
         <ul>
-          <li>For a Student account: the Student’s first name, email, and grade, and the parent or guardian’s email address.</li>
+          <li>If a Student asks us to invite their parent: the Student’s first name and the parent’s email (deleted within 14 days).</li>
           <li>For a parent account: parent/guardian name, email address, and phone number (so you can be reached during lessons).</li>
           <li>
             For each Student: first name, grade, optional school and county, instruments and experience level, learning goals,
             musical interests, learning preferences, and weekly availability. We do not ask for a Student’s last name, photo, or birth date.
           </li>
-          <li>The signed consent form: guardian name, relationship, phone, typed signature, date, and browser information.</li>
+          <li>The signed consent form: guardian name, relationship, phone, typed signature, date, and browser information, plus the result
+            and brief notes of the verification call, if one is made.</li>
         </ul>
         <h3>Tutor accounts</h3>
         <ul>
           <li>Name, email, grade, optional school, county, short bio, and optional profile photo.</li>
           <li>Instruments, self-reported skill and ensemble information, teaching preferences, availability, and Google Meet link.</li>
-          <li>Parent/guardian name, email, and optional phone; signed tutor agreement.</li>
+          <li>Parent/guardian name, email, and optional phone; signed tutor agreement; the parent’s approval (typed name, relationship,
+            date and browser information).</li>
         </ul>
         <h3>Program activity</h3>
         <ul>
-          <li>Lesson requests, lesson offers, schedules, lesson logs, confirmations, and hour verifications.</li>
+          <li>
+            Lesson requests, lesson offers, schedules (including weekly series), lesson logs and practice notes, confirmations, hour
+            verifications, when each side confirmed a parent was nearby before joining, and which instruments a family asked to be told
+            about when a Tutor becomes available.
+          </li>
           <li>Messages sent through the Program, the results of automated safety checks on them, and any reports submitted.</li>
           <li>A security log of account events such as sign-ins, sign-outs, password resets, and consent changes.</li>
+          <li>
+            A random identifier stored in a cookie on each device you sign in from, with a short description such as “Chrome on Mac,” so
+            we can email you when your account is used on a new device. We keep up to 20 per account.
+          </li>
+          <li>
+            If you turn on notifications for a device: the address your browser’s push service gives us for that device (up to 10 per
+            account). We delete it when you turn notifications off or sign out on that device.
+          </li>
           <li>Basic technical logs kept by our hosting providers for security and reliability.</li>
         </ul>
         <p>
@@ -222,7 +250,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
           <li>
             <strong>Students and parents</strong> see active Tutors’ first name and last initial, grade, school, county, bio, photo, instruments,
             teaching preferences, and availability. They never see a Tutor’s email, phone, or parent’s information. A Tutor’s
-            Google Meet link is shown only for lessons that are booked.
+            Google Meet link is shown only from 15 minutes before a booked lesson until 15 minutes after it ends.
           </li>
           <li>
             <strong>Tutors</strong> can see Students whose parent or guardian has signed consent: first name, grade, county,
@@ -235,6 +263,10 @@ export const LEGAL_DOCS: LegalDoc[] = [
             first name, instrument, dates, and confirmations).
           </li>
           <li>
+            <strong>Anyone a Tutor gives their hours-verification link to</strong> (for example, a school advisor) sees the Tutor’s name,
+            grade, school, instruments, and verified totals, never Students’ names or messages. The Tutor can turn the link off at any time.
+          </li>
+          <li>
             <strong>Program administrators</strong> can see account and lesson information and messages to run the Program, verify
             hours, and investigate reports.
           </li>
@@ -243,7 +275,15 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <h2>How we use information</h2>
         <ul>
           <li>To match Students with Tutors and schedule lessons.</li>
-          <li>To send transactional emails (requests, confirmations, reminders, and safety notices).</li>
+          <li>
+            To send transactional emails (requests, confirmations, reminders, security alerts, and safety notices), a weekly lesson summary
+            to parents (which parents can turn off), and, if you turn them on, device notifications for the same events. Notifications
+            never include message text.
+          </li>
+          <li>
+            To protect accounts: when you choose a password, we check it against a public list of passwords exposed
+            in data breaches. Only the first five characters of a one-way hash of it leave our server, never the password itself.
+          </li>
           <li>To verify volunteer hours and produce hour records for Tutors.</li>
           <li>
             To keep participants safe, including filtering messages, running automated safety checks, and investigating reports. Our
@@ -258,7 +298,12 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <ul>
           <li>Supabase — database, authentication, and file storage (United States region).</li>
           <li>Vercel — website hosting.</li>
-          <li>Brevo — delivery of transactional emails.</li>
+          <li>Our email provider (Brevo, or Google’s Gmail during testing) — delivery of transactional emails.</li>
+          <li>
+            Browser push services (Google, Apple, Mozilla, or Microsoft, depending on your browser) — delivery of notifications, only if
+            you turn them on. The notification content is encrypted so that the push service can’t read it.
+          </li>
+          <li>Have I Been Pwned — the breached-password check described above (it receives only a partial hash).</li>
           <li>Google — lessons take place on Google Meet under Google’s own terms and privacy policy.</li>
         </ul>
         <p>We may also disclose information if required by law or to protect someone’s safety.</p>
@@ -272,14 +317,14 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <h2>Security</h2>
         <p>
           Data is encrypted in transit. Access to every record is restricted by database-level rules so users can only see what their role
-          requires. No system is perfectly secure; please use a strong, unique password.
+          requires. Administrators must sign in with a second factor. No system is perfectly secure; please use a strong, unique password.
         </p>
 
         <h2>Retention and deletion</h2>
         <p>
-          We keep account and lesson records while an account is active so hours can be verified and reported. Student accounts that are
-          not approved by a parent within 14 days are deleted automatically. You can ask us to delete your account and associated
-          information at any time by contacting <Contact />, and a parent can delete a Student account directly from their private link.
+          We keep account and lesson records while an account is active so hours can be verified and reported. You can ask us to delete your account and associated
+          information at any time by contacting <Contact />. Invitations a Student asked us to send their parent are deleted after 14
+          days.
           When an account with lesson history is deleted, we remove the person’s name, contact details, profile, and messages, but keep a
           de-identified lesson record so that a Tutor’s verified volunteer hours remain valid. We may keep limited records where needed for
           safety investigations or legal obligations.
@@ -296,15 +341,16 @@ export const LEGAL_DOCS: LegalDoc[] = [
     slug: "consent",
     title: "Parent/Guardian Consent",
     summary: "What a parent agrees to before a student’s first lesson.",
-    version: V,
-    effective: EFFECTIVE,
+    version: V2,
+    effective: EFFECTIVE_V2,
     body: (
       <>
         <p>
           Before a Student can request a lesson, message a Tutor, or be seen by Tutors, the Student’s parent or legal guardian (18+) must
-          sign this consent — in their parent dashboard, or from the private link we email them when a Student signs up on their own.
-          Consent is recorded per Student with the signer’s typed name, relationship, phone number, and the date. A copy is emailed to the
-          parent or guardian.
+          sign this consent in their parent dashboard. Consent is recorded per Student with the signer’s typed name, relationship, phone
+          number, and the date, and a copy is emailed to them. Where the Program requires it, a Program administrator then calls the
+          phone number on the form to confirm the signer is the Student’s parent or guardian. Consent takes effect after that call. If the
+          name or phone number changes, a new call is needed.
         </p>
         <h2>By signing, the parent or guardian confirms that:</h2>
         <ol>
@@ -317,8 +363,9 @@ export const LEGAL_DOCS: LegalDoc[] = [
             recording feature and stores no video of minors.
           </li>
           <li>
-            <strong>A parent is reachable.</strong> A parent or guardian will be reachable by phone or text for the full length of every
-            lesson. They do not need to actively watch the lesson.
+            <strong>A parent is nearby.</strong> A parent or guardian will be home or nearby and reachable by phone or text for the full
+            length of every lesson. They do not need to actively watch it. Before each lesson, the family confirms this on the site, and
+            only then is the Tutor’s Google Meet link shown (from 15 minutes before the lesson until 15 minutes after it ends).
           </li>
           <li>
             <strong>Reporting.</strong> Any concern should be reported immediately through “Report a concern.” Reports are reviewed by the
@@ -340,9 +387,9 @@ export const LEGAL_DOCS: LegalDoc[] = [
         </ol>
         <h2>Withdrawing consent</h2>
         <p>
-          A parent or guardian may withdraw consent at any time from the Students page of the dashboard or from their private link.
-          Upcoming lessons are cancelled immediately and no new lessons can be requested until consent is signed again. From the private
-          link, a parent or guardian can also permanently delete a Student’s account.
+          A parent or guardian may withdraw consent at any time from the Students page of the dashboard (or, for older Student accounts,
+          from their private link). Upcoming lessons are cancelled immediately and no new lessons can be requested until consent is signed
+          again. To permanently delete a Student’s information, contact <Contact />.
         </p>
       </>
     ),
@@ -394,21 +441,30 @@ export const LEGAL_DOCS: LegalDoc[] = [
     slug: "tutor-agreement",
     title: "Tutor Agreement",
     summary: "What every tutor commits to before teaching.",
-    version: V,
-    effective: EFFECTIVE,
+    version: V2,
+    effective: EFFECTIVE_V2,
     body: (
       <>
-        <p>Every Tutor signs this agreement, and their parent or guardian is notified, before their profile is shown to Students.</p>
+        <p>
+          Every Tutor signs this agreement. Before their profile is shown to Students, their parent or guardian must approve their
+          participation from the link we email them, and a Program administrator must approve the Tutor.
+        </p>
         <h2>As a Tutor, I agree to:</h2>
         <ol>
-          <li>Teach only over Google Meet using the Meet link on my profile, and never meet a Student in person.</li>
+          <li>
+            Teach only over Google Meet using the Meet link on my profile, join through the Program’s Join button, and never meet a
+            Student in person. I will only admit the Student (and their family) to my Meet.
+          </li>
           <li>Never record a lesson, take screenshots of a Student, or share lesson content that identifies a Student.</li>
           <li>
             Keep every conversation on the Program’s messaging system and never ask for or share personal contact information. I understand
             that messages are checked automatically for safety and may be read by Program administrators and by Students’ parents.
           </li>
           <li>Never accept payment or gifts, and never discuss money with a family.</li>
-          <li>Show up on time, cancel through the dashboard as early as possible if I can’t make it, and log every lesson honestly.</li>
+          <li>
+            Show up on time, cancel through the dashboard as early as possible if I can’t make it, and log every lesson honestly. Practice
+            notes I write are shared with the family.
+          </li>
           <li>Only list instruments I actually play, and describe my skill level honestly.</li>
           <li>Follow the Messaging Guidelines and Code of Conduct.</li>
           <li>
@@ -416,9 +472,10 @@ export const LEGAL_DOCS: LegalDoc[] = [
             in the dashboard.
           </li>
           <li>
-            Understand that my account is active as soon as my profile is complete, that I may be paused automatically when a report or
-            serious safety flag is raised while it is investigated, and that I may be removed if I break this agreement. Hours from lessons
-            that aren’t confirmed or are rejected on review won’t count.
+            Understand that my account becomes active only after my parent or guardian and a Program administrator approve it, that I am
+            paused if my parent or guardian withdraws their approval, that I may be paused automatically when a report or serious safety
+            flag is raised while it is investigated, and that I may be removed if I break this agreement. Hours from lessons that aren’t
+            confirmed or are rejected on review won’t count.
           </li>
         </ol>
         <h2>About volunteer hours</h2>
