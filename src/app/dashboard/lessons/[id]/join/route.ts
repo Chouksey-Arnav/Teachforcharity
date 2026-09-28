@@ -14,8 +14,13 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/dashboard/l
   const back = (code: string) => NextResponse.redirect(new URL(`/dashboard/lessons?focus=${encodeURIComponent(id)}&join=${code}`, request.url), 303);
 
   // Only accept this form from our own pages.
-  const origin = request.headers.get("origin");
-  if (!origin || new URL(origin).host !== request.nextUrl.host) return new NextResponse("Forbidden", { status: 403 });
+  let sameOrigin = false;
+  try {
+    sameOrigin = new URL(request.headers.get("origin") ?? "").host === request.nextUrl.host;
+  } catch {
+    // missing or "null" origin
+  }
+  if (!sameOrigin) return new NextResponse("Forbidden", { status: 403 });
   if (!/^[0-9a-f-]{36}$/.test(id)) return back("NOT_FOUND");
 
   const form = await request.formData();
