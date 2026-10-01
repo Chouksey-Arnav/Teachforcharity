@@ -133,3 +133,14 @@ export function validateSlot(start: Date | null, minutes: number, now: Date = ne
     return "Lessons must take place between 8:00 AM and 10:00 PM Eastern.";
   return null;
 }
+
+/** "in 25 minutes", "in 3 hours", "tomorrow", "in 6 days" — counted in Eastern calendar days past the first day. */
+export function startsIn(iso: string, now: Date = new Date()): string {
+  const ms = new Date(iso).getTime() - now.getTime();
+  if (ms <= 0) return "now";
+  if (ms < 3600_000) return `in ${Math.max(1, Math.round(ms / 60000))} minutes`;
+  const days = Math.round((Date.parse(easternParts(new Date(iso)).date) - Date.parse(easternParts(now).date)) / 86400000);
+  if (days === 0) return `in ${Math.round(ms / 3600_000)} hour${Math.round(ms / 3600_000) === 1 ? "" : "s"}`;
+  if (days === 1) return "tomorrow";
+  return `in ${days} days`;
+}

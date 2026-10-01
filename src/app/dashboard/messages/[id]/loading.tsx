@@ -1,9 +1,10 @@
 import { LoadingLabel, Skeleton } from "@/components/ui/skeleton";
+import { PANE } from "./pane";
 
 /** Fills the conversation pane while a thread opens; the thread list stays put. */
 export default function ConversationLoading() {
   return (
-    <div className="flex h-[calc(100dvh-8.5rem)] min-h-0 flex-col lg:h-full">
+    <div className={PANE}>
       <LoadingLabel>Opening conversation…</LoadingLabel>
       <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
         <Skeleton className="size-[38px] rounded-full" />

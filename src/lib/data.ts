@@ -3,6 +3,7 @@ import type { createClient } from "./supabase/server";
 import type { Level } from "./constants";
 import type { PublicConfig } from "./viewer";
 import { RELATED_GROUPS, type StudentProfile, type TutorCandidate, type TutorSubject } from "./matching";
+import { defaultMinutes, openSlots, type BusyInterval, type OpenSlot } from "./slots";
 
 type Supa = Awaited<ReturnType<typeof createClient>>;
 
@@ -219,6 +220,48 @@ export async function getCurrentTutorIds(supabase: Supa, studentId: string): Pro
     .in("status", ["pending", "scheduled", "completed", "confirmed", "verified"])
     .gt("start_at", since);
   return [...new Set((data ?? []).map((r) => r.tutor_id))];
+}
+
+/** How far ahead open times are offered (and looked up). */
+export const OPEN_SLOT_DAYS = 14;
+
+/** A student's own pending or booked lessons, so open times never collide with them. */
+export function studentBusy(sessions: MySession[], studentId: string): BusyInterval[] {
+  return sessions
+    .filter((m) => m.student_id === studentId && (m.status === "pending" || m.status === "scheduled"))
+    .map((m) => ({ start: m.start_at, end: m.end_at }));
+}
+
+/**
+ * Requestable times for each tutor over the next two weeks (same rules as the
+ * booking form, so a time shown on a card is a time the form offers). Looks up
+ * at most `cap` tutors' busy times; the database re-checks on request.
+ */
+export async function getOpenSlotsByTutor(
+  supabase: Supa,
+  tutors: DirectoryTutor[],
+  student: { availability: string[]; preferred_minutes: number } | undefined,
+  busy: BusyInterval[],
+  cap = 40,
+): Promise<Map<string, OpenSlot[]>> {
+  const from = new Date();
+  const to = new Date(from.getTime() + (OPEN_SLOT_DAYS + 1) * 86400000);
+  const picked = tutors.slice(0, cap);
+  const busyRows = await Promise.all(
+    picked.map((t) => supabase.rpc("tutor_busy_times", { p_tutor: t.tutorId, p_from: from.toISOString(), p_to: to.toISOString() })),
+  );
+  return new Map(
+    picked.map((t, i) => [
+      t.tutorId,
+      openSlots({
+        tutorAvailability: t.availability,
+        studentAvailability: student?.availability ?? [],
+        busy: [...(busyRows[i].data ?? []).map((b) => ({ start: b.start_at, end: b.end_at })), ...busy],
+        minutes: defaultMinutes(t.sessionMinutes, student?.preferred_minutes),
+        days: OPEN_SLOT_DAYS,
+      }),
+    ]),
+  );
 }
 
 export type MySession = {

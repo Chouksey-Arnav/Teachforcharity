@@ -86,14 +86,14 @@ try {
 
   // ---------- Weekly lessons from open times ----------
   await fam.goto(`${BASE}/dashboard/tutors`);
-  await fam.getByRole("link", { name: /View & request/ }).first().click();
+  await fam.getByRole("link", { name: "Maya R.", exact: true }).first().click();
   await fam.waitForURL("**/dashboard/tutors/**");
-  await fam.getByRole("radio").first().waitFor();
-  const firstTime = fam.getByRole("radio").first();
-  await firstTime.click();
-  await fam.getByLabel("Every week for").check();
-  await fam.getByLabel("Number of weeks").selectOption("4");
-  await fam.getByText(/s at .*·.*·.*·/).waitFor();
+  const times = fam.getByRole("radiogroup", { name: /^Start times/ });
+  await times.getByRole("radio").first().waitFor();
+  await times.getByRole("radio").first().click();
+  await fam.getByRole("radio", { name: "Every week" }).click();
+  await fam.getByRole("radiogroup", { name: "Number of weeks" }).getByRole("radio", { name: "4", exact: true }).click();
+  await fam.getByText(/^4 lessons:/).waitFor();
   await shot(fam, "journey-01-request-weekly");
   await fam.getByRole("button", { name: "Request 4 weekly lessons" }).click();
   await fam.getByRole("heading", { name: "Request sent" }).waitFor();

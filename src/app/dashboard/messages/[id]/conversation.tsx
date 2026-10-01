@@ -1,13 +1,13 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Flag, Lock, SendHorizontal, ShieldCheck } from "lucide-react";
+import { CalendarDays, ChevronDown, Flag, Lock, SendHorizontal, ShieldCheck, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markThreadRead } from "@/app/actions/messages";
 import { acceptMessagingTerms } from "@/app/actions/profile";
 import { MESSAGE_MAX, messageViolation } from "@/lib/moderation";
-import { formatDate, formatTime } from "@/lib/time";
+import { easternDateOffset, easternParts, formatDate, formatTime } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
@@ -19,37 +19,59 @@ interface Msg {
   kind: "template" | "custom" | "system";
   body: string;
   created_at: string;
+  /** Shown right away while the server saves it. */
+  sending?: boolean;
+}
+
+/** Messages from the same person within this long read as one group. */
+const GROUP_MS = 5 * 60_000;
+
+function dayHeading(iso: string) {
+  const d = easternParts(new Date(iso)).date;
+  if (d === easternDateOffset(0)) return "Today";
+  if (d === easternDateOffset(-1)) return "Yesterday";
+  return formatDate(iso);
 }
 
 export function Conversation({
   threadId,
   me,
   otherId,
+  otherName,
   tutorId,
   studentId,
   initial,
   templates,
   termsAccepted,
   paused,
+  studentAccount,
 }: {
   threadId: string;
   me: string;
   otherId: string;
+  otherName: string;
   tutorId: string;
   studentId: string;
   initial: Msg[];
   templates: { key: string; label: string; body: string }[];
   termsAccepted: boolean;
   paused: boolean;
+  studentAccount?: boolean;
 }) {
   const [messages, setMessages] = useState<Msg[]>(initial);
+  const [shown, addSending] = useOptimistic(messages, (cur: Msg[], m: Msg) => [...cur, m]);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [terms, setTerms] = useState(termsAccepted);
   const [agree, setAgree] = useState(false);
+  const [tray, setTray] = useState(!termsAccepted);
   const [pending, start] = useTransition();
-  const bottom = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
+  // Touch keyboards: Enter adds a new line and the Send button sends (set after mount to match the server render).
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => setCoarse(window.matchMedia?.("(pointer: coarse)").matches ?? false), []);
 
   // Clear the unread badge in the nav once the conversation is open.
   useEffect(() => {
@@ -68,7 +90,20 @@ export function Conversation({
       }),
     [initial],
   );
-  useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [messages.length]);
+
+  // Stick to the newest message.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [shown.length]);
+
+  // The composer grows with what's typed, up to a few lines.
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [body, terms]);
 
   // Live updates for this conversation (RLS ensures only participants receive them).
   useEffect(() => {
@@ -88,39 +123,65 @@ export function Conversation({
   }, [threadId, me]);
 
   const violation = body ? messageViolation(body) : null;
-  const send = (payload: { template?: string; body?: string }) =>
+  const send = (payload: { template?: string; body?: string }) => {
+    const text = payload.template ? (templates.find((t) => t.key === payload.template)?.body ?? "") : (payload.body ?? "").trim();
+    if (!text) return;
+    setError(null);
+    // Cleared now (not when the server answers) so the box is ready for the next message.
+    if (payload.body) setBody("");
+    if (payload.template && terms) setTray(false);
     start(async () => {
-      setError(null);
+      addSending({ id: `sending-${Date.now()}`, sender_id: me, kind: payload.template ? "template" : "custom", body: text, created_at: new Date().toISOString(), sending: true });
       const res = await sendMessage({ threadId, ...payload });
-      if (res && !res.ok) return setError(res.error.message);
-      if (payload.body) setBody("");
+      if (res && !res.ok) {
+        setError(res.error.message);
+        if (payload.body) setBody(payload.body);
+      }
     });
+  };
+  const talked = shown.some((m) => m.kind !== "system");
 
   let lastDay = "";
   return (
     <>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-paper/50 px-4 py-5 sm:px-6" aria-live="polite">
-        <div className="mx-auto max-w-2xl space-y-2">
-          <div className="mb-5 flex items-start gap-2 rounded-xl bg-card px-4 py-3 text-xs leading-relaxed text-muted ring-1 ring-line">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-pine-700" />
-            Messages stay on this site and are visible to the student’s parent. Contact info, links, and outside apps are blocked. Admins may review messages for safety.
-          </div>
-          {messages.map((m) => {
-            const day = formatDate(m.created_at);
+      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-paper/50 px-3 py-4 sm:px-6" aria-live="polite" aria-relevant="additions">
+        <div className="mx-auto max-w-2xl">
+          <p className="mx-auto mb-4 flex max-w-md items-center justify-center gap-1.5 text-center text-[11.5px] leading-snug text-muted">
+            <ShieldCheck className="size-3.5 shrink-0 text-pine-700" aria-hidden />
+            {studentAccount ? "Your parent can read these messages." : "The student’s parent can read these messages."} Contact info and links are blocked.
+          </p>
+          {shown.map((m, i) => {
+            const day = dayHeading(m.created_at);
             const showDay = day !== lastDay;
             lastDay = day;
             const mine = m.sender_id === me;
+            const prev = shown[i - 1];
+            const next = shown[i + 1];
+            const t = Date.parse(m.created_at);
+            const joinsPrev = !showDay && prev && prev.kind !== "system" && prev.sender_id === m.sender_id && t - Date.parse(prev.created_at) < GROUP_MS;
+            const joinsNext =
+              next && next.kind !== "system" && next.sender_id === m.sender_id && Date.parse(next.created_at) - t < GROUP_MS && dayHeading(next.created_at) === day;
             return (
-              <div key={m.id}>
-                {showDay && <p className="py-3 text-center text-[11px] font-medium uppercase tracking-wider text-faint">{day}</p>}
+              <div key={m.id} className={cn(joinsPrev ? "mt-0.5" : "mt-3")}>
+                {showDay && (
+                  <div className="my-4 flex items-center gap-3" role="separator">
+                    <span className="h-px flex-1 bg-line" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">{day}</span>
+                    <span className="h-px flex-1 bg-line" />
+                  </div>
+                )}
                 {m.kind === "system" ? (
-                  <p className="mx-auto max-w-md rounded-full bg-paper-2 px-4 py-1.5 text-center text-xs text-muted">{m.body}</p>
+                  <div className="mx-auto flex max-w-md items-start gap-2 rounded-xl bg-paper-2/70 px-3 py-2 text-[12px] leading-snug text-ink-2 sm:text-[12.5px]">
+                    <CalendarDays className="mt-0.5 size-3.5 shrink-0 text-pine-700" aria-hidden />
+                    <span className="flex-1">{m.body}</span>
+                    <span className="shrink-0 text-[10px] text-faint">{formatTime(m.created_at)}</span>
+                  </div>
                 ) : (
-                  <div className={cn("group flex items-end gap-2", mine ? "justify-end" : "justify-start")}>
+                  <div className={cn("group flex items-end gap-1.5", mine ? "justify-end" : "justify-start")}>
                     {!mine && m.sender_id === otherId && (
                       <Link
                         href={`/dashboard/report?message=${m.id}&tutor=${tutorId}&student=${studentId}`}
-                        className="order-2 mb-1 rounded-full p-1 text-faint opacity-0 transition hover:text-clay-700 group-hover:opacity-100 focus:opacity-100"
+                        className="order-2 mb-1 rounded-full p-1 text-faint opacity-0 transition hover:text-clay-700 focus:opacity-100 group-hover:opacity-100"
                         aria-label="Report this message"
                         title="Report this message"
                       >
@@ -129,126 +190,169 @@ export function Conversation({
                     )}
                     <div
                       className={cn(
-                        "max-w-[80%] rounded-2xl px-4 py-2.5 text-[14.5px] leading-relaxed",
-                        mine ? "rounded-br-md bg-pine-700 text-white" : "rounded-bl-md bg-card text-ink ring-1 ring-line",
+                        "max-w-[82%] px-3.5 py-2 text-[14.5px] leading-relaxed sm:max-w-[75%]",
+                        mine ? "bg-pine-700 text-white" : "bg-card text-ink ring-1 ring-line",
+                        "rounded-2xl",
+                        mine ? joinsNext && "rounded-br-md" : joinsNext && "rounded-bl-md",
+                        mine ? joinsPrev && "rounded-tr-md" : joinsPrev && "rounded-tl-md",
+                        !joinsNext && (mine ? "rounded-br-md" : "rounded-bl-md"),
+                        m.sending && "opacity-70",
                       )}
                     >
                       <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                      <p className={cn("mt-1 text-[10.5px]", mine ? "text-white/60" : "text-faint")}>
-                        {formatTime(m.created_at)}
-                        {m.kind === "template" && " · quick reply"}
-                      </p>
+                      {!joinsNext && (
+                        <p className={cn("mt-0.5 text-right text-[10.5px]", mine ? "text-white/65" : "text-faint")}>
+                          {m.sending ? "Sending…" : formatTime(m.created_at)}
+                          {m.kind === "template" && !m.sending && " · quick reply"}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             );
           })}
-          <div ref={bottom} />
+          {!talked && !paused && (
+            <p className="mt-6 text-center text-[13px] text-muted">
+              No messages yet. {terms ? `Say hi to ${otherName.split(" ")[0]} below.` : "Tap a quick reply below to start."}
+            </p>
+          )}
         </div>
       </div>
 
-      <div className="border-t border-line bg-card px-4 pb-4 pt-3 sm:px-5">
+      <div className="border-t border-line bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 sm:px-5">
         {paused ? (
           <Notice tone="warning">Messaging is paused for this conversation.</Notice>
         ) : (
-          <>
-            <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
-              {templates.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  disabled={pending}
-                  title={t.body}
-                  onClick={() => send({ template: t.key })}
-                  className="shrink-0 rounded-full border border-line-2 bg-paper/60 px-3 py-1.5 text-[13px] text-ink-2 transition hover:border-pine-600 hover:text-pine-800 disabled:opacity-50"
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+          <div className="mx-auto max-w-2xl">
+            {tray && templates.length > 0 && (
+              <div className="mb-2.5">
+                <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-faint">Quick replies · tap to send</p>
+                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                  {templates.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      disabled={pending}
+                      title={t.body}
+                      onClick={() => send({ template: t.key })}
+                      className="shrink-0 rounded-full border border-line-2 bg-paper/60 px-3 py-1.5 text-[13px] text-ink-2 transition hover:border-pine-600 hover:bg-pine-50 hover:text-pine-800 disabled:opacity-50"
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {terms ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!violation && body.trim()) send({ body });
+                  if (!violation) send({ body });
                 }}
                 className="flex items-end gap-2"
               >
-                <div className="flex-1">
+                {templates.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setTray(!tray)}
+                    aria-expanded={tray}
+                    aria-label={tray ? "Hide quick replies" : "Show quick replies"}
+                    title="Quick replies"
+                    className={cn(
+                      "mb-0.5 flex size-10 shrink-0 items-center justify-center rounded-full transition",
+                      tray ? "bg-brass-100 text-brass-800" : "text-muted hover:bg-paper-2 hover:text-ink",
+                    )}
+                  >
+                    <Zap className="size-[18px]" aria-hidden />
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="composer" className="sr-only">
+                    Message {otherName}
+                  </label>
                   <textarea
+                    id="composer"
+                    ref={input}
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
+                      if (e.key === "Enter" && !e.shiftKey && !coarse && !e.nativeEvent.isComposing) {
                         e.preventDefault();
-                        if (!violation && body.trim()) send({ body });
+                        if (!violation) send({ body });
                       }
                     }}
                     maxLength={MESSAGE_MAX}
                     rows={1}
-                    placeholder="Write a message…"
+                    placeholder={`Message ${otherName.split(" ")[0]}…`}
                     aria-invalid={Boolean(violation)}
-                    className="max-h-40 min-h-11 w-full resize-none rounded-2xl border border-line-2 bg-card px-4 py-2.5 text-[15px] focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10 aria-[invalid=true]:border-clay-500"
+                    aria-describedby="composer-hint"
+                    className="block max-h-40 min-h-11 w-full resize-none rounded-3xl border border-line-2 bg-paper/40 px-4 py-2.5 text-[15px] leading-snug focus:border-pine-600 focus:bg-card focus:outline-none focus:ring-4 focus:ring-pine-600/10 aria-[invalid=true]:border-clay-500"
                   />
-                  <div className="mt-1 flex justify-between px-1 text-[11px]">
-                    <span className={violation ? "text-clay-700" : "text-faint"}>
-                      {violation ? `Messages can’t include ${violation}.` : "Enter to send · Shift+Enter for a new line"}
-                    </span>
-                    <span className="text-faint">
-                      {body.length}/{MESSAGE_MAX}
-                    </span>
-                  </div>
                 </div>
-                <Button type="submit" size="md" className="mb-5 size-11 px-0" pending={pending} disabled={!body.trim() || Boolean(violation)} aria-label="Send">
-                  {!pending && <SendHorizontal className="size-4" />}
+                <Button type="submit" className="mb-0.5 size-10 shrink-0 px-0" disabled={!body.trim() || Boolean(violation)} aria-label="Send">
+                  <SendHorizontal className="size-4" aria-hidden />
                 </Button>
               </form>
             ) : (
-              <div className="rounded-2xl border border-line bg-paper/60 p-4">
-                <p className="flex items-center gap-2 text-sm font-medium">
-                  <Lock className="size-4 text-muted" /> Want to write your own messages?
-                </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-muted">
-                  Quick replies are always available. To write freely, agree to keep messages about lessons, never share contact info or social
-                  accounts, never mention payment, and never suggest meeting in person.
-                </p>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                  <Checkbox
-                    checked={agree}
-                    onChange={(e) => setAgree(e.target.checked)}
-                    label={
-                      <>
-                        I agree to the{" "}
-                        <Link href="/legal/messaging" target="_blank" className="underline underline-offset-2">
-                          Messaging Guidelines
-                        </Link>
-                      </>
-                    }
-                  />
-                  <Button
-                    size="sm"
-                    disabled={!agree}
-                    pending={pending}
-                    onClick={() =>
-                      start(async () => {
-                        const r = await acceptMessagingTerms();
-                        if (r?.ok) setTerms(true);
-                        else if (r) setError(r.error.message);
-                      })
-                    }
-                  >
-                    Enable writing
-                  </Button>
+              <details className="group rounded-2xl border border-line bg-paper/60 open:bg-card">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-ink-2">
+                  <Lock className="size-3.5 text-muted" aria-hidden /> Want to type your own messages?
+                  <ChevronDown className="ml-auto size-4 text-muted transition group-open:rotate-180" aria-hidden />
+                </summary>
+                <div className="px-4 pb-4">
+                  <p className="text-[13px] leading-relaxed text-muted">
+                    Agree to keep messages about lessons, never share contact info or social accounts, never mention payment, and never suggest meeting in person.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <Checkbox
+                      checked={agree}
+                      onChange={(e) => setAgree(e.target.checked)}
+                      label={
+                        <>
+                          I agree to the{" "}
+                          <Link href="/legal/messaging" target="_blank" className="underline underline-offset-2">
+                            Messaging Guidelines
+                          </Link>
+                        </>
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      disabled={!agree}
+                      pending={pending}
+                      onClick={() =>
+                        start(async () => {
+                          const r = await acceptMessagingTerms();
+                          if (r?.ok) {
+                            setTerms(true);
+                            setTray(false);
+                          } else if (r) setError(r.error.message);
+                        })
+                      }
+                    >
+                      Turn on typing
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </details>
+            )}
+            {terms && (
+              <p id="composer-hint" className={cn("mt-1 flex justify-between px-1 text-[11px]", violation ? "text-clay-700" : "text-faint")}>
+                <span>{violation ? `Messages can’t include ${violation}.` : coarse ? "" : "Enter to send · Shift+Enter for a new line"}</span>
+                {body.length > MESSAGE_MAX * 0.8 && (
+                  <span>
+                    {body.length}/{MESSAGE_MAX}
+                  </span>
+                )}
+              </p>
             )}
             {error && (
-              <Notice tone="danger" className="mt-3">
+              <Notice tone="danger" className="mt-2">
                 {error}
               </Notice>
             )}
-          </>
+          </div>
         )}
       </div>
     </>

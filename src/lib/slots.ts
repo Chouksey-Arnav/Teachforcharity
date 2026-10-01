@@ -83,3 +83,39 @@ export function weeklyStarts(date: string, time: string, weeks: number): Date[] 
   }
   return out;
 }
+
+/** The time to suggest first: the earliest that also fits the student's own free times, else the earliest. */
+export function bestSlot(slots: OpenSlot[]): OpenSlot | null {
+  return slots.find((s) => s.both) ?? slots[0] ?? null;
+}
+
+export type DayPart = "Morning" | "Afternoon" | "Evening";
+export const DAY_PARTS: DayPart[] = ["Morning", "Afternoon", "Evening"];
+
+/** Which part of the day an Eastern wall-clock time ("17:30") falls in. */
+export function dayPart(time: string): DayPart {
+  const h = Number(time.slice(0, 2));
+  return h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening";
+}
+
+/** The lesson length to offer by default: the student's preference when the tutor offers it, else the tutor's first. */
+export function defaultMinutes(tutorMinutes: number[], preferred: number | undefined): number {
+  return preferred && tutorMinutes.includes(preferred) ? preferred : (tutorMinutes[0] ?? 45);
+}
+
+/** Formats an Eastern calendar date ("2026-10-02") without shifting it across time zones. */
+export function calendarLabel(date: string, opts: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...opts }).format(new Date(`${date}T12:00:00Z`));
+}
+
+/** "Today", "Tomorrow", or "Thu, Oct 8" for an Eastern calendar date. */
+export function friendlyDay(date: string, now: Date = new Date()): string {
+  if (date === easternDateOffset(0, now)) return "Today";
+  if (date === easternDateOffset(1, now)) return "Tomorrow";
+  return calendarLabel(date, { weekday: "short", month: "short", day: "numeric" });
+}
+
+/** 0 = Monday … 6 = Sunday, matching DAYS. */
+export function weekdayIndex(date: string): number {
+  return (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7;
+}

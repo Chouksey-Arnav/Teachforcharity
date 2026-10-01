@@ -34,7 +34,7 @@ export function GuardianStatus({ guardian, deleteOn }: { guardian: { name: strin
             {guardian ? (
               <>
                 We emailed <strong className="break-all">{guardian.email}</strong> {formatRelative(guardian.last_invited_at)}. Once they approve, you can
-                message tutors and book lessons. You can look around and pick favorites now.
+                message tutors and book lessons. Look around and find tutors you like in the meantime.
               </>
             ) : (
               "Add your parent or guardian’s email so they can approve your account."

@@ -50,3 +50,16 @@ describe("validateSlot mirrors the database rules", () => {
     expect(opts.find((o) => o.value === "12:00")?.label).toBe("12:00 PM");
   });
 });
+
+describe("startsIn", () => {
+  it("counts minutes, hours, then Eastern calendar days", async () => {
+    const { startsIn } = await import("./time");
+    const now = easternToUtc("2026-10-05", "21:00")!;
+    expect(startsIn(easternToUtc("2026-10-05", "21:20")!.toISOString(), now)).toBe("in 20 minutes");
+    expect(startsIn(easternToUtc("2026-10-05", "23:30")!.toISOString(), now)).toBe("in 3 hours");
+    // 2 hours away but already tomorrow in Eastern time.
+    expect(startsIn(easternToUtc("2026-10-06", "08:00")!.toISOString(), now)).toBe("tomorrow");
+    expect(startsIn(easternToUtc("2026-10-12", "08:00")!.toISOString(), now)).toBe("in 7 days");
+    expect(startsIn(easternToUtc("2026-10-05", "20:00")!.toISOString(), now)).toBe("now");
+  });
+});

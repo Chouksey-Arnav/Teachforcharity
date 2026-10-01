@@ -38,9 +38,10 @@ try {
     await page.getByRole("link", { name: /Maya R\./ }).first().click();
     await page.waitForURL("**/dashboard/messages/**");
     await page.getByRole("button", { name: "Say hello" }).click();
+    await page.getByText("Want to type your own messages?").click();
     await page.getByRole("checkbox", { name: /I agree to the/ }).check();
-    await page.getByRole("button", { name: "Enable writing" }).click();
-    const box = page.getByPlaceholder("Write a message…");
+    await page.getByRole("button", { name: "Turn on typing" }).click();
+    const box = page.getByRole("textbox", { name: /^Message / });
     await box.fill("add me on snapchat @leo_plays");
     await page.getByText(/can’t include/).waitFor();
     await box.fill("Leo practiced measures 12-24 all week. See you Thursday!");
@@ -55,7 +56,7 @@ try {
     await page.goto(BASE + "/dashboard/messages");
     await page.getByText(/Leo/).first().click();
     await page.getByText("Leo practiced measures 12-24 all week").waitFor();
-    await page.getByRole("link", { name: "Student profile" }).click();
+    await page.getByRole("link", { name: "Profile", exact: true }).click();
     await page.getByText("How Leo learns").waitFor();
     expect((await page.getByText(mom).count()) === 0 && (await page.getByText("919-555-0100").count()) === 0, "tutor sees family contact details");
     await ctx.close();
