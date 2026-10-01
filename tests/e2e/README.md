@@ -10,6 +10,7 @@ Drive the real site in Chromium against the **local** Supabase stack (they read 
 | `tutor-approval.mjs` | a tutor's parent approves (and withdraws) from the emailed link; admin approval |
 | `journey.mjs` | the whole program: weekly booking from open times, counter-offer, joining only in the window, practice notes, one-tap email confirmation, verification, the public hours link |
 | `safety.mjs` | run after `journey.mjs`: every public page, messaging filter, a partner reviewer, report → auto-pause → reactivate, every page on a phone |
+| `student-experience.mjs` | run after `journey.mjs`: finding a tutor (search, day/schedule filters, sort kept in the URL), booking from a time on a tutor card, messaging from a profile, home next lesson + “Your tutors”, phone layout |
 | `a11y.mjs` | run after `journey.mjs`: axe-core scan (WCAG 2.1 AA) of public and signed-in pages |
 
 ```bash
@@ -18,7 +19,7 @@ npm run build && npm start                # or npm run dev
 npm i --no-save playwright @axe-core/playwright
 psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -f tests/e2e/cleanup.sql -f tests/e2e/setup.sql
 rm -f tests/e2e/screenshots/.admin-totp.json
-node tests/e2e/journey.mjs                # then safety.mjs and a11y.mjs
+node tests/e2e/journey.mjs                # then safety.mjs, student-experience.mjs and a11y.mjs
 ```
 
 Run `cleanup.sql` + `setup.sql` before each of the other tests. Test accounts are on `@tfac-e2e.test` with password `E2eTest-2026`. If Chromium isn't found, set `CHROME_PATH`.

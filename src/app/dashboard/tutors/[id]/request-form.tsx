@@ -1,17 +1,16 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { CalendarCheck2, CalendarDays, MessageCircle, Repeat, Send } from "lucide-react";
+import { CalendarCheck2, CalendarPlus, ChevronLeft, ChevronRight, Clock, MessageCircle, Repeat, Send, Star } from "lucide-react";
 import { requestLesson } from "@/app/actions/lessons";
-import { openThread } from "@/app/actions/messages";
 import { DateTimeFields, type DateTimeValue } from "@/components/forms/date-time-fields";
-import { Button } from "@/components/ui/button";
-import { Field, Select, Textarea } from "@/components/ui/field";
+import { Button, LinkButton } from "@/components/ui/button";
+import { Select, Textarea } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { easternDateOffset, easternToUtc, formatDate, formatTime, validateSlot } from "@/lib/time";
 import { messageViolation } from "@/lib/moderation";
 import { RELATED_GROUPS } from "@/lib/matching";
-import { openSlots, weeklyStarts, type BusyInterval, type OpenSlot } from "@/lib/slots";
+import { DAY_PARTS, bestSlot, calendarLabel, dayPart, defaultMinutes, friendlyDay, openSlots, weeklyStarts, type BusyInterval, type OpenSlot } from "@/lib/slots";
 import type { ActionState } from "@/lib/errors";
 import type { ConsentState } from "@/lib/data";
 import { cn } from "@/lib/cn";
@@ -38,32 +37,41 @@ interface Props {
   }[];
   initialStudentId?: string;
   initialSubjectId?: string;
+  /** A time picked on a tutor card ("?slot="), preselected if it's still open. */
+  initialStart?: string;
   canRequest: boolean;
+  /** The signed-in account is the student (changes "Leo’s" to "your"). */
+  isStudent: boolean;
+  threadHref?: string;
 }
 
 const related = (a: string, b: string) => a === b || RELATED_GROUPS.some((g) => g.includes(a) && g.includes(b));
-const WEEK_CHOICES = [2, 3, 4, 6, 8, 10, 12];
-const weekday = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(d);
-const dayLabel = (date: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...opts }).format(new Date(`${date}T12:00:00Z`));
+const WEEK_CHOICES = [2, 4, 6, 8, 10, 12];
+const DAYS_SHOWN = 14;
+const weekdayLong = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(d);
+const short = (d: Date | string) => formatDate(d).replace(/, \d{4}$/, "");
 
-export function RequestLessonForm({ tutor, students, initialStudentId, initialSubjectId, canRequest }: Props) {
+function Step({ n, title, aside, children }: { n: number; title: string; aside?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="min-w-0">
+      <div className="mb-2.5 flex items-center gap-2.5">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-white" aria-hidden>
+          {n}
+        </span>
+        <h3 className="flex-1 text-[14px] font-semibold">{title}</h3>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function RequestLessonForm({ tutor, students, initialStudentId, initialSubjectId, initialStart, canRequest, isStudent, threadHref }: Props) {
   const [studentId, setStudentId] = useState(initialStudentId ?? students[0]?.id ?? "");
   const student = students.find((s) => s.id === studentId);
-  const teachable = useMemo(
-    () => (student?.subjects ?? []).filter((s) => tutor.subjects.some((t) => related(t.slug, s.slug))),
-    [student, tutor.subjects],
-  );
-  const [subjectId, setSubjectId] = useState(initialSubjectId && teachable.some((t) => t.id === initialSubjectId) ? initialSubjectId : teachable[0]?.id ?? "");
-  const [minutes, setMinutes] = useState(tutor.sessionMinutes.includes(student?.preferredMinutes ?? 45) ? (student?.preferredMinutes ?? 45) : tutor.sessionMinutes[0]);
-  const [picked, setPicked] = useState<OpenSlot | null>(null);
-  const [manual, setManual] = useState(false);
-  const [dt, setDt] = useState<DateTimeValue>({ date: easternDateOffset(2), time: "", minutes });
-  const [repeat, setRepeat] = useState(false);
-  const [weeks, setWeeks] = useState(4);
-  const [note, setNote] = useState("");
-  const [result, setResult] = useState<ActionState<{ id: string }>>(null);
-  const [pending, start] = useTransition();
-  const [hiPending, startHi] = useTransition();
+  const teachable = useMemo(() => (student?.subjects ?? []).filter((s) => tutor.subjects.some((t) => related(t.slug, s.slug))), [student, tutor.subjects]);
+  const [subjectId, setSubjectId] = useState(initialSubjectId && teachable.some((t) => t.id === initialSubjectId) ? initialSubjectId : (teachable[0]?.id ?? ""));
+  const [minutes, setMinutes] = useState(() => defaultMinutes(tutor.sessionMinutes, student?.preferredMinutes));
 
   const slots = useMemo(
     () =>
@@ -72,20 +80,35 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
         studentAvailability: student?.availability ?? [],
         busy: [...tutor.busy, ...(student?.busy ?? [])],
         minutes,
+        days: DAYS_SHOWN,
       }),
     [tutor.availability, tutor.busy, student, minutes],
   );
-  const days = useMemo(() => {
-    const byDay = new Map<string, OpenSlot[]>();
-    for (const s of slots) byDay.set(s.date, [...(byDay.get(s.date) ?? []), s]);
-    return [...byDay.entries()];
-  }, [slots]);
-  const [day, setDay] = useState<string | null>(null);
-  // Default to the first day with a time that suits both.
-  const activeDay = days.some(([d]) => d === day) ? day : (days.find(([, ss]) => ss.some((s) => s.both))?.[0] ?? days[0]?.[0] ?? null);
-  const daySlots = days.find(([d]) => d === activeDay)?.[1] ?? [];
+  // A time chosen on the tutor card wins; otherwise nothing is chosen until the family taps one.
+  const [picked, setPicked] = useState<OpenSlot | null>(() => (initialStart ? (slots.find((s) => s.start === initialStart) ?? null) : null));
+  // Checked once, against the times offered on arrival: changing the length later isn’t "taken".
+  const [staleStart] = useState(() => Boolean(initialStart) && !slots.some((s) => s.start === initialStart));
+  const [manual, setManual] = useState(false);
+  const [dt, setDt] = useState<DateTimeValue>({ date: easternDateOffset(2), time: "", minutes });
+  const [repeat, setRepeat] = useState(false);
+  const [weeks, setWeeks] = useState(4);
+  const [showNote, setShowNote] = useState(false);
+  const [note, setNote] = useState("");
+  const [result, setResult] = useState<ActionState<{ id: string }>>(null);
+  const [pending, start] = useTransition();
 
-  // What will be requested.
+  const dates = useMemo(() => Array.from({ length: DAYS_SHOWN }, (_, i) => easternDateOffset(i)), []);
+  const byDay = useMemo(() => {
+    const m = new Map<string, OpenSlot[]>();
+    for (const s of slots) m.set(s.date, [...(m.get(s.date) ?? []), s]);
+    return m;
+  }, [slots]);
+  const suggested = bestSlot(slots);
+  const [day, setDay] = useState<string | null>(picked?.date ?? null);
+  const activeDay = day && byDay.has(day) ? day : (picked?.date ?? suggested?.date ?? null);
+  const [page, setPage] = useState(() => Math.max(0, Math.floor(dates.indexOf(activeDay ?? dates[0]) / 7)));
+  const daySlots = (activeDay && byDay.get(activeDay)) || [];
+
   const chosen = manual ? (dt.date && dt.time ? { date: dt.date, time: dt.time } : null) : picked ? { date: picked.date, time: picked.time } : null;
   const effectiveMinutes = manual ? dt.minutes : minutes;
   const startDate = chosen ? easternToUtc(chosen.date, chosen.time) : null;
@@ -94,238 +117,342 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
   const series = chosen && !slotIssue ? weeklyStarts(chosen.date, chosen.time, nWeeks) : [];
   const tooFar = series.length > 1 && series[series.length - 1].getTime() > Date.now() + 90 * 86400000;
   const noteIssue = note ? messageViolation(note) : null;
-  const blocked = student?.consent !== "active" || !canRequest || !subjectId;
   const tutorFirst = tutor.name.split(" ")[0];
+  const yours = isStudent ? "your" : `${student?.name ?? "your student"}’s`;
+  const lockReason =
+    !canRequest
+      ? `${tutorFirst} isn’t taking new students right now.`
+      : !subjectId
+        ? `${tutorFirst} doesn’t teach ${isStudent ? "your" : `${student?.name}’s`} instrument.`
+        : student?.consent === "none"
+          ? isStudent
+            ? "You can book once your parent approves your account."
+            : `Sign the consent form for ${student?.name} to book.`
+          : student?.consent === "pending"
+            ? isStudent
+              ? "You can book right after the program’s quick call with your parent."
+              : `You can book right after our quick call to confirm consent for ${student?.name}.`
+            : null;
+  const subjectName = teachable.find((t) => t.id === subjectId)?.name ?? "";
 
   if (result?.ok) {
     return (
       <div className="rounded-2xl border border-pine-200 bg-pine-50 p-6" role="status">
-        <CalendarCheck2 className="size-7 text-pine-700" />
-        <h2 className="display mt-3 text-3xl">Request sent</h2>
+        <span className="flex size-11 items-center justify-center rounded-full bg-card text-pine-700 ring-1 ring-pine-200">
+          <CalendarCheck2 className="size-5" aria-hidden />
+        </span>
+        <h2 className="display mt-4 text-3xl">Request sent!</h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">
+          {series.length > 1 ? `${series.length} weekly lessons, ${weekdayLong(series[0])}s at ${formatTime(series[0])} ET. ` : startDate ? `${friendlyDay(chosen!.date)} at ${formatTime(startDate)} ET. ` : ""}
           We emailed {tutorFirst}. You’ll get an email as soon as they accept or suggest another time.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link href={`/dashboard/lessons?focus=${result.data?.id}`} className="inline-flex h-9 items-center rounded-full bg-pine-700 px-4 text-sm font-medium text-white hover:bg-pine-800">
-            View request
-          </Link>
-          <button type="button" onClick={() => setResult(null)} className="inline-flex h-9 items-center rounded-full px-4 text-sm text-ink-2 hover:bg-white/60">
-            Request another time
-          </button>
+          <LinkButton href={`/dashboard/lessons?focus=${result.data?.id}`} size="sm">
+            See it in Lessons
+          </LinkButton>
+          {threadHref && (
+            <LinkButton href={threadHref} size="sm" variant="secondary">
+              <MessageCircle className="size-4" aria-hidden /> Message {tutorFirst}
+            </LinkButton>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setResult(null);
+              setPicked(null);
+            }}
+          >
+            Request another
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-card shadow-lift">
-      <div className="border-b border-line px-5 py-4">
-        <h2 className="text-[16px] font-semibold">Request lessons</h2>
-        <p className="text-[13px] text-muted">{tutorFirst} will accept, decline, or suggest another time.</p>
+    <div className="overflow-hidden rounded-2xl border border-line bg-card shadow-lift">
+      <div className="border-b border-line bg-paper/50 px-5 py-4">
+        <h2 className="text-[17px] font-semibold">Book a lesson with {tutorFirst}</h2>
+        <p className="mt-0.5 text-[13px] text-muted">Pick a time — {tutorFirst} accepts it or suggests another. Times are Eastern.</p>
       </div>
       <form
-        className="space-y-5 p-5"
+        className="space-y-6 p-5"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!chosen) return;
+          if (!chosen || lockReason) return;
           start(async () =>
             setResult(await requestLesson({ studentId, tutorId: tutor.id, subjectId, date: chosen.date, time: chosen.time, minutes: effectiveMinutes, note, weeks: nWeeks })),
           );
         }}
       >
-        {students.length > 1 && (
-          <Field label="For" htmlFor="rs-student">
-            <Select
-              id="rs-student"
-              value={studentId}
-              onChange={(e) => {
-                setStudentId(e.target.value);
-                setPicked(null);
-                const s = students.find((x) => x.id === e.target.value);
-                const t = s?.subjects.find((x) => tutor.subjects.some((ts) => related(ts.slug, x.slug)));
-                setSubjectId(t?.id ?? "");
-              }}
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          {teachable.length > 1 ? (
-            <Field label="Instrument" htmlFor="rs-subject">
-              <Select id="rs-subject" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+        {lockReason && <Notice tone={canRequest && subjectId ? "info" : "warning"}>{lockReason}{student?.consent === "none" && !isStudent && <> <Link href="/dashboard/students" className="font-medium underline underline-offset-2">Sign it here</Link>.</>}</Notice>}
+
+        <Step n={1} title="Lesson">
+          <div className="space-y-3">
+            {students.length > 1 && (
+              <Select
+                aria-label="Which student"
+                value={studentId}
+                onChange={(e) => {
+                  setStudentId(e.target.value);
+                  setPicked(null);
+                  const s = students.find((x) => x.id === e.target.value);
+                  setSubjectId(s?.subjects.find((x) => tutor.subjects.some((ts) => related(ts.slug, x.slug)))?.id ?? "");
+                }}
+              >
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    For {s.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {teachable.length > 1 && (
+              <Select aria-label="Instrument" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
                 {teachable.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
               </Select>
-            </Field>
-          ) : teachable.length === 1 ? (
-            <div className="text-sm">
-              <p className="text-[13px] font-medium">Instrument</p>
-              <p className="mt-2.5 font-semibold">{teachable[0].name}</p>
-            </div>
-          ) : null}
-          {!manual && (
-            <Field label="Length" htmlFor="rs-min">
-              <Select
-                id="rs-min"
-                value={minutes}
-                onChange={(e) => {
-                  setMinutes(Number(e.target.value));
-                  setPicked(null);
-                }}
-              >
+            )}
+            {teachable.length === 1 && <p className="text-[14px] font-medium">{teachable[0].name}</p>}
+            {!manual && tutor.sessionMinutes.length > 1 && (
+              <div className="flex w-full rounded-full border border-line bg-paper-2/70 p-0.5" role="radiogroup" aria-label="Lesson length">
                 {tutor.sessionMinutes.map((m) => (
-                  <option key={m} value={m}>
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={minutes === m}
+                    onClick={() => {
+                      setMinutes(m);
+                      setPicked(null);
+                    }}
+                    className={cn(
+                      "h-8 flex-1 whitespace-nowrap rounded-full px-3 text-[13px] font-medium tabular-nums transition",
+                      minutes === m ? "bg-card text-ink shadow-card ring-1 ring-line" : "text-muted hover:text-ink",
+                    )}
+                  >
                     {m} minutes
-                  </option>
+                  </button>
                 ))}
-              </Select>
-            </Field>
-          )}
-        </div>
-        {teachable.length === 0 && <Notice tone="warning">{tutorFirst} doesn’t teach any of {student?.name}’s instruments.</Notice>}
+              </div>
+            )}
+            {!manual && tutor.sessionMinutes.length === 1 && <p className="text-[13px] text-muted">{minutes}-minute lessons</p>}
+          </div>
+        </Step>
 
-        {!manual ? (
-          <fieldset className="min-w-0">
-            <div className="mb-2 flex items-baseline justify-between gap-3">
-              <legend className="text-[13px] font-medium">Open times (Eastern)</legend>
-              <button type="button" onClick={() => setManual(true)} className="text-[13px] text-pine-700 underline-offset-4 hover:underline">
-                Pick another time
-              </button>
+        <Step
+          n={2}
+          title="Pick a time"
+          aside={
+            <button type="button" onClick={() => setManual(!manual)} className="text-[12.5px] font-medium text-pine-700 underline-offset-4 hover:underline">
+              {manual ? "Back to open times" : "Suggest your own"}
+            </button>
+          }
+        >
+          {manual ? (
+            <div className="rounded-xl bg-paper-2/50 p-3">
+              <p className="mb-3 text-[13px] text-muted">{tutorFirst} will accept it or suggest a time that works better.</p>
+              <DateTimeFields value={dt} onChange={setDt} min={easternDateOffset(0)} max={easternDateOffset(89)} durations={tutor.sessionMinutes} />
             </div>
-            {days.length === 0 ? (
-              <p className="rounded-xl bg-paper-2/60 px-3 py-3 text-[13px] text-muted">
-                No open times in the next two weeks. Pick another time and {tutorFirst} can suggest one that works.
-              </p>
-            ) : (
-              <>
-                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-2" role="group" aria-label="Day">
-                  {days.map(([d, ss]) => (
+          ) : slots.length === 0 ? (
+            <div className="rounded-xl bg-paper-2/60 px-4 py-4 text-[13px] leading-relaxed text-muted">
+              No open times in the next two weeks.{" "}
+              <button type="button" onClick={() => setManual(true)} className="font-medium text-pine-700 underline underline-offset-2">
+                Suggest your own time
+              </button>{" "}
+              and {tutorFirst} can accept it or offer another.
+            </div>
+          ) : (
+            <>
+              {staleStart && !picked && minutes === defaultMinutes(tutor.sessionMinutes, student?.preferredMinutes) && (
+                <Notice tone="warning" className="mb-3">
+                  That time was just taken. Here are the times still open.
+                </Notice>
+              )}
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-[13px] font-medium text-ink-2">
+                  {calendarLabel(dates[page * 7], { month: "short", day: "numeric" })} – {calendarLabel(dates[page * 7 + 6], { month: "short", day: "numeric" })}
+                </p>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => setPage(0)} disabled={page === 0} aria-label="This week" className="rounded-full p-1.5 text-ink-2 hover:bg-paper-2 disabled:opacity-30">
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <button type="button" onClick={() => setPage(1)} disabled={page === 1} aria-label="Next week" className="rounded-full p-1.5 text-ink-2 hover:bg-paper-2 disabled:opacity-30">
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1" role="group" aria-label="Day">
+                {dates.slice(page * 7, page * 7 + 7).map((d) => {
+                  const list = byDay.get(d) ?? [];
+                  const on = d === activeDay;
+                  const fits = list.some((s) => s.both);
+                  return (
                     <button
                       key={d}
                       type="button"
-                      aria-pressed={d === activeDay}
+                      disabled={!list.length}
+                      aria-pressed={on}
+                      aria-label={`${calendarLabel(d, { weekday: "long", month: "long", day: "numeric" })}: ${list.length ? `${list.length} open time${list.length === 1 ? "" : "s"}` : "no open times"}`}
                       onClick={() => setDay(d)}
                       className={cn(
-                        "shrink-0 rounded-xl border px-3 py-1.5 text-center text-[12.5px] leading-tight transition",
-                        d === activeDay ? "border-pine-700 bg-pine-50 text-pine-800" : "border-line bg-card text-ink-2 hover:border-line-2",
+                        "flex flex-col items-center rounded-xl border py-1.5 transition",
+                        on ? "border-pine-700 bg-pine-700 text-white" : list.length ? "border-line bg-card hover:border-pine-500" : "border-transparent text-faint",
                       )}
                     >
-                      <span className="block font-semibold">{dayLabel(d, { weekday: "short" })}</span>
-                      <span className="block text-muted">{dayLabel(d, { month: "short", day: "numeric" })}</span>
-                      <span className={cn("mx-auto mt-1 block size-1.5 rounded-full", ss.some((s) => s.both) ? "bg-pine-600" : "bg-transparent")} aria-hidden />
+                      <span className={cn("text-[10px] font-semibold uppercase", on ? "text-white/80" : "text-muted")}>{calendarLabel(d, { weekday: "short" })}</span>
+                      <span className="text-[15px] font-semibold leading-tight">{calendarLabel(d, { day: "numeric" })}</span>
+                      <span className={cn("mt-0.5 size-1.5 rounded-full", !list.length ? "bg-transparent" : fits ? (on ? "bg-brass-300" : "bg-pine-600") : on ? "bg-white/50" : "bg-line-2")} aria-hidden />
                     </button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={`Start times on ${activeDay ? dayLabel(activeDay, { weekday: "long", month: "long", day: "numeric" }) : ""}`}>
-                  {daySlots.map((s) => (
-                    <button
-                      key={s.start}
-                      type="button"
-                      role="radio"
-                      aria-checked={picked?.start === s.start}
-                      aria-label={`${formatTime(s.start)}${s.both ? `, ${student?.name ?? "your student"} is free` : ""}`}
-                      onClick={() => setPicked(s)}
-                      className={cn(
-                        "rounded-full border px-3 py-1.5 text-[13px] font-medium transition",
-                        picked?.start === s.start
-                          ? "border-pine-700 bg-pine-700 text-white"
-                          : s.both
-                            ? "border-pine-200 bg-pine-50 text-pine-800 hover:border-pine-600"
-                            : "border-line bg-card text-ink-2 hover:border-line-2",
-                      )}
-                    >
-                      {formatTime(s.start)}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-2 text-xs text-muted">
-                  <span className="mr-1 inline-block size-2 rounded-full bg-pine-600 align-middle" aria-hidden /> Green times also fit{" "}
-                  {student?.name ?? "your student"}’s free times.
-                </p>
-              </>
-            )}
-          </fieldset>
-        ) : (
-          <div>
-            <DateTimeFields value={dt} onChange={setDt} min={easternDateOffset(0)} max={easternDateOffset(89)} durations={tutor.sessionMinutes} />
-            <button type="button" onClick={() => setManual(false)} className="mt-2 text-[13px] text-pine-700 underline-offset-4 hover:underline">
-              Back to open times
-            </button>
-          </div>
-        )}
+                  );
+                })}
+              </div>
 
-        <fieldset className="min-w-0 rounded-xl border border-line p-3">
-          <legend className="px-1 text-[13px] font-medium">How often</legend>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="radio" name="repeat" checked={!repeat} onChange={() => setRepeat(false)} className="accent-pine-700" /> Just once
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="radio" name="repeat" checked={repeat} onChange={() => setRepeat(true)} className="accent-pine-700" />
-              <Repeat className="size-4 text-muted" aria-hidden /> Every week for
-            </label>
-            <div className="w-32">
-              <Select aria-label="Number of weeks" value={weeks} disabled={!repeat} onChange={(e) => setWeeks(Number(e.target.value))} className="h-9">
-                {WEEK_CHOICES.map((w) => (
-                  <option key={w} value={w}>
-                    {w} weeks
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-          {series.length > 1 && (
-            <p className="mt-3 flex gap-2 text-[13px] leading-relaxed text-ink-2">
-              <CalendarDays className="mt-0.5 size-4 shrink-0 text-pine-700" aria-hidden />
-              <span>
-                {weekday(series[0])}s at {formatTime(series[0])}: {series.map((d) => formatDate(d).replace(/, \d{4}$/, "")).join(" · ")}
-              </span>
-            </p>
+              {activeDay && (
+                <div className="mt-4 space-y-3" role="radiogroup" aria-label={`Start times on ${calendarLabel(activeDay, { weekday: "long", month: "long", day: "numeric" })}`}>
+                  <p className="text-[13px] font-semibold">{calendarLabel(activeDay, { weekday: "long", month: "long", day: "numeric" })}</p>
+                  {DAY_PARTS.map((part) => {
+                    const list = daySlots.filter((s) => dayPart(s.time) === part);
+                    if (!list.length) return null;
+                    return (
+                      <div key={part}>
+                        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint">{part}</p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {list.map((s) => {
+                            const on = picked?.start === s.start;
+                            return (
+                              <button
+                                key={s.start}
+                                type="button"
+                                role="radio"
+                                aria-checked={on}
+                                aria-label={`${formatTime(s.start)}${s.both ? `, fits ${yours} free times` : ""}`}
+                                onClick={() => setPicked(s)}
+                                className={cn(
+                                  "inline-flex h-9 items-center justify-center gap-1 rounded-lg border text-[13px] font-medium tabular-nums transition",
+                                  on
+                                    ? "border-pine-700 bg-pine-700 text-white shadow-[0_0_0_3px_rgb(42_106_87/0.15)]"
+                                    : s.both
+                                      ? "border-pine-200 bg-pine-50 text-pine-800 hover:border-pine-600"
+                                      : "border-line bg-card text-ink-2 hover:border-ink/30",
+                                )}
+                              >
+                                {s.both && <Star className={cn("size-3", on ? "fill-brass-300 text-brass-300" : "fill-current")} aria-hidden />}
+                                {formatTime(s.start)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+                <Star className="size-3 fill-pine-600 text-pine-600" aria-hidden /> Fits {yours} usual free times
+              </p>
+            </>
           )}
-          {tooFar && <p className="mt-2 text-[13px] text-clay-700">Weekly lessons need to fit within the next 90 days — choose fewer weeks.</p>}
-        </fieldset>
+        </Step>
 
-        <Field label="Note for the tutor" htmlFor="rs-note" optional error={noteIssue ? `Notes can’t include ${noteIssue}.` : undefined}>
-          <Textarea id="rs-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={2} placeholder="e.g. Working on the concert music, measures 20–40" />
-        </Field>
+        <Step n={3} title="How often">
+          <div className="inline-flex w-full rounded-full border border-line bg-paper-2/70 p-0.5" role="radiogroup" aria-label="How often">
+            {[false, true].map((r) => (
+              <button
+                key={String(r)}
+                type="button"
+                role="radio"
+                aria-checked={repeat === r}
+                onClick={() => setRepeat(r)}
+                className={cn(
+                  "inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition",
+                  repeat === r ? "bg-card text-ink shadow-card ring-1 ring-line" : "text-muted hover:text-ink",
+                )}
+              >
+                {r && <Repeat className="size-3.5" aria-hidden />}
+                {r ? "Every week" : "Just once"}
+              </button>
+            ))}
+          </div>
+          {repeat && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Number of weeks">
+              <span className="mr-1 text-[13px] text-muted">For</span>
+              {WEEK_CHOICES.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  role="radio"
+                  aria-checked={weeks === w}
+                  onClick={() => setWeeks(w)}
+                  className={cn(
+                    "h-8 min-w-10 rounded-full border px-2.5 text-[13px] font-medium tabular-nums transition",
+                    weeks === w ? "border-pine-700 bg-pine-50 text-pine-800" : "border-line-2 bg-card text-ink-2 hover:border-ink/30",
+                  )}
+                >
+                  {w}
+                </button>
+              ))}
+              <span className="ml-1 text-[13px] text-muted">weeks</span>
+            </div>
+          )}
+        </Step>
 
-        {student?.consent === "none" && (
-          <Notice tone="warning">
-            Consent for {student?.name} isn’t signed yet.{" "}
-            <Link href="/dashboard/students" className="underline underline-offset-2">
-              Sign it here
-            </Link>
-            .
-          </Notice>
-        )}
-        {student?.consent === "pending" && (
-          <Notice tone="info">We’ll call to confirm consent for {student?.name} first — you can send requests right after that call.</Notice>
-        )}
-        {!canRequest && <Notice tone="info">{tutorFirst} isn’t taking new students right now.</Notice>}
-        {result && !result.ok && <Notice tone="danger">{result.error.message}</Notice>}
-
-        <Button type="submit" size="lg" className="w-full" pending={pending} disabled={blocked || Boolean(slotIssue) || Boolean(noteIssue) || tooFar}>
-          <Send className="size-4" /> {nWeeks > 1 ? `Request ${nWeeks} weekly lessons` : "Send request"}
-        </Button>
-
-        {student?.consent === "active" && (
-          <button
-            type="button"
-            disabled={hiPending}
-            onClick={() => startHi(async () => void (await openThread(tutor.id, studentId, "family_intro")))}
-            className="flex w-full items-center justify-center gap-2 rounded-full py-2 text-sm text-muted hover:text-ink"
-          >
-            <MessageCircle className="size-4" /> {hiPending ? "Opening…" : "Or send a quick hello first"}
+        {showNote ? (
+          <div>
+            <label htmlFor="rs-note" className="mb-1.5 flex items-baseline justify-between text-[13px] font-medium">
+              Note for {tutorFirst} <span className="font-normal text-faint">Optional</span>
+            </label>
+            <Textarea
+              id="rs-note"
+              autoFocus
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={300}
+              rows={2}
+              aria-invalid={Boolean(noteIssue)}
+              placeholder="e.g. Working on the concert music, measures 20–40"
+            />
+            {noteIssue && <p className="mt-1.5 text-[13px] text-clay-700">Notes can’t include {noteIssue}.</p>}
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowNote(true)} className="text-[13px] font-medium text-pine-700 underline-offset-4 hover:underline">
+            + Add a note for {tutorFirst}
           </button>
         )}
+
+        <div className={cn("rounded-xl border p-4 transition", chosen && !slotIssue ? "border-pine-200 bg-pine-50/60" : "border-dashed border-line-2 bg-paper/50")} aria-live="polite">
+          {chosen && !slotIssue && startDate ? (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-pine-800">You’re requesting</p>
+              <p className="mt-1 text-[16px] font-semibold">
+                {series.length > 1 ? `${weekdayLong(series[0])}s` : `${friendlyDay(chosen.date)}${["Today", "Tomorrow"].includes(friendlyDay(chosen.date)) ? `, ${short(startDate)}` : ""}`}
+              </p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[14px] text-ink-2">
+                <Clock className="size-3.5" aria-hidden />
+                {formatTime(startDate)} – {formatTime(new Date(startDate.getTime() + effectiveMinutes * 60000))} ET · {effectiveMinutes} min{subjectName && ` · ${subjectName}`}
+              </p>
+              {series.length > 1 && (
+                <p className="mt-1.5 flex items-start gap-1.5 text-[13px] leading-relaxed text-muted">
+                  <CalendarPlus className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  {series.length} lessons: {series.map((d) => short(d)).join(" · ")}
+                </p>
+              )}
+              {tooFar && <p className="mt-2 text-[13px] text-clay-700">Weekly lessons need to fit within the next 90 days — choose fewer weeks.</p>}
+            </>
+          ) : (
+            <p className="text-[13px] text-muted">{chosen && slotIssue && slotIssue !== "Choose a time." ? slotIssue : "Pick a time above to see your request here."}</p>
+          )}
+        </div>
+
+        {result && !result.ok && <Notice tone="danger">{result.error.message}</Notice>}
+
+        <Button type="submit" size="lg" className="w-full" pending={pending} disabled={Boolean(lockReason) || Boolean(slotIssue) || Boolean(noteIssue) || tooFar}>
+          {!pending && <Send className="size-4" aria-hidden />} {nWeeks > 1 ? `Request ${nWeeks} weekly lessons` : `Send request to ${tutorFirst}`}
+        </Button>
       </form>
     </div>
   );

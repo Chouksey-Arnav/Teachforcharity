@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, HandHeart, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowRight, HandHeart, ShieldAlert, Sparkles } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMySessions, relatedSubjectIds, toStudentProfile } from "@/lib/data";
+import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMySessions, getMyThreads, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { NextLessonSection, YourTutors, myTutors } from "./family-sections";
 import { matchTutors } from "@/lib/matching";
 import { LEVEL_INFO } from "@/lib/constants";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -23,16 +24,17 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const supabase = await createClient();
   const config = await getPublicConfig();
   const isStudent = viewer.profile.account_kind === "student";
-  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }] = await Promise.all([
+  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, threads] = await Promise.all([
     getFamilyStudents(supabase, viewer.id, config),
     getMySessions(supabase, "action"),
-    getMySessions(supabase, "upcoming", 5),
+    getMySessions(supabase, "upcoming", 20),
     getMySessions(supabase, "all", 50),
     supabase.from("subjects").select("id, slug"),
     getMyOffers(supabase),
     isStudent
       ? supabase.from("guardians").select("name, email, last_invited_at").eq("account_id", viewer.id).maybeSingle()
       : Promise.resolve({ data: null }),
+    getMyThreads(supabase),
   ]);
 
   // Top matches for each student's first instrument.
@@ -46,15 +48,22 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
           getCandidates(supabase, relatedSubjectIds(target.slug, subjects ?? [])),
           getCurrentTutorIds(supabase, s.id),
         ]);
-        const matches = matchTutors(toStudentProfile(s, current), target.subject_id, cands).filter((m) => m.canRequest).slice(0, 3);
-        return { student: s, target, matches: matches.map((m) => ({ m, t: cands.find((c) => c.tutorId === m.tutorId)! })) };
+        // Current tutors have their own "Your tutors" row, so suggest others here.
+        const matches = matchTutors(toStudentProfile(s, current), target.subject_id, cands)
+          .filter((m) => m.canRequest && !current.includes(m.tutorId))
+          .slice(0, 3);
+        const picked = matches.map((m) => ({ m, t: cands.find((c) => c.tutorId === m.tutorId)! }));
+        const slots = await getOpenSlotsByTutor(supabase, picked.map((p) => p.t), s, studentBusy(upcoming, s.id));
+        return { student: s, target, matches: picked.map((p) => ({ ...p, slots: slots.get(p.t.tutorId) ?? [] })), hasTutor: current.length > 0 };
       }),
   );
   const needsConsent = isStudent ? [] : students.filter((s) => !s.consent);
   const awaitingParent = isStudent && students.some((s) => !s.consent);
   const deleteOn = formatDate(new Date(new Date(viewer.profile.created_at).getTime() + 14 * 86400000));
   const first = viewer.profile.full_name.split(" ")[0] || "there";
-  const scheduledSoon = upcoming.filter((u) => u.status === "scheduled").slice(0, 3);
+  // A paused tutor drops out of the directory, so only offer one-tap actions for tutors still teaching.
+  const paused = new Set(threads.filter((t) => t.tutor_status !== "active").map((t) => t.tutor_id));
+  const tutors = myTutors([...history, ...upcoming]).filter((t) => !paused.has(t.tutorId));
   const consented = students.length > 0 && students.every((s) => s.consent);
   const verified = students.length > 0 && students.every((s) => s.consentActive);
   const awaitingCall = isStudent ? [] : students.filter((s) => s.consent && !s.consentActive);
@@ -161,16 +170,21 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
         </section>
       )}
 
+      <NextLessonSection upcoming={upcoming} isStudent={isStudent} />
+      <YourTutors tutors={tutors} isStudent={isStudent} multipleStudents={students.length > 1} />
+
       {students.length === 0 ? (
         <Empty icon={<Sparkles className="size-5" />} title="Add your student" action={<LinkButton href="/dashboard/students/new">Add a student</LinkButton>}>
           Tell us about your middle schooler to see their tutor matches.
         </Empty>
       ) : (
-        matchSets.map(({ student, target, matches }) => (
+        matchSets.filter((x) => x.matches.length || !x.hasTutor).map(({ student, target, matches, hasTutor }) => (
           <section key={student.id} className="mb-10">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 className="display text-3xl">{isStudent ? "Your top matches" : `Top matches for ${student.first_name}`}</h2>
+                <h2 className="display text-3xl">
+                  {hasTutor ? (isStudent ? "More tutors for you" : `More tutors for ${student.first_name}`) : isStudent ? "Your top matches" : `Top matches for ${student.first_name}`}
+                </h2>
                 <p className="mt-1 text-sm text-muted">
                   {target.name} · {LEVEL_INFO[target.level].label}
                   {student.subjects.length > 1 && ` · plus ${student.subjects.length - 1} more instrument${student.subjects.length > 2 ? "s" : ""}`}
@@ -182,8 +196,8 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
             </div>
             {matches.length ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {matches.map(({ m, t }) => (
-                  <TutorCard key={t.tutorId} tutor={t} match={m} studentName={student.first_name} href={`/dashboard/tutors/${t.tutorId}?student=${student.id}&subject=${target.subject_id}`} />
+                {matches.map(({ m, t, slots }) => (
+                  <TutorCard key={t.tutorId} tutor={t} match={m} slots={slots} href={`/dashboard/tutors/${t.tutorId}?student=${student.id}&subject=${target.subject_id}`} />
                 ))}
               </div>
             ) : (
@@ -195,25 +209,6 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
         ))
       )}
 
-      <section className="mb-10">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Coming up</h2>
-          <Link href="/dashboard/lessons?tab=upcoming" className="text-sm text-pine-700 hover:underline">
-            All lessons
-          </Link>
-        </div>
-        {scheduledSoon.length ? (
-          <div className="grid gap-4">
-            {scheduledSoon.map((s) => (
-              <LessonCard key={s.id} s={s} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 rounded-2xl border border-dashed border-line-2 px-5 py-6 text-sm text-muted">
-            <CalendarDays className="size-5 text-faint" /> No lessons booked yet. Request a time from any tutor’s profile.
-          </div>
-        )}
-      </section>
 
       <section className="mb-10 rounded-2xl border border-line bg-card p-5 sm:flex sm:items-center sm:gap-5">
         <ShieldAlert className="size-6 shrink-0 text-clay-700" />

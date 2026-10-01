@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { openSlots, weeklyStarts } from "./slots";
+import { bestSlot, dayPart, defaultMinutes, openSlots, weeklyStarts } from "./slots";
 import { easternParts, easternToUtc, validateSlot } from "./time";
 
 // Monday, October 5, 2026, 9:00 AM Eastern.
@@ -56,5 +56,41 @@ describe("weeklyStarts", () => {
     // The UTC hour changes when DST ends (Nov 1).
     expect(starts[1].getUTCHours()).toBe(21);
     expect(starts[2].getUTCHours()).toBe(22);
+  });
+});
+
+describe("slot helpers", () => {
+  const slot = (time: string, both: boolean) => ({ start: `2026-10-05T${time}:00Z`, date: "2026-10-05", time, both });
+
+  it("suggests the earliest time that fits the student, falling back to the earliest", () => {
+    expect(bestSlot([slot("15:00", false), slot("17:00", true), slot("18:00", true)])?.time).toBe("17:00");
+    expect(bestSlot([slot("15:00", false), slot("16:00", false)])?.time).toBe("15:00");
+    expect(bestSlot([])).toBeNull();
+  });
+
+  it("names the part of the day at the noon and 5 PM boundaries", () => {
+    expect(["08:00", "11:45", "12:00", "16:45", "17:00", "21:30"].map(dayPart)).toEqual([
+      "Morning", "Morning", "Afternoon", "Afternoon", "Evening", "Evening",
+    ]);
+  });
+
+  it("uses the student's preferred length only when the tutor offers it", () => {
+    expect(defaultMinutes([30, 45, 60], 60)).toBe(60);
+    expect(defaultMinutes([30, 45], 60)).toBe(30);
+    expect(defaultMinutes([45], undefined)).toBe(45);
+    expect(defaultMinutes([], 30)).toBe(45);
+  });
+});
+
+describe("calendar labels", () => {
+  it("labels today and tomorrow in Eastern time, then the date", async () => {
+    const { friendlyDay, weekdayIndex } = await import("./slots");
+    // 11:30 PM Eastern on Monday Oct 5 is already Tuesday in UTC.
+    const late = easternToUtc("2026-10-05", "23:30")!;
+    expect(friendlyDay("2026-10-05", late)).toBe("Today");
+    expect(friendlyDay("2026-10-06", late)).toBe("Tomorrow");
+    expect(friendlyDay("2026-10-08", late)).toBe("Thu, Oct 8");
+    expect(weekdayIndex("2026-10-05")).toBe(0);
+    expect(weekdayIndex("2026-10-11")).toBe(6);
   });
 });

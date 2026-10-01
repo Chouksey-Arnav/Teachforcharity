@@ -19,8 +19,10 @@ try {
     await scan(visitor, path);
   step("public pages scanned");
   const mom = await sql(`select email from profiles where email like 'e2e-journey-mom-%' order by created_at desc limit 1`);
+  const maya = await sql(`select id from profiles where email = 'e2e-tutor@tfac-e2e.test'`);
+  const thread = await sql(`select t.id from threads t join profiles p on p.id = t.family_id where p.email = '${mom}' order by t.created_at limit 1`);
   for (const [who, paths] of [
-    [mom, ["/dashboard", "/dashboard/tutors", "/dashboard/lessons", "/dashboard/students", "/dashboard/messages", "/dashboard/profile", "/dashboard/report"]],
+    [mom, ["/dashboard", "/dashboard/tutors", "/dashboard/tutors?view=all", `/dashboard/tutors/${maya}`, `/dashboard/messages/${thread}`, "/dashboard/lessons", "/dashboard/students", "/dashboard/messages", "/dashboard/profile", "/dashboard/report"]],
     ["e2e-tutor@tfac-e2e.test", ["/dashboard", "/dashboard/find-students", "/dashboard/lessons?tab=history", "/dashboard/hours", "/dashboard/profile"]],
   ]) {
     const { ctx, page } = await login(b, who);
