@@ -12,8 +12,7 @@ import { LiveRefresh } from "@/components/dashboard/live-refresh";
 import { signOut } from "@/app/actions/auth";
 import { collapsePendingSeries, type MySession } from "@/lib/data";
 import { TermsBanner } from "@/components/dashboard/terms-banner";
-
-const ROLE_LABEL = { family: "Parent account", tutor: "Tutor", reviewer: "Partner reviewer", admin: "Program admin" } as const;
+import { roleLabel } from "@/components/site/account";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const viewer = await requireViewer();
@@ -41,7 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     name,
     email: viewer.email,
     avatarPath: viewer.profile.avatar_path,
-    roleLabel: viewer.profile.account_kind === "student" ? "Student" : ROLE_LABEL[viewer.role],
+    roleLabel: roleLabel(viewer),
   };
 
   return (

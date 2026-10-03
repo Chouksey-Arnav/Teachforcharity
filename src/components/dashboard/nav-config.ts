@@ -40,7 +40,14 @@ const REPORT: NavItem = { href: "/dashboard/report", label: "Report a concern", 
  */
 export function navFor(role: Role, counts: { action: number; unread: number }, kind?: string | null): Nav {
   const lessons: NavItem = { href: "/dashboard/lessons", label: "Lessons", icon: "calendar", badge: counts.action, tab: true, hint: "Requests, booked lessons and confirmations" };
-  const messages: NavItem = { href: "/dashboard/messages", label: "Messages", icon: "messages", badge: counts.unread, tab: true, hint: "Talk with your tutor or family" };
+  const messages: NavItem = {
+    href: "/dashboard/messages",
+    label: "Messages",
+    icon: "messages",
+    badge: counts.unread,
+    tab: true,
+    hint: role === "tutor" ? "Talk with your students and their families" : "Talk with your tutor",
+  };
 
   if (role === "family" && kind === "student")
     return {
