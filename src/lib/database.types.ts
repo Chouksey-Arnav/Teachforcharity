@@ -97,6 +97,11 @@ export type Database = {
           ack_online_only: boolean
           ack_reachable: boolean
           family_id: string
+          form_path: string | null
+          form_returned_reason: string | null
+          form_sha256: string | null
+          form_submitted_at: string | null
+          form_upload_count: number
           guardian_name: string
           guardian_phone: string
           guardian_relationship: string
@@ -106,6 +111,8 @@ export type Database = {
           signed_at: string
           student_id: string
           user_agent: string | null
+          verification_code: string
+          verification_method: string | null
           verification_note: string | null
           verification_status: string
           verified_at: string | null
@@ -120,6 +127,11 @@ export type Database = {
           ack_online_only: boolean
           ack_reachable: boolean
           family_id: string
+          form_path?: string | null
+          form_returned_reason?: string | null
+          form_sha256?: string | null
+          form_submitted_at?: string | null
+          form_upload_count?: number
           guardian_name: string
           guardian_phone: string
           guardian_relationship: string
@@ -129,6 +141,8 @@ export type Database = {
           signed_at?: string
           student_id: string
           user_agent?: string | null
+          verification_code?: string
+          verification_method?: string | null
           verification_note?: string | null
           verification_status?: string
           verified_at?: string | null
@@ -143,6 +157,11 @@ export type Database = {
           ack_online_only?: boolean
           ack_reachable?: boolean
           family_id?: string
+          form_path?: string | null
+          form_returned_reason?: string | null
+          form_sha256?: string | null
+          form_submitted_at?: string | null
+          form_upload_count?: number
           guardian_name?: string
           guardian_phone?: string
           guardian_relationship?: string
@@ -152,6 +171,8 @@ export type Database = {
           signed_at?: string
           student_id?: string
           user_agent?: string | null
+          verification_code?: string
+          verification_method?: string | null
           verification_note?: string | null
           verification_status?: string
           verified_at?: string | null
@@ -1683,6 +1704,9 @@ export type Database = {
           account_id: string
           account_kind: string
           account_name: string
+          form_path: string
+          form_submitted_at: string
+          form_used_by_other_families: number
           guardian_name: string
           id: string
           phone: string
@@ -1693,6 +1717,8 @@ export type Database = {
           student_grade: number
           student_id: string
           student_name: string
+          verification_code: string
+          verification_method: string
           verification_note: string
           verification_status: string
           verified_at: string
@@ -1907,8 +1933,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_return_consent_form: {
+        Args: { p_consent: string; p_reason: string }
+        Returns: undefined
+      }
       admin_verify_consent: {
-        Args: { p_consent: string; p_note: string; p_verified: boolean }
+        Args: {
+          p_checks?: string[]
+          p_consent: string
+          p_method?: string
+          p_note: string
+          p_verified: boolean
+        }
         Returns: undefined
       }
       attest_guardian: { Args: never; Returns: undefined }
@@ -1956,6 +1992,7 @@ export type Database = {
         Returns: undefined
       }
       complete_onboarding: { Args: never; Returns: Json }
+      consent_form_target: { Args: { p_student: string }; Returns: Json }
       confirm_session: {
         Args: { p_happened: boolean; p_note?: string; p_session: string }
         Returns: Database["public"]["Enums"]["session_status"]
@@ -1971,6 +2008,10 @@ export type Database = {
           kind: string
           student_id: string
         }[]
+      }
+      finish_consent_form_deletions: {
+        Args: { p_paths: string[] }
+        Returns: undefined
       }
       finish_outbox: {
         Args: { p_error?: string; p_id: number; p_ok: boolean }
@@ -2010,6 +2051,10 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      guardian_consent_form_target: {
+        Args: { p_token: string }
+        Returns: Json
       }
       guardian_view: { Args: { p_token: string }; Returns: Json }
       hours_certificate: { Args: { p_code: string }; Returns: Json }
@@ -2225,6 +2270,14 @@ export type Database = {
       note_sign_in: {
         Args: { p_device_hash: string; p_label: string; p_user: string }
         Returns: boolean
+      }
+      pending_consent_form_deletions: {
+        Args: { p_limit?: number }
+        Returns: string[]
+      }
+      record_consent_form: {
+        Args: { p_consent: string; p_path: string; p_sha256: string; p_via: string }
+        Returns: undefined
       }
       report_incident: {
         Args: {

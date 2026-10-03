@@ -271,12 +271,12 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
 
     case "consent_receipt":
       return make(`Your consent form for ${str(p.student_name)}`, {
-        heading: p.verification ? "Consent received — we’ll call you to confirm" : "Consent form received",
+        heading: p.verification ? "Consent received — one quick check left" : "Consent form received",
         paragraphs: [
           hi(p),
           ...(p.verification
             ? [
-                `<strong>One more step:</strong> someone from the program will call you at <strong>${esc(p.guardian_phone)}</strong>, usually within two days, to confirm you’re ${esc(p.student_name)}’s parent or guardian. It takes about two minutes. Lessons and messaging start right after that call.`,
+                `<strong>One more step:</strong> we confirm you’re ${esc(p.student_name)}’s parent or guardian. Either someone from the program will call you at <strong>${esc(p.guardian_phone)}</strong>, usually within two days (about two minutes), or you can skip the call by uploading a photo of the form signed in ink — ${p.portal_token ? "from your parent page" : "from your student’s page in your dashboard"}. Lessons and messaging start right after.`,
               ]
             : []),
           `This is your copy of the parent/guardian consent you signed for <strong>${esc(p.student_name)}</strong>. You agreed that:`,
@@ -315,14 +315,39 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
     }
 
     case "consent_pending":
-      return make(`Parent to call: ${str(p.guardian_name)} (${str(p.student_name)})`, {
-        heading: "A parent is waiting for a verification call",
+      return make(`Parent to check: ${str(p.guardian_name)} (${str(p.student_name)})`, {
+        heading: "A parent is waiting to be verified",
         paragraphs: [
           `<strong>${esc(p.guardian_name)}</strong> (${esc(p.relationship)}) signed consent for <strong>${esc(p.student_name)}</strong>${p.student_grade ? `, grade ${esc(p.student_grade)}` : ""}.`,
-          "Lessons and messaging stay locked until someone calls the number on the form and confirms they’re the parent or guardian. Aim to call within two days.",
+          "Lessons and messaging stay locked until someone confirms they’re the parent or guardian — by calling the number on the form, or by checking a signed form if they upload one. Aim to do it within two days.",
         ],
-        cta: { label: "Open the call list", href: link("/admin/consents") },
-        note: "Phone numbers are only shown in the admin console.",
+        cta: { label: "Open parent checks", href: link("/admin/consents") },
+        note: "Phone numbers and form photos are only shown in the admin console.",
+      });
+
+    case "consent_form_uploaded":
+      return make(`Signed form to check: ${str(p.guardian_name)} (${str(p.student_name)})`, {
+        heading: "A parent uploaded a signed consent form",
+        paragraphs: [
+          `<strong>${esc(p.guardian_name)}</strong> (${esc(p.relationship)}) uploaded a photo of the signed consent for <strong>${esc(p.student_name)}</strong>${p.student_grade ? `, grade ${esc(p.student_grade)}` : ""}.`,
+          "Check the code, names and ink signature against the record, then verify it or send it back. No call needed unless something looks off.",
+        ],
+        cta: { label: "Review the form", href: link("/admin/consents") },
+        note: "The photo is only shown in the admin console, to admins signed in with two-factor.",
+      });
+
+    case "consent_form_returned":
+      return make(`Please send a new photo of ${str(p.student_name)}’s consent form`, {
+        heading: "We couldn’t use your photo",
+        paragraphs: [
+          hi(p),
+          `Thanks for uploading ${esc(p.student_name)}’s signed consent form. We couldn’t verify it from the photo:`,
+          `<em>${esc(p.reason)}</em>`,
+          "Your consent is still signed — you just need to upload a new photo, or wait for our call instead. We deleted the photo you sent.",
+        ],
+        cta: p.student_account
+          ? { label: "Get your parent link", href: link("/guardian") }
+          : { label: "Upload a new photo", href: link(`/dashboard/students/${encodeURIComponent(str(p.student_id))}#verify`) },
       });
 
     case "consent_verified":
@@ -330,9 +355,11 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         heading: "Thanks — you’re verified",
         paragraphs: [
           hi(p),
-          p.student_account
-            ? `Thanks for taking our call. ${esc(p.student_name)} can now message tutors and request lessons. You can see every lesson and message from your parent page.`
-            : `Thanks for taking our call. ${esc(p.student_name)} can now be matched with tutors, and you can request lessons and message tutors from your dashboard.`,
+          `${p.method === "signed_form" ? "We’ve checked your signed form." : "Thanks for taking our call."} ${
+            p.student_account
+              ? `${esc(p.student_name)} can now message tutors and request lessons. You can see every lesson and message from your parent page.`
+              : `${esc(p.student_name)} can now be matched with tutors, and you can request lessons and message tutors from your dashboard.`
+          }`,
         ],
         cta: p.student_account ? { label: "Open your parent page", href: link("/guardian") } : { label: "See tutor matches", href: link("/dashboard/tutors") },
       });
@@ -342,7 +369,7 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         heading: "We couldn’t confirm your consent",
         paragraphs: [
           hi(p),
-          `We weren’t able to confirm by phone that the consent for ${esc(p.student_name)} came from their parent or guardian, so it has been withdrawn and lessons stay locked.`,
+          `We weren’t able to confirm ${p.method === "signed_form" ? "from the form you uploaded" : "by phone"} that the consent for ${esc(p.student_name)} came from their parent or guardian, so it has been withdrawn and lessons stay locked.`,
           `If this is a mistake, reply to this email${SITE.contactEmail ? ` or write to ${esc(SITE.contactEmail)}` : ""} with a good time to call, and sign the consent form again from your dashboard.`,
         ],
       });

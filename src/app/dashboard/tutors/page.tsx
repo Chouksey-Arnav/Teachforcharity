@@ -200,10 +200,23 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
         </div>
 
         {consent === "pending" && (
-          <Notice tone="info" className="mb-6" title={isStudent ? "Your parent said yes — one quick check left" : "We’ll call you to confirm consent"}>
+          <Notice
+            tone="info"
+            className="mb-6"
+            title={isStudent ? "Your parent said yes — one quick check left" : "One quick check: confirm it was you"}
+            action={
+              isStudent || s.consent?.form_submitted_at ? undefined : (
+                <LinkButton href={`/dashboard/students/${s.id}#verify`} size="sm" variant="secondary">
+                  Upload a form
+                </LinkButton>
+              )
+            }
+          >
             {isStudent
-              ? "Someone from the program will call your parent to make sure it was really them. You can book lessons right after that call — look around and find tutors you like until then."
-              : `Someone from the program will call ${s.consent?.phone ?? "the number on your form"}, usually within two days, to confirm you’re the parent or guardian. You can book lessons right after that call.`}
+              ? "Someone from the program will make sure it was really your parent. You can book lessons right after — look around and find tutors you like until then."
+              : s.consent?.form_submitted_at
+                ? "We have your signed form and will check it, usually within two days. You can book lessons right after."
+                : `We’ll call ${s.consent?.phone ?? "the number on your form"}, usually within two days, to confirm you’re the parent or guardian — or upload a photo of your signed form instead. You can book lessons right after.`}
           </Notice>
         )}
         {consent === "none" &&

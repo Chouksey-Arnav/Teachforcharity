@@ -23,13 +23,26 @@ export interface FamilyStudent {
   is_active: boolean;
   created_at: string;
   subjects: { subject_id: string; slug: string; name: string; family: string; level: Level; years_playing: number; in_school_program: boolean; has_instrument: boolean }[];
-  /** The current, signed (not withdrawn) consent, whether or not the phone check is done. */
-  consent: { signed_at: string; guardian_name: string; version: string; phone: string; status: "pending" | "verified" | "rejected" } | null;
+  /** The current, signed (not withdrawn) consent, whether or not the parent check (call or signed form) is done. */
+  consent: {
+    signed_at: string;
+    guardian_name: string;
+    relationship: string;
+    version: string;
+    phone: string;
+    status: "pending" | "verified" | "rejected";
+    /** Printed on the paper form so an admin can match the photo to this signature. */
+    code: string;
+    /** A photo of the signed form is waiting for an admin. */
+    form_submitted_at: string | null;
+    /** Why an admin sent the last photo back. */
+    form_returned_reason: string | null;
+  } | null;
   /** Consent that actually unlocks lessons and messaging: signed and phone-checked (or checks are off). */
   consentActive: boolean;
 }
 
-/** "none": not signed · "pending": signed, waiting for the phone check · "active": unlocks lessons. */
+/** "none": not signed · "pending": signed, waiting for the parent check · "active": unlocks lessons. */
 export type ConsentState = "none" | "pending" | "active";
 
 export function consentState(s: Pick<FamilyStudent, "consent" | "consentActive">): ConsentState {
@@ -47,7 +60,7 @@ export async function getFamilyStudents(supabase: Supa, familyId: string, config
   const { data } = await supabase
     .from("students")
     .select(
-      "*, student_subjects(subject_id, level, years_playing, in_school_program, has_instrument, subjects(slug, name, family)), consents(signed_at, guardian_name, guardian_phone, version, revoked_at, verification_status)",
+      "*, student_subjects(subject_id, level, years_playing, in_school_program, has_instrument, subjects(slug, name, family)), consents(signed_at, guardian_name, guardian_relationship, guardian_phone, version, revoked_at, verification_status, verification_code, form_submitted_at, form_returned_reason)",
     )
     .eq("family_id", familyId)
     .order("created_at");
@@ -57,9 +70,13 @@ export async function getFamilyStudents(supabase: Supa, familyId: string, config
       ? {
           signed_at: row.signed_at,
           guardian_name: row.guardian_name,
+          relationship: row.guardian_relationship,
           version: row.version,
           phone: row.guardian_phone,
           status: row.verification_status as "pending" | "verified" | "rejected",
+          code: row.verification_code,
+          form_submitted_at: row.form_submitted_at,
+          form_returned_reason: row.form_returned_reason,
         }
       : null;
     return {
