@@ -80,8 +80,17 @@ export default async function StudentsPage() {
                     <span className="flex items-start gap-1.5 text-[13px] text-sky-700">
                       <PhoneCall className="mt-0.5 size-4 shrink-0" />
                       <span>
-                        Signed {formatDate(s.consent.signed_at)}. We’ll call {s.consent.phone} to confirm — usually within two days. Lessons
-                        unlock right after.
+                        {s.consent.form_submitted_at ? (
+                          <>Signed {formatDate(s.consent.signed_at)}. We have your signed form and will check it — usually within two days.</>
+                        ) : (
+                          <>
+                            Signed {formatDate(s.consent.signed_at)}. We’ll call {s.consent.phone} to confirm, or{" "}
+                            <Link href={`/dashboard/students/${s.id}#verify`} className="font-medium underline underline-offset-2">
+                              upload a signed form
+                            </Link>{" "}
+                            instead.{s.consent.form_returned_reason ? " We couldn’t use your last photo." : ""} Lessons unlock right after.
+                          </>
+                        )}
                       </span>
                     </span>
                     <RevokeConsentButton studentId={s.id} name={s.first_name} />

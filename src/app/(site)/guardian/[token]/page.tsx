@@ -9,6 +9,7 @@ import { formatDate, formatTime, formatWhen } from "@/lib/time";
 import { cn } from "@/lib/cn";
 import { GuardianConsent, GuardianControls, GuardianReport } from "./client";
 import { RequestLinkForm } from "../request-link-form";
+import { ConsentVerification } from "@/components/forms/consent-form-upload";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -38,6 +39,10 @@ interface GuardianData {
     phone: string;
     version: string;
     verification_status: "pending" | "verified" | "rejected";
+    /** Printed on the paper form so an admin can match the photo to this signature. */
+    verification_code: string;
+    form_submitted_at: string | null;
+    form_returned_reason: string | null;
     /** Whether this consent currently unlocks lessons (signed and, if required, phone-checked). */
     active: boolean;
   } | null;
@@ -77,10 +82,26 @@ export default async function GuardianPage({ params }: PageProps<"/guardian/[tok
       </h1>
 
       {d.consent && !d.consent.active ? (
-        <Notice tone="info" className="mt-6" title="Thanks — we’ll call you to confirm">
-          You signed on {formatDate(d.consent.signed_at)}. Someone from the program will call {d.consent.phone}, usually within two days, to confirm
-          you’re {name}’s parent or guardian. {name} can message tutors and book lessons right after that call.
-        </Notice>
+        d.consent.verification_status === "pending" ? (
+          <div className="mt-6">
+            <ConsentVerification
+              token={token}
+              studentName={name}
+              guardianName={d.consent.guardian_name}
+              relationship={d.consent.relationship}
+              phone={d.consent.phone}
+              code={d.consent.verification_code}
+              printHref={`/print/consent-link/${token}`}
+              formSubmittedAt={d.consent.form_submitted_at}
+              returnedReason={d.consent.form_returned_reason}
+            />
+          </div>
+        ) : (
+          <Notice tone="info" className="mt-6" title="Thanks — we’ll confirm it was you">
+            You signed on {formatDate(d.consent.signed_at)}. {name} can message tutors and book lessons once we’ve confirmed you’re their parent or
+            guardian.
+          </Notice>
+        )
       ) : d.consent ? (
         <Notice tone="success" className="mt-6" title={`Approved on ${formatDate(d.consent.signed_at)}`}>
           Signed by {d.consent.guardian_name} ({d.consent.relationship}). You’ll get an email whenever {name} books a lesson or a tutor reaches out.

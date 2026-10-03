@@ -125,7 +125,7 @@ export const SAFETY_POINTS: { icon: typeof Wifi; title: string; body: string }[]
   { icon: Wifi, title: "Online only", body: "Every lesson happens on Google Meet. There are no in-person meetings — not now, not ever." },
   { icon: VideoOff, title: "Never recorded", body: "We don't record lessons and never store video of minors. The site has no recording feature at all." },
   { icon: PhoneCall, title: "A parent is always nearby", body: "A parent or guardian must be home or nearby and reachable for the whole lesson. They don't have to sit in." },
-  { icon: ShieldCheck, title: "A parent says yes first", body: "Parents create students' accounts and sign consent, and we confirm it's really them with a short phone call before anything unlocks." },
+  { icon: ShieldCheck, title: "A parent says yes first", body: "Parents create students' accounts and sign consent, and we confirm it's really them — with a short phone call or a form signed in ink — before anything unlocks." },
   {
     icon: MessageSquareLock,
     title: "Messages stay on the platform",
@@ -285,7 +285,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Do the volunteer hours count for NHS, Tri-M, or school requirements?",
-    a: "Hours are logged by the tutor, confirmed by the family, and verified by our nonprofit partner each week, and you can print a record of them. Whether they count toward a specific school or honor society requirement is up to that organization — please check with your advisor.",
+    a: "Hours are logged by the tutor, confirmed by the family, and verified each week by our nonprofit partner (or by the program team, until a partner has confirmed in writing), and you can print a record of them — it shows who verified each hour. Whether they count toward a specific school or honor society requirement is up to that organization — please check with your advisor.",
   },
   {
     q: "Can we message the tutor?",

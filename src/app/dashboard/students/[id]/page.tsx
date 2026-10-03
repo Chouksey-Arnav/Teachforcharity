@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getFamilyStudents } from "@/lib/data";
 import { BackLink } from "@/components/dashboard/back-link";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ConsentVerification } from "@/components/forms/consent-form-upload";
 import { StudentEditor } from "../student-editor";
 
 export const metadata: Metadata = { title: "Edit student" };
@@ -25,6 +26,21 @@ export default async function EditStudentPage({ params }: PageProps<"/dashboard/
     <>
       {!self && <BackLink href="/dashboard/students" label="Students" />}
       <PageHeader title={self ? "Your profile" : `${s.first_name}’s profile`} description="Changes update your matches right away." />
+      {!self && s.consent?.status === "pending" && config?.require_consent_verification && (
+        <div className="mb-8">
+          <ConsentVerification
+            studentId={s.id}
+            studentName={s.first_name}
+            guardianName={s.consent.guardian_name}
+            relationship={s.consent.relationship}
+            phone={s.consent.phone}
+            code={s.consent.code}
+            printHref={`/print/consent/${s.id}`}
+            formSubmittedAt={s.consent.form_submitted_at}
+            returnedReason={s.consent.form_returned_reason}
+          />
+        </div>
+      )}
       <StudentEditor
         self={self}
         subjects={subjects ?? []}

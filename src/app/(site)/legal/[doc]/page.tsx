@@ -41,6 +41,7 @@ export default async function LegalPage({ params }: PageProps<"/legal/[doc]">) {
         <h1 className="display text-5xl sm:text-6xl">{d.title}</h1>
         <p className="mt-3 text-sm text-muted">
           Version {d.version} · Effective {d.effective}
+          {d.updated ? ` · Updated ${d.updated}` : ""}
         </p>
         <div className="prose-legal mt-10">{d.body}</div>
       </article>

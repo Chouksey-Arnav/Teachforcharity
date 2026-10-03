@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Safety & consent", description: "How
 const DETAILS: [string, React.ReactNode][] = [
   [
     "Parent consent is a hard gate",
-    "A parent creates the account and adds their child — a middle schooler who tries to sign up can only send their parent an invitation. The parent signs the consent form, and then someone from the program calls them at the number on the form to confirm they really are the parent. Until that call, the student can’t message anyone, request a lesson, or be seen by tutors. The database itself refuses. The consent covers the online-only format, the no-recording policy, having a parent nearby during lessons, and how concerns are handled.",
+    "A parent creates the account and adds their child — a middle schooler who tries to sign up can only send their parent an invitation. The parent signs the consent form, and then someone from the program confirms they really are the parent — by calling the number on the form, or by checking a photo of the form signed by hand with a one-time code on it. Until that check, the student can’t message anyone, request a lesson, or be seen by tutors. The database itself refuses. The consent covers the online-only format, the no-recording policy, having a parent nearby during lessons, and how concerns are handled.",
   ],
   [
     "Tutors are accountable from day one",

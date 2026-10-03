@@ -105,7 +105,7 @@ export function HowSteps({ phoneCheck }: { phoneCheck: boolean }) {
           <h3>A parent says yes first</h3>
           <p>
             A parent creates the account, adds their middle schooler and signs consent.
-            {phoneCheck ? " A quick phone call confirms it’s really them." : " Nothing unlocks until they do."}
+            {phoneCheck ? " A quick call or a hand-signed form confirms it’s really them." : " Nothing unlocks until they do."}
           </p>
         </div>
       </article>
@@ -186,8 +186,14 @@ const CHAIN = [
   { t: "Confirmed", who: "Family", d: "The family confirms it too. Unconfirmed lessons never count." },
   { t: "Verified", who: "Nonprofit partner", d: "Each week our partner reviews and verifies the hours. Then they’re on your record." },
 ];
+// Until a partner confirms in writing (Admin → Settings), the program team verifies hours — say so.
+const CHAIN_UNCONFIRMED = [
+  ...CHAIN.slice(0, 3),
+  { t: "Verified", who: "Program team", d: "Each week the program team reviews and verifies the hours. Then they’re on your record." },
+];
 
-export function HoursChain() {
+export function HoursChain({ partnered }: { partnered: boolean }) {
+  const chain = partnered ? CHAIN : CHAIN_UNCONFIRMED;
   return (
     <div className={s.hoursGrid}>
       <div className={cn(s.hoursPhoto, "rv")}>
@@ -209,11 +215,11 @@ export function HoursChain() {
           Volunteer hours that <em>actually</em> count.
         </h2>
         <p className="lm-sub rv rv-d2 mt-5">
-          An hour only counts after three different people agree it happened. That’s what makes the record credible — it’s verified by our nonprofit
-          partner, not just by us.
+          An hour only counts after three different people agree it happened. That’s what makes the record credible
+          {partnered ? " — it’s verified by our nonprofit partner, not just by us." : " — the tutor, the family, and the program team who verifies it each week."}
         </p>
         <ol className={cn(s.chain, "rv rv-d2")}>
-          {CHAIN.map((c, n) => (
+          {chain.map((c, n) => (
             <li key={c.t} className={s.link}>
               <span className={s.node}>{n === 3 ? <Check className="size-4" strokeWidth={2.5} /> : n + 1}</span>
               <div>

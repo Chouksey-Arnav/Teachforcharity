@@ -16,17 +16,18 @@ import s from "@/components/landing/landing.module.css";
 export default async function HomePage() {
   const [config, viewer] = await Promise.all([getPublicConfig(), getViewer()]);
   const stats = config?.stats;
+  const partnered = Boolean(config?.partner?.partnership_confirmed);
   // Real numbers only once there are enough to mean something; until then, the rules the system enforces.
   const tiles: StatTile[] =
     stats && stats.active_tutors >= 5
       ? [
           { value: stats.active_tutors, label: "volunteer tutors", src: "high school musicians" },
           { value: stats.instruments, label: "instruments taught", src: "band & orchestra" },
-          { value: stats.verified_hours, label: "verified volunteer hours", src: "checked by our partner" },
+          { value: stats.verified_hours, label: "verified volunteer hours", src: partnered ? "checked by our partner" : "checked every week" },
         ]
       : [
           { value: 0, prefix: "$", label: "cost to families, ever", src: "no payment info anywhere" },
-          { value: 3, label: "people confirm every hour", src: "tutor · family · nonprofit" },
+          { value: 3, label: "people confirm every hour", src: partnered ? "tutor · family · nonprofit" : "tutor · family · program team" },
           { value: 100, suffix: "%", label: "of messages a parent can read", src: "from their own dashboard" },
         ];
 
@@ -163,7 +164,7 @@ export default async function HomePage() {
       {/* Tutors */}
       <section id="hours" className={cn(s.sec, "scroll-mt-20")}>
         <div className="lm-wrap">
-          <HoursChain />
+          <HoursChain partnered={partnered} />
         </div>
       </section>
 

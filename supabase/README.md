@@ -1,6 +1,10 @@
 # Database
 
-All migrations in `migrations/` are **already applied** to the production project (`nkpdiglnyqgblqcqvbdp`). They are kept here as the source of truth and to rebuild the database from scratch (e.g. `supabase db push` against a new project, in filename order).
+All migrations in `migrations/` up to `20260928000800_legal_v2` are **already applied** to the production project (`nkpdiglnyqgblqcqvbdp`).
+
+> **Not yet applied: `20261003000100_signed_form_verification`** (parents can upload a photo of the consent form signed in ink instead of taking a call). Apply it **before** deploying the app code that ships with it: the new pages read its columns, so new code on the old database breaks the parent dashboard. The old code keeps working on the new database. Test: `supabase/tests/signed_form_test.sql`.
+
+They are kept here as the source of truth and to rebuild the database from scratch (e.g. `supabase db push` against a new project, in filename order).
 
 - `…0100_core_schema` — tables, enums, constraints (incl. no-double-booking exclusion constraints), indexes
 - `…0200_security` — signup hook, row-level security on every table, column-level grants

@@ -139,7 +139,7 @@ export default async function PersonPage({ params }: PageProps<"/admin/people/[i
                         Signed {when(consent.signed_at)} by {consent.guardian_name} ({consent.relationship}) · {consent.phone}
                         {consent.verification_status === "pending" && (
                           <Link href="/admin/consents" className="ml-2 text-brass-800 underline">
-                            awaiting phone check
+                            awaiting parent check
                           </Link>
                         )}
                       </span>

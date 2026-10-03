@@ -24,7 +24,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   {
     label: "Safety",
     items: [
-      { href: "/admin/consents", label: "Parent calls", icon: PhoneCall, badge: "calls", hint: "Confirm consent by phone" },
+      { href: "/admin/consents", label: "Parent checks", icon: PhoneCall, badge: "calls", hint: "Confirm consent by phone or signed form" },
       { href: "/admin/reports", label: "Reports", icon: Siren, badge: "reports", hint: "Concerns people have reported" },
       { href: "/admin/safety", label: "Safety scan", icon: ShieldAlert, badge: "flags", hint: "Messages the scanner flagged" },
       { href: "/admin/messages", label: "Messages", icon: MessagesSquare, hint: "Read any conversation" },

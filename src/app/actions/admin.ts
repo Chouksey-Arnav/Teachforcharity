@@ -13,6 +13,7 @@ import { logAppEvent } from "@/lib/audit";
 import { recordSignInDevice } from "@/lib/auth/sign-in-device";
 import { safeNext } from "@/lib/redirect";
 import { runSafetyScan } from "@/lib/safety/scanner";
+import { FORM_CHECKS } from "@/lib/consent-form/checks";
 
 /**
  * Admin console actions. Every one goes through adminDb(), which requires a
@@ -183,19 +184,50 @@ export async function setRole(input: { email: string; role: "family" | "tutor" |
 }
 
 // ---------------------------------------------------------------------------
-// Parent verification calls
+// Parent verification: a phone call or a photo of the signed form
 // ---------------------------------------------------------------------------
-export async function verifyConsent(input: { consentId: string; verified: boolean; note: string }): Promise<ActionState> {
+export async function verifyConsent(input: {
+  consentId: string;
+  verified: boolean;
+  note: string;
+  method?: "phone" | "signed_form";
+  checks?: string[];
+}): Promise<ActionState> {
   const p = z
-    .object({ consentId: uuid, verified: z.boolean(), note: z.string().trim().min(3, "Add a short note about the call.").max(500) })
+    .object({
+      consentId: uuid,
+      verified: z.boolean(),
+      note: z.string().trim().min(3, "Add a short note about the check.").max(500),
+      method: z.enum(["phone", "signed_form"]).default("phone"),
+      checks: z.array(z.enum(FORM_CHECKS)).max(FORM_CHECKS.length).optional(),
+    })
     .safeParse(input);
   if (!p.success) return { ok: false, error: { message: p.error.issues[0].message } };
   const db = await adminDb();
-  const { error } = await db.rpc("admin_verify_consent", { p_consent: p.data.consentId, p_verified: p.data.verified, p_note: p.data.note });
+  const { error } = await db.rpc("admin_verify_consent", {
+    p_consent: p.data.consentId,
+    p_verified: p.data.verified,
+    p_note: p.data.note,
+    p_method: p.data.method,
+    p_checks: p.data.checks,
+  });
   if (error) return { ok: false, error: toActionError(error) };
   // No revalidation here: the card shows the outcome, then refreshes the page itself.
   kickEmails();
   return { ok: true, message: p.data.verified ? "Verified — the family has been emailed and lessons are unlocked." : "Consent withdrawn and the family has been told." };
+}
+
+/** Sends an unusable photo back to the parent with what to fix. Consent stays signed. */
+export async function returnConsentForm(input: { consentId: string; reason: string }): Promise<ActionState> {
+  const p = z
+    .object({ consentId: uuid, reason: z.string().trim().min(5, "Tell the parent what to fix.").max(300) })
+    .safeParse(input);
+  if (!p.success) return { ok: false, error: { message: p.error.issues[0].message } };
+  const db = await adminDb();
+  const { error } = await db.rpc("admin_return_consent_form", { p_consent: p.data.consentId, p_reason: p.data.reason });
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  return { ok: true, message: "Sent back — the parent has been emailed what to fix." };
 }
 
 // ---------------------------------------------------------------------------

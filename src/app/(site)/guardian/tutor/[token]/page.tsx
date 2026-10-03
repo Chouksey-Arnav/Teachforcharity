@@ -72,12 +72,12 @@ export default async function TutorGuardianPage({ params }: PageProps<"/guardian
             <h2 className="display text-3xl">What volunteering involves</h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {[
-                { icon: Users, t: "One-on-one with a middle schooler", b: "Lessons are 30–60 minutes with a student in grades 6–8, whose parent has signed consent and been verified by phone." },
+                { icon: Users, t: "One-on-one with a middle schooler", b: "Lessons are 30–60 minutes with a student in grades 6–8, whose parent has signed consent and been verified by the program." },
                 { icon: Wifi, t: "Online only", b: "Lessons use your teen’s Google Meet link, which is only shown during the lesson. Never in person." },
                 { icon: EyeOff, t: "Never recorded", b: "The site has no recording, and tutors agree never to record or screenshot lessons." },
                 { icon: MessageSquareLock, t: "Monitored messages", b: "All messages stay on the site. Contact info is blocked and our safety scanner checks every message." },
                 { icon: Siren, t: "Reports pause tutors", b: "Any safety report from a family pauses the tutor instantly while the program team reviews it." },
-                { icon: ShieldCheck, t: "Verified volunteer hours", b: "Hours count only after the family confirms and our partner nonprofit verifies each lesson." },
+                { icon: ShieldCheck, t: "Verified volunteer hours", b: "Hours count only after the family confirms and the program (our partner nonprofit, once confirmed) verifies each lesson." },
               ].map(({ icon: Icon, t, b }) => (
                 <div key={t} className="flex gap-3 rounded-2xl border border-line bg-card p-4">
                   <Icon className="mt-0.5 size-5 shrink-0 text-pine-700" strokeWidth={1.8} />
