@@ -1,45 +1,39 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
-import { LinkButton } from "@/components/ui/button";
 import { MobileNav } from "./mobile-nav";
-
-export const SITE_NAV = [
-  { href: "/how-it-works", label: "How it works" },
-  { href: "/safety", label: "Safety" },
-  { href: "/volunteer", label: "For tutors" },
-  { href: "/cause", label: "The cause" },
-];
+import { HeaderShell } from "./header-shell";
+import { SITE_NAV } from "./nav-links";
 
 export function SiteHeader({ signedIn }: { signedIn: boolean }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-line/70 bg-paper/85 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6">
+    <HeaderShell>
+      <div className="lm-wrap flex h-16 items-center justify-between gap-6 md:h-[72px]">
         <Logo />
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
+        <nav className="hidden items-center gap-7 md:flex" aria-label="Main">
           {SITE_NAV.map((l) => (
-            <Link key={l.href} href={l.href} className="rounded-full px-3.5 py-2 text-sm text-ink-2 transition hover:bg-paper-2 hover:text-ink">
+            <Link key={l.href} href={l.href} className="text-[15px] text-ink/80 transition-colors duration-200 hover:text-ink">
               {l.label}
             </Link>
           ))}
         </nav>
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-4 md:flex">
           {signedIn ? (
-            <LinkButton href="/dashboard" size="sm">
+            <Link href="/dashboard" className="lm-btn lm-btn-ink lm-btn-sm">
               Dashboard
-            </LinkButton>
+            </Link>
           ) : (
             <>
-              <LinkButton href="/login" variant="ghost" size="sm">
+              <Link href="/login" className="text-[15px] text-ink/80 transition-colors hover:text-ink">
                 Sign in
-              </LinkButton>
-              <LinkButton href="/signup" size="sm">
+              </Link>
+              <Link href="/signup" className="lm-btn lm-btn-ink lm-btn-sm">
                 Get started
-              </LinkButton>
+              </Link>
             </>
           )}
         </div>
         <MobileNav signedIn={signedIn} />
       </div>
-    </header>
+    </HeaderShell>
   );
 }
