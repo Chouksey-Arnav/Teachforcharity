@@ -233,10 +233,14 @@ begin
     'category', 'grooming_secrecy', 'severity', 'critical', 'score', 9.5, 'actions', jsonb_build_array('hide_message'))), array[msg]);
   if n <> 0 then raise exception 'FAIL duplicate flag'; end if;
   perform public.moderation_finish(run, null);
+  -- Check the results with the test's own (owner) rights: the service role only gets the
+  -- table access the app needs, which on a hosted project is less than a local stack grants.
+  execute 'reset role';
   if (select status from public.tutor_profiles where user_id = tut) <> 'paused' then raise exception 'FAIL tutor not auto-paused'; end if;
   if (select hidden_at from public.messages where id = msg) is null then raise exception 'FAIL message not hidden'; end if;
   if (select auto_actions from public.moderation_flags where source_id = msg::text) <> '{message_hidden,tutor_paused}' then
     raise exception 'FAIL auto actions not recorded'; end if;
+  execute 'set local role service_role';
   if not exists (select 1 from public.moderation_batch(100)) is false then null; end if;
   -- admin console (service role) sees everything
   j := public.admin_overview();

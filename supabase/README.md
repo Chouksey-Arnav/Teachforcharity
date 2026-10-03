@@ -1,8 +1,14 @@
 # Database
 
-All migrations in `migrations/` up to `20260928000800_legal_v2` are **already applied** to the production project (`nkpdiglnyqgblqcqvbdp`).
+**Production (`nkpdiglnyqgblqcqvbdp`) is behind.** As of October 3, 2026 it has only the migrations up to `20260927000400_scheduled_jobs` (its history records them under different version numbers, applied with comments stripped; the schema matches). These are **not yet applied**, and the deployed `main` already depends on the first eight:
 
-> **Not yet applied: `20261003000100_signed_form_verification`** (parents can upload a photo of the consent form signed in ink instead of taking a call). Apply it **before** deploying the app code that ships with it: the new pages read its columns, so new code on the old database breaks the parent dashboard. The old code keeps working on the new database. Test: `supabase/tests/signed_form_test.sql`.
+`20260928000100` … `20260928000800`, `20261003000100_signed_form_verification`, `20261003000200_service_role_profile_read`
+
+Apply them in filename order, **before** deploying code that needs them (old code keeps working on the new database; new code on the old one breaks the parent dashboard). They were rehearsed on an exact copy of production (same functions, grants, default privileges and RLS event trigger) and all database tests pass there.
+
+> **Hosted projects are stricter than the local stack.** On production, new functions are callable by nobody and new tables are unreadable by `service_role` unless a migration grants it. The local stack grants both by default, so a missing `grant` passes every local test and fails in production. Grant explicitly in every migration.
+
+> **Don't use `supabase db push` against production** until the history is reconciled: production recorded the September 26 migrations under different version numbers, so `db push` would try to apply them again.
 
 They are kept here as the source of truth and to rebuild the database from scratch (e.g. `supabase db push` against a new project, in filename order).
 

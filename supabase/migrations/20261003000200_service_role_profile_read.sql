@@ -1,0 +1,13 @@
+-- The server's service-role key reads profiles directly in two places:
+--   * push notifications look up the recipient by email (src/lib/push/send.ts)
+--   * Admin → Reset two-factor checks the target is an admin (src/app/actions/admin.ts)
+--
+-- A local Supabase stack grants service_role every table by default, so this
+-- worked in development. Hosted projects created since 2026 don't: service_role
+-- only gets what a migration grants. On production both features failed with
+-- "permission denied for table profiles" (push silently sent nothing; the reset
+-- always said the account isn't an admin).
+--
+-- Read only. The service role already bypasses row-level security; it just
+-- lacked the table privilege.
+grant select on public.profiles to service_role;
