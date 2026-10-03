@@ -166,3 +166,297 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Public-site skin. Everything under (site)/ is wrapped in .site-skin; the
+ * dashboard and admin keep the base theme above.
+ * ------------------------------------------------------------------------- */
+.site-skin {
+  --font-serif: var(--font-source-serif), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --lm-cream: #f8f6ee;
+  --lm-ink: #16201c;
+  --lm-soft: #4b5550;
+  --lm-line: rgb(22 32 28 / 0.1);
+  --lm-forest: #1f5446;
+  --lm-glow: #f4d36f;
+  --lm-glow-soft: #fbe9a8;
+  --lm-mint: #bfe3c9;
+  --lm-peach: #f8cfa3;
+  --lm-lilac: #d9d3f1;
+  --lm-clay: #c4553a;
+  --lm-glass: rgb(20 28 25 / 0.9);
+  --lm-glass-ink: #ecebe0;
+  --lm-radius: 26px;
+  --lm-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --lm-spring: cubic-bezier(0.3, 1.4, 0.5, 1);
+  --lm-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+  background: var(--lm-cream);
+}
+.site-skin .display,
+.site-skin h1.display,
+.site-skin h2.display {
+  font-weight: 560;
+  letter-spacing: -0.018em;
+}
+.site-skin .display em {
+  font-style: italic;
+  font-weight: 500;
+}
+.site-skin .eyebrow {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--lm-forest);
+}
+
+@layer components {
+  .lm-wrap {
+    width: min(1220px, 100% - 2 * clamp(16px, 3vw, 40px));
+    margin-inline: auto;
+  }
+  /* Mono label flanked by two dots: "• HOW IT WORKS •" */
+  .lm-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--lm-forest);
+  }
+  @media (max-width: 480px) {
+    .lm-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      gap: 8px;
+    }
+  }
+  @media (max-width: 359px) {
+    /* Too narrow for one line; wrapped text pushes the dots to the edges. */
+    .lm-eyebrow::before,
+    .lm-eyebrow::after {
+      display: none;
+    }
+  }
+  .lm-eyebrow::before,
+  .lm-eyebrow::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
+  }
+  .lm-h1 {
+    font-family: var(--font-serif);
+    font-weight: 560;
+    font-size: clamp(40px, 6.4vw, 80px);
+    line-height: 1.03;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .lm-h2 {
+    font-family: var(--font-serif);
+    font-weight: 560;
+    font-size: clamp(34px, 4.6vw, 58px);
+    line-height: 1.05;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+  .lm-h1 em,
+  .lm-h2 em {
+    font-style: italic;
+    font-weight: 500;
+  }
+  .lm-sub {
+    color: var(--lm-soft);
+    font-size: clamp(16.5px, 1.4vw, 19px);
+    line-height: 1.65;
+    text-wrap: pretty;
+  }
+  .lm-micro {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--lm-soft);
+  }
+
+  .lm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    border-radius: 999px;
+    padding: 16px 26px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      transform 0.25s var(--lm-spring),
+      box-shadow 0.25s,
+      background 0.2s;
+  }
+  .lm-btn:hover {
+    transform: translateY(-2px);
+  }
+  .lm-btn:active {
+    transform: scale(0.97);
+  }
+  .lm-btn-sm {
+    padding: 11px 18px;
+    font-size: 14.5px;
+  }
+  .lm-btn-ink {
+    background: var(--lm-ink);
+    color: var(--lm-cream);
+    box-shadow: 0 10px 26px -12px rgb(22 32 28 / 0.55);
+  }
+  .lm-btn-ink:hover {
+    box-shadow: 0 16px 30px -12px rgb(22 32 28 / 0.55);
+  }
+  .lm-btn-glass {
+    background: rgb(255 255 255 / 0.6);
+    color: var(--lm-ink);
+    border: 1px solid rgb(22 32 28 / 0.14);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .lm-btn-glass:hover {
+    background: rgb(255 255 255 / 0.85);
+  }
+  .lm-btn-glow {
+    background: var(--lm-glow);
+    color: var(--lm-ink);
+    box-shadow: 0 10px 26px -12px rgb(244 211 111 / 0.6);
+  }
+  .lm-btn-glow:hover {
+    background: var(--lm-glow-soft);
+  }
+
+  /* Painted-sky backdrop: layered soft light in the brand's own colours, a
+     slow drift, and film grain. Pure CSS — no image to license or download. */
+  .lm-sky {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .lm-sky::before {
+    content: "";
+    position: absolute;
+    inset: -8%;
+    z-index: -2;
+    background:
+      radial-gradient(55% 45% at 18% 12%, #dcd6f2 0%, transparent 70%),
+      radial-gradient(50% 42% at 86% 8%, #f7dcb6 0%, transparent 70%),
+      radial-gradient(42% 38% at 12% 92%, #f1d77f 0%, transparent 72%),
+      radial-gradient(45% 40% at 92% 88%, #b8dcc8 0%, transparent 72%),
+      radial-gradient(75% 45% at 50% 108%, #cfe4b6 0%, transparent 75%),
+      linear-gradient(180deg, #ebe6f5 0%, #f6eee0 52%, #e8efd7 100%);
+    animation: lm-drift 38s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  .lm-sky::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--lm-grain);
+    opacity: 0.08;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .lm-sky-dusk::before {
+    background:
+      radial-gradient(60% 50% at 25% 10%, #cfc8f0 0%, transparent 70%),
+      radial-gradient(45% 40% at 85% 20%, #c9dcf0 0%, transparent 70%),
+      radial-gradient(55% 45% at 80% 95%, #f3d48a 0%, transparent 72%),
+      radial-gradient(60% 45% at 15% 100%, #bfe0c4 0%, transparent 72%),
+      linear-gradient(180deg, #e4e0f6 0%, #eef0f2 50%, #eef0d8 100%);
+  }
+  .lm-sky-gold::before {
+    background:
+      radial-gradient(55% 45% at 50% 0%, #f9e2a6 0%, transparent 70%),
+      radial-gradient(45% 40% at 10% 40%, #f6cfa6 0%, transparent 70%),
+      radial-gradient(45% 40% at 92% 50%, #dcd6f2 0%, transparent 70%),
+      radial-gradient(70% 45% at 50% 105%, #c9e2b2 0%, transparent 75%),
+      linear-gradient(180deg, #f7ecd2 0%, #f6efe2 55%, #e7eed5 100%);
+  }
+
+  /* Dark "listening" glass used in every demo. */
+  .lm-glass {
+    background: var(--lm-glass);
+    color: var(--lm-glass-ink);
+    border: 1px solid rgb(255 255 255 / 0.12);
+    backdrop-filter: blur(20px) saturate(1.15);
+    -webkit-backdrop-filter: blur(20px) saturate(1.15);
+    box-shadow:
+      0 20px 48px -20px rgb(12 20 16 / 0.6),
+      inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  /* Five-bar audio wave. */
+  .lm-wave {
+    display: inline-flex;
+    align-items: center;
+    gap: 2.5px;
+    height: 18px;
+    flex: none;
+  }
+  .lm-wave i {
+    width: 2.5px;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--lm-glow);
+    animation: lm-wave 1.1s ease-in-out infinite;
+  }
+  .lm-wave i:nth-child(2) { animation-delay: 0.12s; }
+  .lm-wave i:nth-child(3) { animation-delay: 0.24s; }
+  .lm-wave i:nth-child(4) { animation-delay: 0.36s; }
+  .lm-wave i:nth-child(5) { animation-delay: 0.48s; }
+  .lm-wave[data-idle] i {
+    animation: none;
+    height: 4px;
+    opacity: 0.6;
+  }
+}
+
+@keyframes lm-drift {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to { transform: scale(1.07) translate3d(-1.5%, 1%, 0); }
+}
+@keyframes lm-wave {
+  0%, 100% { height: 5px; }
+  50% { height: 17px; }
+}
+
+/* Scroll reveal. Only hides content when scripts run and motion is welcome,
+   so nothing is ever stuck invisible. <Reveal /> adds .in on scroll. */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .rv {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.7s,
+      transform 0.7s var(--lm-ease);
+  }
+  .rv.in {
+    opacity: 1;
+    transform: none;
+  }
+  .rv-d1 { transition-delay: 80ms; }
+  .rv-d2 { transition-delay: 160ms; }
+  .rv-d3 { transition-delay: 240ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The rule above shortens animations; looping ones would flicker, so stop them. */
+  .lm-sky::before,
+  .lm-wave i {
+    animation: none;
+  }
+  .lm-wave i { height: 9px; }
+}

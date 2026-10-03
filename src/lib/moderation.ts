@@ -41,4 +41,38 @@ export function messageViolation(text: string): string | null {
   return null;
 }
 
+/**
+ * Every span of `text` that a rule matches, in order and without overlaps, so
+ * the public site can highlight exactly what would be blocked. Uses the same
+ * rules as messageViolation(); it never decides anything on its own.
+ */
+export function violationSpans(text: string): { start: number; end: number; reason: string }[] {
+  const raw = text ?? "";
+  const t = raw.toLowerCase();
+  // toLowerCase() can change the length of a few characters (e.g. "İ"); then indexes no longer line up.
+  if (t.length !== raw.length) {
+    const reason = messageViolation(raw);
+    return reason ? [{ start: 0, end: raw.length, reason }] : [];
+  }
+  const found: { start: number; end: number; reason: string }[] = [];
+  for (const rule of RULES) {
+    for (const p of rule.patterns) {
+      for (const m of t.matchAll(new RegExp(p.source, "g"))) {
+        if (!m[0]) continue;
+        // Patterns like /(^|\s)@handle/ include the leading space; highlight only the handle.
+        const lead = m[0].length - m[0].trimStart().length;
+        found.push({ start: m.index + lead, end: m.index + m[0].length, reason: rule.reason });
+      }
+    }
+  }
+  found.sort((a, b) => a.start - b.start || b.end - a.end);
+  const merged: typeof found = [];
+  for (const s of found) {
+    const last = merged[merged.length - 1];
+    if (last && s.start < last.end) last.end = Math.max(last.end, s.end);
+    else merged.push({ ...s });
+  }
+  return merged;
+}
+
 export const MESSAGE_MAX = 800;
