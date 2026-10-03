@@ -152,10 +152,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: min(88vh, 920px);
-  padding: clamp(56px, 9vh, 104px) 16px 0;
+  /* Fill the first screen (less the header and gutter) so the hero is the whole first impression. */
+  min-height: min(calc(100svh - 84px), 940px);
+  padding: clamp(40px, 7vh, 88px) 16px 0;
   border-radius: clamp(24px, 3vw, 36px);
   text-align: center;
+}
+.heroGrid {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 .heroContent {
   position: relative;
@@ -163,37 +173,244 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 920px;
+  min-width: 0;
+  max-width: min(920px, 100%);
 }
 .heroContent h1 {
-  margin-top: 22px;
+  margin-top: 20px;
 }
 .heroContent .lead {
-  margin-top: 22px;
+  margin-top: 20px;
   max-width: 640px;
 }
-.heroCtas {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 34px;
-}
-.heroParent {
-  margin-top: 16px;
-  font-size: 14.5px;
+.heroSignIn {
+  margin-top: 18px;
+  font-size: 15px;
   color: var(--lm-soft);
 }
-.heroParent a {
+.heroSignIn a {
   color: var(--lm-ink);
-  font-weight: 600;
+  font-weight: 650;
   text-decoration: underline;
   text-underline-offset: 4px;
   text-decoration-thickness: 1px;
+  white-space: nowrap;
+}
+.heroSignIn a:hover {
+  text-decoration-thickness: 2px;
 }
 .heroMicro {
-  margin-top: 22px;
+  margin-top: 14px;
 }
+/* Wide screens: words on the left, the live example on the right, both above the fold. */
+@media (min-width: 1100px) {
+  .heroPanel {
+    padding: clamp(40px, 6vh, 72px) clamp(40px, 4.5vw, 72px) clamp(40px, 6vh, 72px);
+    justify-content: center;
+  }
+  .heroGrid {
+    display: grid;
+    flex: 0 1 auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(40px, 4.5vw, 72px);
+    max-width: 1240px;
+    margin-block: auto;
+    text-align: left;
+  }
+  .heroContent {
+    align-items: flex-start;
+  }
+  .heroContent .lead {
+    max-width: 560px;
+  }
+  .heroTitle {
+    font-size: clamp(48px, 4.4vw, 68px);
+  }
+  .heroPanel .dome {
+    display: none;
+  }
+  /* The staff moves to the open sky above the example instead of behind the words. */
+  .heroPanel .staff {
+    inset: 3% -4% auto 46%;
+    height: 24%;
+    opacity: 0.32;
+    mask-image: linear-gradient(90deg, transparent 0%, #000 30%, #000 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 30%, #000 85%, transparent 100%);
+  }
+  /* Keep all four answers on one line so the window never jumps when the last one lands. */
+  .heroDemo .pill {
+    width: 100%;
+    gap: 9px;
+    padding-inline: 14px;
+  }
+  .heroDemo .pill > svg {
+    display: none;
+  }
+  .heroDemo .answer {
+    padding: 4px 8px;
+    font-size: 10.5px;
+  }
+}
+/* Short laptop screens: tighten the rhythm so the sign-in line stays above the fold. */
+@media (min-width: 1100px) and (max-height: 820px) {
+  .heroTitle {
+    font-size: clamp(44px, 7vh, 60px);
+  }
+  .heroContent h1 {
+    margin-top: 14px;
+  }
+  .heroContent .lead {
+    margin-top: 14px;
+    font-size: 16.5px;
+  }
+  .doorsWrap {
+    margin-top: 20px;
+  }
+  .door {
+    padding-block: 10px;
+  }
+  .heroSignIn {
+    margin-top: 12px;
+  }
+  .heroMicro {
+    display: none;
+  }
+}
+/* Phones and tablets: the lines would cross the words, so the sky carries the hero alone. */
+@media (max-width: 1099px) {
+  .heroPanel .staff {
+    display: none;
+  }
+}
+
+/* "Who's signing up?" — one row per person, each saying what they get. */
+.doorsWrap {
+  width: min(100%, 540px);
+  margin-top: 28px;
+  text-align: left;
+}
+.doorsLabel {
+  margin: 0 0 10px 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lm-forest);
+}
+.doors {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background: rgb(255 255 255 / 0.62);
+  border: 1px solid rgb(22 32 28 / 0.1);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  box-shadow:
+    0 24px 50px -30px rgb(22 32 28 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.7);
+}
+/* One soft sheen across the card shortly after it lands, to draw the eye to the choice. */
+@media (prefers-reduced-motion: no-preference) {
+  .doors::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.65) 50%, transparent 65%);
+    background-size: 250% 100%;
+    background-position: 130% 0;
+    animation: doorSheen 1.4s 0.9s var(--lm-ease) both;
+  }
+}
+@keyframes doorSheen {
+  to { background-position: -30% 0; }
+}
+.doors li + li {
+  border-top: 1px solid var(--lm-line);
+}
+.door {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px 13px 14px;
+  transition: background 0.25s;
+}
+.door:hover {
+  background: rgb(255 255 255 / 0.9);
+}
+.door:focus-visible {
+  outline: 2px solid var(--lm-forest);
+  outline-offset: -3px;
+  border-radius: 20px;
+}
+.doorIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  color: var(--lm-ink);
+  transition: transform 0.35s var(--lm-spring);
+}
+.door:hover .doorIcon {
+  transform: rotate(-7deg) scale(1.07);
+}
+.doorMint { background: var(--lm-mint); }
+.doorPeach { background: var(--lm-peach); }
+.doorLilac { background: var(--lm-lilac); }
+.doorText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.doorText b {
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--lm-ink);
+}
+.doorText span {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--lm-soft);
+}
+.doorGo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--lm-ink);
+  border: 1px solid rgb(22 32 28 / 0.14);
+  background: rgb(255 255 255 / 0.7);
+  transition:
+    transform 0.3s var(--lm-spring),
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+.door:hover .doorGo,
+.door:focus-visible .doorGo {
+  transform: translateX(3px);
+  background: var(--lm-ink);
+  border-color: var(--lm-ink);
+  color: var(--lm-cream);
+}
+@media (max-width: 380px) {
+  .door { gap: 11px; padding: 12px 11px; }
+  .doorIcon { width: 38px; height: 38px; border-radius: 12px; }
+  .doorText b { font-size: 15px; }
+  .doorText span { font-size: 13px; }
+  .doorGo { width: 30px; height: 30px; }
+}
+
 /* Faint five-line staff drifting behind the headline. */
 .staff {
   position: absolute;
@@ -237,6 +454,92 @@
   margin-top: auto;
   padding-top: 56px;
   margin-bottom: clamp(28px, 5vh, 56px);
+}
+@media (min-width: 1100px) {
+  .heroDemo {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 0 0 auto;
+    padding-top: 0;
+  }
+}
+
+/* The three beats under the example, lit in step with it. A rail runs between
+   the numbers and fills as the example plays (--p, 0 to 1). */
+.beats {
+  --rail: calc(100% / 6);
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--lm-soft);
+  text-align: center;
+}
+.beats::before,
+.beats::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: var(--rail);
+  height: 2px;
+  border-radius: 2px;
+}
+.beats::before {
+  right: var(--rail);
+  background: rgb(22 32 28 / 0.1);
+}
+.beats::after {
+  width: calc((100% - 2 * var(--rail)) * var(--p, 0));
+  background: var(--lm-forest);
+  transition: width 0.6s var(--lm-ease);
+}
+.beats li {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding-inline: 4px;
+  transition: color 0.3s;
+}
+.beatNum {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--lm-soft);
+  background: var(--lm-cream);
+  border: 1px solid rgb(22 32 28 / 0.18);
+  transition:
+    background 0.3s,
+    color 0.3s,
+    border-color 0.3s,
+    transform 0.4s var(--lm-spring);
+}
+.beats li[data-state] {
+  color: var(--lm-ink);
+}
+.beats li[data-state] .beatNum {
+  color: #fff;
+  background: var(--lm-forest);
+  border-color: var(--lm-forest);
+}
+.beats li[data-state="on"] {
+  font-weight: 600;
+}
+.beats li[data-state="on"] .beatNum {
+  transform: scale(1.12);
+  animation: beatPulse 1.6s ease-out infinite;
+}
+@keyframes beatPulse {
+  0% { box-shadow: 0 0 0 0 rgb(31 84 70 / 0.35); }
+  100% { box-shadow: 0 0 0 9px rgb(31 84 70 / 0); }
 }
 
 /* Dark pill with the student's answers. */
@@ -1527,4 +1830,213 @@
   .track { flex-wrap: wrap; justify-content: center; width: auto; }
   .marquee { mask-image: none; }
   .trackDup { display: none; }
+}
+
+/* ------------------------------------------------------ welcome back */
+/* Signed in: no pitch, just the way back in. Shorter than the sign-up hero. */
+.heroPanel.welcomePanel {
+  min-height: 0;
+  padding-bottom: clamp(32px, 5vh, 56px);
+}
+@media (min-width: 1100px) {
+  .heroPanel.welcomePanel {
+    padding-block: clamp(56px, 9vh, 96px);
+  }
+}
+.welcomeCtas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+@media (min-width: 1100px) {
+  .welcomeCtas {
+    justify-content: flex-start;
+  }
+}
+.welcomeGo {
+  padding: 8px 26px 8px 8px;
+  font-size: 17px;
+}
+.welcomeWho {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 14px;
+  max-width: 100%;
+  margin-top: 18px;
+  font-size: 14px;
+  color: var(--lm-soft);
+}
+@media (min-width: 1100px) {
+  .welcomeWho {
+    justify-content: flex-start;
+  }
+}
+.welcomeWho b {
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  font-weight: 600;
+  color: var(--lm-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.welcomeWho button {
+  color: var(--lm-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  cursor: pointer;
+}
+.glance {
+  position: relative;
+  z-index: 3;
+  width: min(560px, 100%);
+  margin-top: 40px;
+}
+@media (min-width: 1100px) {
+  .glance {
+    margin: 0 0 0 auto;
+  }
+}
+.glanceBody {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+.glanceNext,
+.glanceLink {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border-radius: 14px;
+  padding: 11px 12px;
+  text-align: left;
+  transition: background 0.2s;
+}
+.glanceNext {
+  padding: 14px;
+  background: linear-gradient(180deg, rgb(191 227 201 / 0.42), rgb(191 227 201 / 0.2));
+  border: 1px solid rgb(31 84 70 / 0.14);
+}
+.glanceSetup {
+  background: linear-gradient(180deg, rgb(244 211 111 / 0.38), rgb(244 211 111 / 0.16));
+  border-color: rgb(196 149 47 / 0.25);
+}
+.glanceLink:hover {
+  background: #f4f2eb;
+}
+.glanceNext:hover {
+  filter: brightness(0.98);
+}
+.glanceNext:focus-visible,
+.glanceLink:focus-visible {
+  outline: 2px solid var(--lm-forest);
+  outline-offset: 1px;
+}
+.glanceIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: var(--lm-forest);
+  background: #f1efe8;
+  transition: transform 0.35s var(--lm-spring);
+}
+.glanceSetup .glanceIcon {
+  background: rgb(255 255 255 / 0.7);
+  color: #8a6416;
+}
+.glanceLink:hover .glanceIcon {
+  transform: rotate(-7deg) scale(1.07);
+}
+.glanceText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.glanceText b {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--lm-ink);
+}
+.glanceText > span {
+  font-size: 13px;
+  line-height: 1.35;
+  color: #6b736e;
+}
+.glanceText > .glanceKicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lm-forest);
+}
+.glanceWhen {
+  padding: 2px 8px;
+  font-size: 9.5px;
+}
+/* Less than a day away: a slow pulse so it reads as "soon". */
+.glanceWhen[data-soon]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2f9e6e;
+  animation: livePulse 1.8s ease-out infinite;
+}
+.glanceBadge {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--lm-clay);
+  animation: livePulseClay 2s ease-out infinite;
+}
+.glanceArrow {
+  flex: none;
+  color: #8a918c;
+  transition:
+    transform 0.3s var(--lm-spring),
+    color 0.2s;
+}
+.glanceLink:hover .glanceArrow,
+.glanceNext:hover .glanceArrow {
+  color: var(--lm-ink);
+  transform: translateX(3px);
+}
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgb(47 158 110 / 0.5); }
+  100% { box-shadow: 0 0 0 7px rgb(47 158 110 / 0); }
+}
+@keyframes livePulseClay {
+  0% { box-shadow: 0 0 0 0 rgb(196 85 58 / 0.45); }
+  70%, 100% { box-shadow: 0 0 0 8px rgb(196 85 58 / 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glanceWhen[data-soon]::before,
+  .glanceBadge,
+  .beats li[data-state="on"] .beatNum {
+    animation: none;
+  }
 }

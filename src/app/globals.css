@@ -338,6 +338,36 @@
     background: var(--lm-glow-soft);
   }
 
+  /* Signed-in header button: avatar tucked into the left of the pill. */
+  .lm-account {
+    padding-left: 5px;
+    gap: 10px;
+  }
+  .lm-account > :first-child {
+    box-shadow: 0 0 0 2px rgb(248 246 238 / 0.18);
+  }
+  .lm-account svg:last-child {
+    transition: transform 0.25s var(--lm-spring);
+  }
+  .lm-account:hover svg:last-child {
+    transform: translateX(3px);
+  }
+  /* Phone header avatar: a small green "you're signed in" dot. */
+  .lm-account-dot {
+    position: relative;
+  }
+  .lm-account-dot::after {
+    content: "";
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #2f9e6e;
+    box-shadow: 0 0 0 2px var(--lm-cream);
+  }
+
   /* Painted-sky backdrop: layered soft light in the brand's own colours, a
      slow drift, and film grain. Pure CSS — no image to license or download. */
   .lm-sky {

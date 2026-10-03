@@ -44,6 +44,13 @@ const SCENARIOS = [
 const STEPS = [500, 420, 420, 420, 650, 1100, 650, 560, 560, 560, 750, 1100, 3400];
 const FINAL = STEPS.length;
 
+/** The three things the demo shows, lit up as it reaches each one so the animation narrates itself. */
+const BEATS = [
+  { label: "Tell us what you play", from: 0 },
+  { label: "Get matched with a tutor", from: 5 },
+  { label: "Book a free online lesson", from: 11 },
+];
+
 export function HeroDemo() {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
@@ -53,6 +60,7 @@ export function HeroDemo() {
   const step = reduced ? FINAL : stepNow;
   const sc = SCENARIOS[reduced ? 0 : i];
   const sent = step >= 12;
+  const beat = BEATS.reduce((at, b, n) => (step >= b.from ? n : at), 0);
 
   return (
     <div ref={ref} className={s.heroDemo}>
@@ -147,6 +155,19 @@ export function HeroDemo() {
           </div>
         </div>
       </div>
+      <ol className={s.beats} style={{ "--p": Math.min(step / BEATS[BEATS.length - 1].from, 1) } as React.CSSProperties}>
+        {BEATS.map((b, n) => {
+          const done = n < beat || sent;
+          return (
+            <li key={b.label} data-state={done ? "done" : n === beat ? "on" : undefined}>
+              <span className={s.beatNum} aria-hidden>
+                {done ? <Check className="size-3" strokeWidth={3} /> : n + 1}
+              </span>
+              <span>{b.label}</span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

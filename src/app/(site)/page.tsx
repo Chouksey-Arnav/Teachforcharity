@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { ArrowRight, GraduationCap, Music2, Users } from "lucide-react";
 import { FAQ_ITEMS } from "@/components/site/sections";
-import { getPublicConfig } from "@/lib/viewer";
+import { getPublicConfig, getViewer } from "@/lib/viewer";
 import { cn } from "@/lib/cn";
 import { HeroDemo } from "@/components/landing/hero-demo";
+import { HeroDoors } from "@/components/landing/hero-doors";
+import { WelcomeHero } from "@/components/landing/welcome-hero";
 import { RoleSwitcher } from "@/components/landing/role-switcher";
 import { SafetyDemo } from "@/components/landing/safety-demo";
 import { StatTiles, type StatTile } from "@/components/landing/stat-tiles";
@@ -12,7 +14,7 @@ import { Reveal } from "@/components/landing/reveal";
 import s from "@/components/landing/landing.module.css";
 
 export default async function HomePage() {
-  const config = await getPublicConfig();
+  const [config, viewer] = await Promise.all([getPublicConfig(), getViewer()]);
   const stats = config?.stats;
   // Real numbers only once there are enough to mean something; until then, the rules the system enforces.
   const tiles: StatTile[] =
@@ -30,40 +32,44 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero */}
-      <section className={s.hero}>
-        <div className={cn("lm-sky", s.heroPanel)}>
-          <svg className={s.staff} viewBox="0 0 1200 200" preserveAspectRatio="none" aria-hidden>
-            {[60, 80, 100, 120, 140].map((y) => (
-              <path key={y} d={`M0 ${y} C 260 ${y - 34}, 520 ${y + 30}, 760 ${y} S 1080 ${y - 26}, 1200 ${y + 6}`} fill="none" stroke="currentColor" strokeWidth="1" />
-            ))}
-          </svg>
-          <div className={s.heroContent}>
-            <p className="lm-eyebrow animate-rise">Free · Online · North Carolina</p>
-            <h1 className="lm-h1 animate-rise text-ink [animation-delay:60ms]">
-              Music lessons from someone who was <em>just in your seat.</em>
-            </h1>
-            <p className={cn("lm-sub animate-rise [animation-delay:120ms]", s.lead)}>
-              High school band and orchestra players teach middle schoolers one-on-one over Google Meet. Free, matched by instrument and level — and a
-              parent approves before anything happens.
-            </p>
-            <div className={cn(s.heroCtas, "animate-rise [animation-delay:180ms]")}>
-              <Link href="/signup?role=student" className="lm-btn lm-btn-ink">
-                Get free lessons <ArrowRight className="size-4" />
-              </Link>
-              <Link href="/signup?role=tutor" className="lm-btn lm-btn-glass">
-                <Music2 className="size-4" /> Volunteer as a tutor
-              </Link>
+      {/* Hero: what this is, who it's for, and a way in for each of them — or, signed in, the way back to your account. */}
+      {viewer ? (
+        <WelcomeHero viewer={viewer} />
+      ) : (
+        <section className={s.hero}>
+          <div className={cn("lm-sky", s.heroPanel)}>
+            <svg className={s.staff} viewBox="0 0 1200 200" preserveAspectRatio="none" aria-hidden>
+              {[60, 80, 100, 120, 140].map((y) => (
+                <path key={y} d={`M0 ${y} C 260 ${y - 34}, 520 ${y + 30}, 760 ${y} S 1080 ${y - 26}, 1200 ${y + 6}`} fill="none" stroke="currentColor" strokeWidth="1" />
+              ))}
+            </svg>
+            <div className={s.heroGrid}>
+              <div className={s.heroContent}>
+                <p className="lm-eyebrow animate-rise">
+                  Volunteer-run<span className="max-[400px]:hidden"> · Online</span> · North Carolina
+                </p>
+                <h1 className={cn("lm-h1 animate-rise text-ink [animation-delay:60ms]", s.heroTitle)}>
+                  Free music lessons from someone who was <em>just in your seat.</em>
+                </h1>
+                <p className={cn("lm-sub animate-rise [animation-delay:120ms]", s.lead)}>
+                  High school band and orchestra players teach middle schoolers one-on-one over Google Meet — matched by instrument and level, with a
+                  parent’s OK before anything happens.
+                </p>
+                <HeroDoors />
+                <p className={cn(s.heroSignIn, "animate-rise [animation-delay:480ms]")}>
+                  Already have an account?{" "}
+                  <Link href="/login">
+                    Sign in <ArrowRight className="inline size-3.5 -translate-y-px" />
+                  </Link>
+                </p>
+                <p className={cn("lm-micro animate-rise [animation-delay:540ms]", s.heroMicro)}>Free, always · Never recorded · Parent consent first</p>
+              </div>
+              <HeroDemo />
             </div>
-            <p className={cn(s.heroParent, "animate-rise [animation-delay:220ms]")}>
-              Parent? <Link href="/signup?role=family">Sign up for your child</Link> — about five minutes.
-            </p>
-            <p className={cn("lm-micro animate-rise [animation-delay:260ms]", s.heroMicro)}>Free, always · Never recorded · Parent consent first</p>
+            <div className={s.dome} aria-hidden />
           </div>
-          <div className={s.dome} aria-hidden />
-          <HeroDemo />
-        </div>
-      </section>
+        </section>
+      )}
 
       <InstrumentMarquee open={config?.stats?.open_by_instrument ?? []} />
 
