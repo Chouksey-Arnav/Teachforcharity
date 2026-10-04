@@ -165,6 +165,8 @@ export async function requestParentInvite(
   if (error) {
     if (error.hint === "BAD_NAME") return { ok: false, error: { message: error.message }, fieldErrors: { childFirst: error.message } };
     if (error.hint === "BAD_EMAIL") return { ok: false, error: { message: error.message }, fieldErrors: { parentEmail: error.message } };
+    // Log the real cause (e.g. a missing database function after a skipped migration) so it shows up in server logs.
+    console.error("[auth] request_parent_invite failed:", error.code, error.message);
     return { ok: false, error: toActionError(error, "We couldn’t send that right now. Please try again.") };
   }
   kickEmails();
