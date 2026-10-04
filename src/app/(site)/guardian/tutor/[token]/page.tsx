@@ -19,6 +19,9 @@ interface TutorGuardianData {
   guardian_email: string;
   approved_at: string | null;
   approved_name: string | null;
+  /** This parent withdrew their approval (the tutor is paused until they approve again). */
+  withdrawn?: boolean;
+  withdrawn_at?: string | null;
   instruments: string[];
   lessons_taught: number;
 }
@@ -47,7 +50,7 @@ export default async function TutorGuardianPage({ params }: PageProps<"/guardian
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
       <p className="eyebrow">Private parent page · {d.guardian_email}</p>
-      <h1 className="display mt-3 text-4xl sm:text-6xl">{d.approved_at ? `${first} is approved to volunteer` : `${first} wants to volunteer`}</h1>
+      <h1 className="display mt-3 text-4xl sm:text-6xl">{d.approved_at ? `${first} is approved to volunteer` : d.withdrawn ? `${first}’s volunteering is paused` : `${first} wants to volunteer`}</h1>
 
       {d.approved_at ? (
         <Notice tone="success" className="mt-6" title={`You approved on ${formatDate(d.approved_at)}`}>
@@ -56,6 +59,11 @@ export default async function TutorGuardianPage({ params }: PageProps<"/guardian
             : d.status === "pending"
               ? "The program team is reviewing the profile. We’ll email " + first + " when families can see it."
               : `${first}’s profile is currently ${d.status}.`}
+        </Notice>
+      ) : d.withdrawn ? (
+        <Notice tone="warning" className="mt-6" title={`You withdrew your approval${d.withdrawn_at ? ` on ${formatDate(d.withdrawn_at)}` : ""}`}>
+          {first}’s profile is paused, families can’t see it, and any upcoming lessons were cancelled. If you change your mind, you can approve
+          again below.
         </Notice>
       ) : (
         <p className="mt-4 text-[17px] leading-relaxed text-muted">

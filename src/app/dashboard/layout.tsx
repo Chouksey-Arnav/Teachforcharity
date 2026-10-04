@@ -9,6 +9,7 @@ import { MobileChrome, SidebarNav } from "@/components/dashboard/nav";
 import { navFor } from "@/components/dashboard/nav-config";
 import { NavTrail } from "@/components/dashboard/back-link";
 import { LiveRefresh } from "@/components/dashboard/live-refresh";
+import { FlashProvider } from "@/components/dashboard/flash";
 import { signOut } from "@/app/actions/auth";
 import { collapsePendingSeries, type MySession } from "@/lib/data";
 import { TermsBanner } from "@/components/dashboard/terms-banner";
@@ -79,7 +80,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
           {termsOutdated && <TermsBanner tutor={viewer.role === "tutor"} />}
-          {children}
+          <FlashProvider>{children}</FlashProvider>
         </main>
       </div>
       <LiveRefresh userId={viewer.id} />
