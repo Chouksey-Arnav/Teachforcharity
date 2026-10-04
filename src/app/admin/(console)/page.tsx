@@ -50,7 +50,7 @@ export default async function AdminOverview() {
   const attention: { text: string; href: string; tone: "danger" | "warn" }[] = [];
   if (ov.alert_recipients === 0) attention.push({ text: "Nobody receives safety alerts — add alert emails", href: "/admin/settings", tone: "danger" });
   if (urgent) attention.push({ text: `${urgent} high/critical safety flag${urgent === 1 ? "" : "s"} to review`, href: "/admin/safety", tone: "danger" });
-  if (calls) attention.push({ text: `${calls} parent${calls === 1 ? "" : "s"} waiting for a verification call`, href: "/admin/consents", tone: "danger" });
+  if (calls) attention.push({ text: `${calls} parent${calls === 1 ? "" : "s"} waiting for a check (call or signed form)`, href: "/admin/consents", tone: "danger" });
   if (ov.open_incidents) attention.push({ text: `${ov.open_incidents} open report${ov.open_incidents === 1 ? "" : "s"}`, href: "/admin/reports", tone: "danger" });
   if (ov.disputed) attention.push({ text: `${ov.disputed} disputed lesson${ov.disputed === 1 ? "" : "s"}`, href: "/admin/lessons?status=disputed", tone: "warn" });
   if (ov.awaiting_verification) attention.push({ text: `${ov.awaiting_verification} confirmed lesson${ov.awaiting_verification === 1 ? "" : "s"} waiting for hour verification`, href: "/admin/lessons?status=confirmed", tone: "warn" });

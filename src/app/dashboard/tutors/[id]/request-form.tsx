@@ -131,7 +131,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
           : student?.consent === "pending"
             ? isStudent
               ? "You can book right after the program’s quick call with your parent."
-              : `You can book right after our quick call to confirm consent for ${student?.name}.`
+              : `You can book right after we confirm consent for ${student?.name} (a quick call, or upload a signed form from their profile).`
             : null;
   const subjectName = teachable.find((t) => t.id === subjectId)?.name ?? "";
 

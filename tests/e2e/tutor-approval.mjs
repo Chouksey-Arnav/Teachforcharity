@@ -47,7 +47,10 @@ try {
   await parent.reload();
   parent.once("dialog", (d) => d.accept());
   await parent.getByRole("button", { name: "Withdraw approval" }).click();
-  await parent.getByText("Approval withdrawn").waitFor();
+  // The page itself now says so on every visit (a one-off message didn't survive the refresh).
+  await parent.getByText(/You withdrew your approval on/).waitFor();
+  await parent.reload();
+  await parent.getByText(/You withdrew your approval on/).waitFor();
   await tutor.reload();
   await tutor.getByText("Your profile is paused").waitFor();
   step("parent withdraws → tutor paused");

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Notice } from "@/components/ui/notice";
 import { Textarea } from "@/components/ui/field";
+import { useFlash } from "@/components/dashboard/flash";
 import { DateTimeFields, type DateTimeValue } from "@/components/forms/date-time-fields";
 import { cancelLesson, confirmLesson, logLesson, respondLesson } from "@/app/actions/lessons";
 import type { ActionState } from "@/lib/errors";
@@ -36,6 +37,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   });
   const [result, setResult] = useState<ActionState>(null);
   const [pending, start] = useTransition();
+  const flash = useFlash();
 
   const start_ = new Date(s.start_at).getTime();
   const end = new Date(s.end_at).getTime();
@@ -48,8 +50,11 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const run = (fn: () => Promise<ActionState>) =>
     start(async () => {
       const r = await fn();
-      setResult(r);
+      // Success goes to the dashboard-wide message: the refresh that follows can move this card
+      // out of the list (a booked request leaves "Needs action"), and its own message with it.
+      setResult(r?.ok ? null : r);
       if (r?.ok) {
+        if (r.message) flash(r.message);
         setPanel(null);
         setNote("");
       }
@@ -296,13 +301,9 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         </div>
       )}
 
-      {result && (
+      {result && !result.ok && (
         <div className="px-4 pb-4 sm:px-5">
-          {result.ok ? (
-            result.message ? <Notice tone="success">{result.message}</Notice> : null
-          ) : (
-            <Notice tone="danger">{result.error.message}</Notice>
-          )}
+          <Notice tone="danger">{result.error.message}</Notice>
         </div>
       )}
       <span className="sr-only">{formatDay(s.start_at)}</span>

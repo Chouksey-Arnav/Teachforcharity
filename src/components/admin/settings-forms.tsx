@@ -29,8 +29,8 @@ export function SettingsForm({
       <Checkbox
         checked={v.requireConsentVerification}
         onChange={(e) => setV({ ...v, requireConsentVerification: e.target.checked })}
-        label="Require a phone check before consent counts"
-        description="Recommended. Each signed consent waits in Parent calls until someone confirms by phone that it came from the parent. Off: consent counts as soon as it’s signed, and a child could sign as their own parent."
+        label="Require a parent check before consent counts"
+        description="Recommended. Each signed consent waits in Parent checks until someone confirms it came from the parent, by phone or from a photo of the form signed in ink. Off: consent counts as soon as it’s signed, and a child could sign as their own parent."
       />
       <Field label="Who gets safety alerts" htmlFor="ae" hint="Comma-separated emails. Reports, critical safety flags, disputes, and account deletions are emailed here immediately. Add at least one address you check every day.">
         <Input id="ae" value={v.adminEmails} onChange={(e) => setV({ ...v, adminEmails: e.target.value })} />

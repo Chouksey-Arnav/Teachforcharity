@@ -16,7 +16,7 @@ const TEMPLATES = [
   "session_confirm_request", "confirm_reminder", "log_reminder", "new_message", "consent_receipt", "tutor_guardian_notice",
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
   "incident_reported", "incident_received", "new_sign_in", "consent_pending", "consent_verified",
-  "consent_not_verified", "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew", "waitlist_match", "weekly_digest",
+  "consent_not_verified", "consent_form_uploaded", "consent_form_returned", "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew", "waitlist_match", "weekly_digest",
 ];
 
 describe("renderEmail", () => {
@@ -45,11 +45,27 @@ describe("renderEmail", () => {
     expect(existing.html).toContain("/dashboard/students/new");
   });
 
-  it("consent receipts mention the phone call only when verification is on", () => {
+  it("consent receipts offer the call or a signed form only when verification is on", () => {
     const on = renderEmail("consent_receipt", { ...base, verification: true })!;
     const off = renderEmail("consent_receipt", { ...base, verification: false })!;
     expect(on.text).toContain("will call you at 919-555-0100");
+    expect(on.text).toContain("photo of the form signed in ink");
     expect(off.text).not.toContain("will call you");
+    expect(off.text).not.toContain("signed in ink");
+  });
+
+  it("verification emails say how the parent was checked", () => {
+    expect(renderEmail("consent_verified", { ...base, method: "signed_form" })!.text).toContain("checked your signed form");
+    expect(renderEmail("consent_verified", { ...base, method: "phone" })!.text).toContain("taking our call");
+    expect(renderEmail("consent_not_verified", { ...base, method: "signed_form" })!.text).toContain("from the form you uploaded");
+  });
+
+  it("a returned form tells the parent what to fix and links back to the upload", () => {
+    const r = renderEmail("consent_form_returned", { ...base, reason: "Code cut off", student_id: "00000000-0000-0000-0000-0000000000aa" })!;
+    expect(r.text).toContain("Code cut off");
+    expect(r.html).toContain("/dashboard/students/00000000-0000-0000-0000-0000000000aa#verify");
+    const linkParent = renderEmail("consent_form_returned", { ...base, reason: "x", student_account: true })!;
+    expect(linkParent.html).toContain("/guardian");
   });
 
   it("account_exists points to sign-in and contains no code", () => {

@@ -492,7 +492,9 @@ export async function signTutorAgreement(input: z.input<typeof agreement>): Prom
   const done = await supabase.rpc("complete_onboarding");
   if (done.error) return { ok: false, error: toActionError(done.error) };
   kickEmails();
-  revalidatePath("/dashboard", "layout");
+  // No revalidatePath here: revalidating re-renders /onboarding, which now sees an onboarded
+  // tutor and redirects to /dashboard before the wizard can show its "you're set up" screen.
+  // The dashboard hasn't been visited during onboarding, so it loads fresh anyway.
   return { ok: true, data: { status: String((done.data as { status?: string } | null)?.status ?? "pending") } };
 }
 
