@@ -59,10 +59,10 @@ export function WizardShell({
         noValidate
       >
         <div key={step} className="animate-rise">
-          <h1 ref={heading} tabIndex={-1} className="display scroll-mt-24 text-4xl outline-none sm:text-5xl">
+          <h1 ref={heading} tabIndex={-1} className="display scroll-mt-24 text-[clamp(34px,5vw,52px)] outline-none">
             {title}
           </h1>
-          {description && <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-muted">{description}</p>}
+          {description && <p className="mt-4 max-w-2xl text-[16.5px] leading-relaxed text-muted">{description}</p>}
           <div className="mt-8">{children}</div>
         </div>
         {error && (
@@ -72,7 +72,7 @@ export function WizardShell({
             </Notice>
           </div>
         )}
-        <div className="sticky bottom-0 -mx-4 mt-10 flex items-center justify-between gap-3 border-t border-line bg-paper/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="sticky bottom-0 -mx-4 mt-10 flex items-center justify-between gap-3 border-t border-ink/[0.08] bg-cream/85 px-4 py-4 backdrop-blur-xl sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
           {onBack ? (
             <Button type="button" variant="ghost" onClick={onBack} disabled={pending}>
               <ArrowLeft className="size-4" /> Back

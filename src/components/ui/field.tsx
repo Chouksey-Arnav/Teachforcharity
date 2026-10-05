@@ -2,10 +2,10 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const control =
-  "w-full rounded-xl border border-line-2 bg-card px-3.5 text-[15px] text-ink placeholder:text-faint shadow-[inset_0_1px_1px_rgb(22_32_28/0.04)] transition-colors hover:border-ink/25 focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10 disabled:bg-paper-2 disabled:text-muted aria-[invalid=true]:border-clay-500 aria-[invalid=true]:ring-clay-500/10";
+  "w-full rounded-xl border border-ink/14 bg-white/85 px-4 text-[15px] text-ink placeholder:text-faint shadow-[inset_0_1px_1px_rgb(22_32_28/0.04)] transition-[border-color,box-shadow,background-color] hover:border-ink/25 focus:border-ink/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-glow/50 disabled:bg-paper-2 disabled:text-muted aria-[invalid=true]:border-clay-500 aria-[invalid=true]:ring-clay-500/15";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
-  return <input className={cn(control, "h-11", className)} {...props} />;
+  return <input className={cn(control, "h-12", className)} {...props} />;
 }
 
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
@@ -15,10 +15,10 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
 export function Select({ className, children, ...props }: ComponentProps<"select">) {
   return (
     <div className="relative">
-      <select className={cn(control, "h-11 appearance-none pr-9", className)} {...props}>
+      <select className={cn(control, "h-12 appearance-none pr-10", className)} {...props}>
         {children}
       </select>
-      <svg className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <svg className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" viewBox="0 0 16 16" fill="none" aria-hidden>
         <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
@@ -26,7 +26,7 @@ export function Select({ className, children, ...props }: ComponentProps<"select
 }
 
 export function Label({ className, ...props }: ComponentProps<"label">) {
-  return <label className={cn("block text-sm font-medium text-ink", className)} {...props} />;
+  return <label className={cn("block text-[14px] font-semibold text-ink", className)} {...props} />;
 }
 
 export function Field({
@@ -50,7 +50,7 @@ export function Field({
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-baseline justify-between gap-3">
         <Label htmlFor={htmlFor}>{label}</Label>
-        {optional && <span className="text-xs text-faint">Optional</span>}
+        {optional && <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-faint">Optional</span>}
       </div>
       {children}
       {error ? (
@@ -70,7 +70,7 @@ export function Checkbox({ className, label, description, ...props }: ComponentP
       <span className="relative mt-0.5 inline-flex size-[18px] shrink-0">
         <input
           type="checkbox"
-          className="peer size-[18px] cursor-pointer appearance-none rounded-[5px] border border-line-2 bg-card transition checked:border-pine-700 checked:bg-pine-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pine-600/20 aria-[invalid=true]:border-clay-500"
+          className="peer size-[18px] cursor-pointer appearance-none rounded-[5px] border border-line-2 bg-card transition checked:border-ink checked:bg-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-glow/60 aria-[invalid=true]:border-clay-500"
           {...props}
         />
         <svg className="pointer-events-none absolute inset-0 m-auto size-3 text-white opacity-0 transition peer-checked:opacity-100" viewBox="0 0 16 16" fill="none" aria-hidden>

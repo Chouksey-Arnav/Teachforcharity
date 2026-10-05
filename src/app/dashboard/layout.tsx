@@ -44,36 +44,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
   };
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr] print:block">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[272px_1fr] print:block">
       <a
         href="#main"
         className="sr-only z-50 rounded-full bg-ink px-4 py-2 text-sm text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-3"
       >
         Skip to content
       </a>
-      <aside className="sticky top-0 hidden h-dvh flex-col print:!hidden overflow-y-auto border-r border-line bg-paper-2/40 px-4 py-6 lg:flex">
-        <Logo href="/dashboard" className="px-2" />
+      <aside className="sticky top-0 hidden h-dvh flex-col print:!hidden overflow-y-auto border-r border-ink/[0.07] bg-[#f3f1e6] px-4 py-6 lg:flex">
+        <Logo href="/dashboard" className="px-2.5" />
         <div className="mt-8 flex flex-1 flex-col">
           <SidebarNav nav={nav} />
         </div>
-        <Link href="/" className="mt-6 flex items-center gap-2 px-3 text-xs text-muted hover:text-ink">
+        <Link href="/" className="mt-6 flex items-center gap-2 px-3.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted hover:text-ink">
           <ExternalLink className="size-3.5" /> Public website
         </Link>
-        <div className="mt-3 flex items-center gap-3 rounded-2xl border border-line bg-card p-3">
+        <div className="mt-3 flex items-center gap-3 rounded-2xl border border-ink/10 bg-white p-3 shadow-card">
           <Avatar name={name} path={viewer.profile.avatar_path} size={36} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{name}</p>
+            <p className="truncate text-sm font-semibold">{name}</p>
             <p className="truncate text-xs text-muted">{account.roleLabel}</p>
           </div>
           <form action={signOut}>
-            <button className="rounded-full p-2 text-muted hover:bg-paper-2 hover:text-ink" aria-label="Sign out" title="Sign out">
+            <button className="rounded-full p-2 text-muted transition hover:bg-ink hover:text-cream" aria-label="Sign out" title="Sign out">
               <LogOut className="size-4" />
             </button>
           </form>
         </div>
       </aside>
 
-      <div className="min-w-0">
+      <div className="lm-wash min-w-0 print:before:hidden">
         <div className="print:hidden">
           <MobileChrome nav={nav} account={account} />
         </div>

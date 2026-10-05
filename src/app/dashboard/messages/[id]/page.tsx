@@ -65,7 +65,7 @@ export default async function ThreadPage({ params }: PageProps<"/dashboard/messa
         {side === "family" && (
           <Link
             href={`/dashboard/tutors/${thread.tutor_id}?student=${thread.student_id}#book`}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-pine-700 px-3.5 text-[13px] font-medium text-white hover:bg-pine-800"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-3.5 text-[13px] font-semibold text-cream"
           >
             <CalendarPlus className="size-4" aria-hidden /> Book<span className="hidden sm:inline"> a lesson</span>
           </Link>

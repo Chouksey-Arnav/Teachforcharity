@@ -8,10 +8,10 @@ import { Badge, type Tone } from "@/components/ui/badge";
 export function AdminPage({ title, description, actions, children }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-[28px]">{title}</h1>
-          {description && <p className="mt-1 max-w-3xl text-sm text-muted">{description}</p>}
+          <h1 className="display text-[clamp(30px,3.4vw,42px)] text-ink">{title}</h1>
+          {description && <p className="mt-2 max-w-3xl text-[14.5px] leading-relaxed text-muted">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
@@ -24,14 +24,14 @@ export function Stat({ label, value, hint, href, tone = "neutral" }: { label: st
   const body = (
     <div
       className={cn(
-        "h-full rounded-xl border bg-card px-4 py-3.5 transition",
-        tone === "danger" ? "border-clay-500/40 bg-clay-50" : tone === "warn" ? "border-brass-300 bg-brass-50" : tone === "good" ? "border-pine-200" : "border-line",
-        href && "hover:shadow-lift",
+        "h-full rounded-2xl border bg-card px-4 py-4 shadow-card transition-[box-shadow,transform]",
+        tone === "danger" ? "border-clay-500/40 bg-clay-50" : tone === "warn" ? "border-brass-300 bg-brass-50" : tone === "good" ? "border-pine-700/25" : "border-ink/10",
+        href && "hover:-translate-y-px hover:shadow-lift",
       )}
     >
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={cn("mt-1 text-2xl font-semibold tabular-nums", tone === "danger" ? "text-clay-800" : tone === "warn" ? "text-brass-800" : "text-ink")}>{value}</p>
-      {hint && <p className="mt-0.5 text-[11.5px] text-muted">{hint}</p>}
+      <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted">{label}</p>
+      <p className={cn("mt-2 font-serif text-[34px] font-[560] leading-none tracking-[-0.02em] tabular-nums", tone === "danger" ? "text-clay-800" : tone === "warn" ? "text-brass-800" : "text-ink")}>{value}</p>
+      {hint && <p className="mt-1.5 text-[12px] text-muted">{hint}</p>}
     </div>
   );
   return href ? (
@@ -45,10 +45,10 @@ export function Stat({ label, value, hint, href, tone = "neutral" }: { label: st
 
 export function Panel({ title, action, children, className, flush }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; flush?: boolean }) {
   return (
-    <section className={cn("overflow-hidden rounded-xl border border-line bg-card", className)}>
+    <section className={cn("overflow-hidden rounded-2xl border border-ink/10 bg-card shadow-card", className)}>
       {(title || action) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
-          {title && <h2 className="text-sm font-semibold">{title}</h2>}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/[0.08] px-4 py-3">
+          {title && <h2 className="text-[14.5px] font-semibold tracking-[-0.01em]">{title}</h2>}
           {action}
         </div>
       )}
@@ -78,8 +78,8 @@ export function Tabs({ items, active }: { items: { href: string; label: string; 
           key={t.key}
           href={t.href}
           className={cn(
-            "shrink-0 rounded-full px-3 py-1.5 text-[13px] transition",
-            t.key === active ? "bg-ink text-white" : "bg-card text-ink-2 ring-1 ring-line hover:bg-paper-2",
+            "shrink-0 rounded-full px-3.5 py-2 text-[13px] font-medium transition",
+            t.key === active ? "bg-ink text-cream" : "bg-white/75 text-ink-2 ring-1 ring-ink/10 hover:bg-white",
           )}
         >
           {t.label}
@@ -98,15 +98,15 @@ export function SearchBox({ action, q, placeholder, hidden }: { action: string; 
         name="q"
         defaultValue={q}
         placeholder={placeholder}
-        className="h-10 min-w-0 flex-1 rounded-lg border border-line-2 bg-card px-3 text-sm focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10"
+        className="h-11 min-w-0 flex-1 rounded-full border border-ink/14 bg-white/85 px-4 text-sm focus:border-ink/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-glow/50"
       />
-      <button className="h-10 shrink-0 rounded-lg bg-ink px-4 text-sm font-medium text-white">Search</button>
+      <button className="lm-btn lm-btn-ink lm-btn-sm h-11 shrink-0">Search</button>
     </form>
   );
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="rounded-xl border border-dashed border-line-2 px-4 py-8 text-center text-sm text-muted">{children}</p>;
+  return <p className="rounded-2xl border border-dashed border-ink/16 bg-white/45 px-4 py-8 text-center text-sm text-muted">{children}</p>;
 }
 
 const KIND_TONE: Record<string, Tone> = { student: "sky", parent: "brass", tutor: "pine", reviewer: "neutral", admin: "ink" };
@@ -178,7 +178,7 @@ export function actionLabel(action: string): string {
 export function PersonLink({ id, name, kind }: { id: string | null | undefined; name: string | null | undefined; kind?: string | null }) {
   if (!id) return <span className="text-muted">{name || "—"}</span>;
   return (
-    <Link href={`/admin/people/${id}`} className="font-medium text-pine-800 underline-offset-2 hover:underline">
+    <Link href={`/admin/people/${id}`} className="font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
       {name || "Unnamed"}
       {kind ? <span className="ml-1 font-normal text-muted">({kind})</span> : null}
     </Link>

@@ -52,7 +52,7 @@ export default async function StudentsPage() {
                     {s.grade}th grade{s.county ? ` · ${s.county} County` : ""}
                   </p>
                 </div>
-                <Link href={`/dashboard/students/${s.id}`} className="text-sm font-medium text-pine-700 hover:underline">
+                <Link href={`/dashboard/students/${s.id}`} className="text-sm font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
                   Edit
                 </Link>
               </div>

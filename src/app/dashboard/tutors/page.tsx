@@ -90,7 +90,7 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
           ))}
         </div>
         {view === "matches" && student && (
-          <Link href={`/dashboard/students/${student.id}`} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-pine-700 hover:underline">
+          <Link href={`/dashboard/students/${student.id}`} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
             <PencilLine className="size-3.5" aria-hidden /> {isStudent ? "Update your answers" : `Update ${student.first_name}’s answers`}
           </Link>
         )}

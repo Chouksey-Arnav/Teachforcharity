@@ -252,7 +252,7 @@ export function FamilyWizard({
                   onClick={() => setS({ ...s, grade: g })}
                   className={cn(
                     "h-14 rounded-xl border text-lg font-medium transition",
-                    s.grade === g ? "border-pine-700 bg-pine-700 text-white" : "border-line bg-card hover:border-line-2",
+                    s.grade === g ? "border-ink bg-ink text-cream" : "border-line bg-card hover:border-line-2",
                   )}
                 >
                   {g}th
@@ -323,7 +323,7 @@ export function FamilyWizard({
                   onClick={() => setS({ ...s, preferredMinutes: m })}
                   className={cn(
                     "h-11 flex-1 rounded-xl border text-sm font-medium transition sm:flex-none sm:px-6",
-                    s.preferredMinutes === m ? "border-pine-700 bg-pine-700 text-white" : "border-line bg-card hover:border-line-2",
+                    s.preferredMinutes === m ? "border-ink bg-ink text-cream" : "border-line bg-card hover:border-line-2",
                   )}
                 >
                   {m} min

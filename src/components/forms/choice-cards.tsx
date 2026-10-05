@@ -34,9 +34,9 @@ export function ChoiceCards<T extends string | number>({
           <label
             key={String(c.value)}
             className={cn(
-              "relative flex cursor-pointer gap-3 rounded-xl border bg-card transition",
+              "relative flex cursor-pointer gap-3 rounded-2xl border bg-white/85 transition-[border-color,box-shadow,background-color]",
               size === "sm" ? "px-3.5 py-2.5" : "p-4",
-              selected ? "border-pine-700 bg-pine-50/40 ring-4 ring-pine-600/10" : "border-line hover:border-line-2",
+              selected ? "border-ink bg-white shadow-card ring-4 ring-glow/45" : "border-ink/12 hover:border-ink/25 hover:bg-white",
               c.disabled && "pointer-events-none opacity-45",
             )}
           >
@@ -52,13 +52,13 @@ export function ChoiceCards<T extends string | number>({
               aria-hidden
               className={cn(
                 "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border transition",
-                selected ? "border-pine-700 bg-pine-700" : "border-line-2 bg-card",
+                selected ? "border-ink bg-ink" : "border-ink/20 bg-white",
               )}
             >
-              {selected && <span className="size-1.5 rounded-full bg-white" />}
+              {selected && <span className="size-1.5 rounded-full bg-glow" />}
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-medium text-ink">{c.label}</span>
+              <span className="block text-[14.5px] font-semibold text-ink">{c.label}</span>
               {c.description && <span className="mt-0.5 block text-[13px] leading-snug text-muted">{c.description}</span>}
             </span>
           </label>

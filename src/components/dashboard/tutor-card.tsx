@@ -18,7 +18,7 @@ export function MatchScore({ score, tier, size = 48 }: { score: number; tier: Ma
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }} title={`Match score ${score} out of 100`}>
       <svg viewBox="0 0 44 44" className="size-full -rotate-90" aria-hidden>
-        <circle cx="22" cy="22" r={r} fill="none" stroke="#EFEAE0" strokeWidth="4" />
+        <circle cx="22" cy="22" r={r} fill="none" stroke="#F0EEE3" strokeWidth="4" />
         <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - score / 100)} />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-[13px] font-semibold" aria-label={`Match score ${score} out of 100`}>
@@ -138,7 +138,7 @@ export function TutorCard({
                   </Link>
                 ))}
                 {slots.length > dayChips.length && (
-                  <Link href={bookingHref(href)} className="relative z-10 inline-flex h-8 items-center px-1.5 text-[13px] font-medium text-pine-700 hover:underline">
+                  <Link href={bookingHref(href)} className="relative z-10 inline-flex h-8 items-center px-1.5 text-[13px] font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
                     +{slots.length - dayChips.length} more
                   </Link>
                 )}

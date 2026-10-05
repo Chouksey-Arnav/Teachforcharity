@@ -70,7 +70,7 @@ export function StickyBookBar({ label, sub }: { label: string; sub?: string }) {
         <a
           href="#book"
           tabIndex={formVisible ? -1 : 0}
-          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-pine-700 px-4 text-sm font-medium text-white hover:bg-pine-800"
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-4 text-sm font-semibold text-cream"
         >
           <CalendarPlus className="size-4" aria-hidden /> Book
         </a>

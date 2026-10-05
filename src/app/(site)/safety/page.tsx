@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight, Siren } from "lucide-react";
 import { SafetyGrid } from "@/components/site/sections";
+import { ClosingCta, PageHero, SectionHead } from "@/components/site/page-hero";
+
+const LINK = "font-semibold text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink";
 
 export const metadata: Metadata = { title: "Safety & consent", description: "How Teach for a Cause keeps students and tutors safe." };
 
@@ -38,39 +42,72 @@ const DETAILS: [string, React.ReactNode][] = [
 export default function SafetyPage() {
   return (
     <>
-      <section className="bg-pine-900 text-white">
-        <div className="mx-auto max-w-6xl px-4 pb-20 pt-16 sm:px-6">
-          <p className="eyebrow text-brass-300!">Safety & consent</p>
-          <h1 className="display mt-4 max-w-4xl text-5xl sm:text-7xl">Built for a program where everyone in the lesson is a minor.</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/70">
-            Trust is the whole point. Every rule on this page is enforced by the site itself, so it holds even on a busy week.
-          </p>
-          <div className="mt-14">
-            <SafetyGrid />
-          </div>
+      <PageHero
+        sky="dusk"
+        eyebrow="Safety & consent"
+        title={
+          <>
+            Built for a program where everyone in the lesson is <em>a minor.</em>
+          </>
+        }
+        lead="Trust is the whole point. Every rule on this page is enforced by the site itself, so it holds even on a busy week."
+      />
+
+      <section className="lm-wrap py-[clamp(64px,8vw,112px)]">
+        <SectionHead eyebrow="The short version" title={<>Six rules the <em>code</em> enforces.</>} className="mb-12" />
+        <div className="rv">
+          <SafetyGrid />
         </div>
       </section>
-      <section className="mx-auto max-w-4xl px-4 py-20 sm:px-6">
-        <div className="space-y-12">
-          {DETAILS.map(([t, d]) => (
-            <div key={t} className="grid gap-3 sm:grid-cols-[240px_1fr] sm:gap-10">
-              <h2 className="display text-2xl sm:text-3xl">{t}</h2>
-              <p className="text-[16px] leading-relaxed text-ink-2">{d}</p>
+
+      <section className="mx-auto w-[min(920px,100%-2*clamp(16px,3vw,40px))] pb-[clamp(64px,8vw,112px)]">
+        <SectionHead eyebrow="In detail" title={<>How each rule <em>actually works.</em></>} className="mb-12" />
+        <div className="overflow-hidden rounded-[26px] border border-ink/10 bg-white shadow-card">
+          {DETAILS.map(([t, d], i) => (
+            <div key={t} className="rv grid gap-3 border-ink/[0.08] p-6 sm:grid-cols-[230px_1fr] sm:gap-10 sm:p-8 [&+&]:border-t">
+              <div>
+                <span className="font-mono text-[11px] tracking-[0.14em] text-pine-700">{String(i + 1).padStart(2, "0")}</span>
+                <h2 className="lm-h3 mt-2 !text-[22px] sm:!text-[24px]">{t}</h2>
+              </div>
+              <p className="text-[15.5px] leading-relaxed text-ink-2">{d}</p>
             </div>
           ))}
         </div>
-        <div className="mt-16 rounded-2xl border border-clay-500/25 bg-clay-50 p-6">
-          <h2 className="font-semibold text-clay-800">If someone is in immediate danger</h2>
-          <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">
-            Call 911 first. Then use “Report a concern” in your dashboard so the program team can act on our side.
-          </p>
+        <div className="rv mt-8 flex gap-4 rounded-[22px] border border-clay-500/30 bg-clay-50 p-6">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-clay-700 text-white">
+            <Siren className="size-5" />
+          </span>
+          <div>
+            <h2 className="font-semibold text-clay-800">If someone is in immediate danger</h2>
+            <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">
+              Call 911 first. Then use “Report a concern” in your dashboard so the program team can act on our side.
+            </p>
+          </div>
         </div>
-        <p className="mt-10 text-sm text-muted">
-          Read the <Link className="text-pine-700 underline underline-offset-4" href="/legal/consent">parent consent</Link>,{" "}
-          <Link className="text-pine-700 underline underline-offset-4" href="/legal/messaging">messaging guidelines</Link>, and{" "}
-          <Link className="text-pine-700 underline underline-offset-4" href="/legal/tutor-agreement">tutor agreement</Link> in full.
+        <p className="mt-10 text-center text-[15px] text-muted">
+          Read the <Link className={LINK} href="/legal/consent">parent consent</Link>,{" "}
+          <Link className={LINK} href="/legal/messaging">messaging guidelines</Link>, and{" "}
+          <Link className={LINK} href="/legal/tutor-agreement">tutor agreement</Link> in full.
         </p>
       </section>
+
+      <ClosingCta
+        eyebrow="Questions about safety?"
+        title={
+          <>
+            A parent says yes <em>before anything happens.</em>
+          </>
+        }
+        lead="Create the account, add your student, sign consent, and take a two-minute call from us."
+        micro="Free · Online · Never recorded"
+      >
+        <Link href="/signup?role=family" className="lm-btn lm-btn-ink">
+          I’m a parent — get started <ArrowRight className="size-4" />
+        </Link>
+        <Link href="/how-it-works" className="lm-btn lm-btn-glass">
+          How it works
+        </Link>
+      </ClosingCta>
     </>
   );
 }

@@ -96,7 +96,7 @@ export function TutorExplorer({ items, initial, youLabel }: { items: ExplorerIte
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search by name, school or instrument"
-              className="h-10 w-full rounded-full border border-line-2 bg-card pl-10 pr-4 text-[14.5px] placeholder:text-faint focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10"
+              className="h-10 w-full rounded-full border border-line-2 bg-card pl-10 pr-4 text-[14.5px] placeholder:text-faint focus:border-ink/40 focus:outline-none focus:ring-4 focus:ring-glow/50"
             />
           </label>
           <div className="inline-flex shrink-0 self-start rounded-full border border-line bg-paper-2/70 p-0.5 sm:self-auto" role="group" aria-label="Sort tutors">
@@ -125,7 +125,7 @@ export function TutorExplorer({ items, initial, youLabel }: { items: ExplorerIte
             onClick={() => setFits(!fits)}
             className={cn(
               "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition",
-              fits ? "border-pine-700 bg-pine-700 text-white" : "border-line-2 bg-card text-ink-2 hover:border-ink/30",
+              fits ? "border-ink bg-ink text-cream" : "border-line-2 bg-card text-ink-2 hover:border-ink/30",
             )}
           >
             <Star className={cn("size-3.5", fits && "fill-current")} aria-hidden /> Fits {youLabel} free times
@@ -171,7 +171,7 @@ export function TutorExplorer({ items, initial, youLabel }: { items: ExplorerIte
           </span>
           <p className="display mt-4 text-2xl">No tutors match those filters</p>
           <p className="mt-2 max-w-sm text-sm text-muted">Try fewer days, or turn off “Fits {youLabel} free times” — you can always suggest a different time.</p>
-          <button type="button" onClick={clear} className="mt-5 h-10 rounded-full bg-pine-700 px-5 text-sm font-medium text-white hover:bg-pine-800">
+          <button type="button" onClick={clear} className="mt-5 h-10 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-5 text-sm font-semibold text-cream">
             Clear filters
           </button>
         </div>

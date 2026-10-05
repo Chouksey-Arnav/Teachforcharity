@@ -64,7 +64,7 @@ export function SetupSteps({ title, steps }: { title: string; steps: SetupStep[]
         {next.href && (
           <Link
             href={next.href}
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 self-start rounded-full bg-pine-700 px-4 text-[13px] font-medium text-white transition hover:bg-pine-800 sm:self-auto"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 self-start rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-4 text-[13px] font-semibold text-cream transition sm:self-auto"
           >
             {next.cta ?? "Continue"} <ArrowRight className="size-4" />
           </Link>

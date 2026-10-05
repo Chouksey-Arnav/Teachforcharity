@@ -45,7 +45,7 @@ export function ThreadList({ threads, selfManaged = [], studentAccount = false }
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search"
-              className="h-9 w-full rounded-full border border-line-2 bg-paper/60 pl-9 pr-3 text-[14px] focus:border-pine-600 focus:bg-card focus:outline-none focus:ring-4 focus:ring-pine-600/10"
+              className="h-9 w-full rounded-full border border-line-2 bg-paper/60 pl-9 pr-3 text-[14px] focus:border-ink/40 focus:bg-card focus:outline-none focus:ring-4 focus:ring-glow/50"
             />
           </label>
         )}
@@ -61,7 +61,7 @@ export function ThreadList({ threads, selfManaged = [], studentAccount = false }
               {studentAccount ? "Open a tutor’s profile and tap “Message” to say hi, or book a lesson." : "They start when a lesson is requested or someone says hello."}
             </p>
             {studentAccount && (
-              <Link href="/dashboard/tutors" className="mt-4 inline-flex h-9 items-center rounded-full bg-pine-700 px-4 text-[13px] font-medium text-white hover:bg-pine-800">
+              <Link href="/dashboard/tutors" className="mt-4 inline-flex h-9 items-center rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-4 text-[13px] font-semibold text-cream">
                 Find a tutor
               </Link>
             )}

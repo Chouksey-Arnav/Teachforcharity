@@ -287,7 +287,7 @@ export function Conversation({
                     placeholder={`Message ${otherName.split(" ")[0]}…`}
                     aria-invalid={Boolean(violation)}
                     aria-describedby="composer-hint"
-                    className="block max-h-40 min-h-11 w-full resize-none rounded-3xl border border-line-2 bg-paper/40 px-4 py-2.5 text-[15px] leading-snug focus:border-pine-600 focus:bg-card focus:outline-none focus:ring-4 focus:ring-pine-600/10 aria-[invalid=true]:border-clay-500"
+                    className="block max-h-40 min-h-11 w-full resize-none rounded-3xl border border-line-2 bg-paper/40 px-4 py-2.5 text-[15px] leading-snug focus:border-ink/40 focus:bg-card focus:outline-none focus:ring-4 focus:ring-glow/50 aria-[invalid=true]:border-clay-500"
                   />
                 </div>
                 <Button type="submit" className="mb-0.5 size-10 shrink-0 px-0" disabled={!body.trim() || Boolean(violation)} aria-label="Send">

@@ -114,7 +114,7 @@ export default async function FindStudentsPage({ searchParams }: PageProps<"/das
         </span>
         <span className="text-muted">{students.length} student{students.length === 1 ? "" : "s"} looking for lessons</span>
         {!canOffer && <span className="text-brass-800">{blockedReason}</span>}
-        <Link href="/dashboard/profile" className="text-pine-700 hover:underline sm:ml-auto">
+        <Link href="/dashboard/profile" className="text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink sm:ml-auto">
           Edit what you teach
         </Link>
       </div>
@@ -147,7 +147,7 @@ export default async function FindStudentsPage({ searchParams }: PageProps<"/das
               name="q"
               defaultValue={q}
               placeholder="Search by first name, county, or instrument"
-              className="h-11 w-full rounded-xl border border-line-2 bg-card pl-10 pr-3 text-[15px] focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10"
+              className="h-11 w-full rounded-xl border border-line-2 bg-card pl-10 pr-3 text-[15px] focus:border-ink/40 focus:outline-none focus:ring-4 focus:ring-glow/50"
             />
           </div>
           <select name="instrument" defaultValue={instrument} className="h-11 rounded-xl border border-line-2 bg-card px-3 text-[15px]" aria-label="Instrument">
@@ -158,7 +158,7 @@ export default async function FindStudentsPage({ searchParams }: PageProps<"/das
               </option>
             ))}
           </select>
-          <button className="h-11 rounded-full bg-pine-700 px-5 text-sm font-medium text-white hover:bg-pine-800">Search</button>
+          <button className="h-11 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-5 text-sm font-semibold text-cream">Search</button>
         </form>
         <p className="mb-4 text-sm text-muted">
           {filtered.length} student{filtered.length === 1 ? "" : "s"}

@@ -33,17 +33,17 @@ export default async function VerifyHoursPage({ params }: PageProps<"/verify/[co
 
   if (!cert)
     return (
-      <div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
+      <div className="lm-wash"><div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
         <p className="eyebrow">Hours verification</p>
         <h1 className="display mt-3 text-4xl">We couldn’t find this record</h1>
         <p className="mt-3 text-muted">
           The link may be mistyped, or the tutor may have replaced or turned it off. Ask them for a current link{SITE.contactEmail ? `, or contact the program at ${SITE.contactEmail}` : ""}.
         </p>
-      </div>
+      </div></div>
     );
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-20">
+    <div className="lm-wash"><div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-20">
       <p className="eyebrow">Hours verification · {SITE.name}</p>
       <h1 className="display mt-3 text-4xl sm:text-5xl">{cert.tutor_name}</h1>
       <p className="mt-2 text-ink-2">
@@ -91,6 +91,6 @@ export default async function VerifyHoursPage({ params }: PageProps<"/verify/[co
         Only verified lessons count: each was logged by the tutor, confirmed by the student’s parent or guardian, and verified in a weekly review by the program’s nonprofit partner (or the program administrator). Whether these
         hours meet a school or honor-society requirement is up to that organization.
       </p>
-    </div>
+    </div></div>
   );
 }

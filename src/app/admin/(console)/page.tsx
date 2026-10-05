@@ -119,7 +119,7 @@ export default async function AdminOverview() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Panel title="Open safety flags" action={<Link href="/admin/safety" className="text-xs text-pine-700 hover:underline">All flags</Link>} flush>
+        <Panel title="Open safety flags" action={<Link href="/admin/safety" className="text-xs text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">All flags</Link>} flush>
           {flags?.length ? (
             <ul className="divide-y divide-line">
               {flags.map((f) => (
@@ -141,7 +141,7 @@ export default async function AdminOverview() {
           )}
         </Panel>
 
-        <Panel title="Recent activity" action={<Link href="/admin/activity" className="text-xs text-pine-700 hover:underline">Full log</Link>} flush>
+        <Panel title="Recent activity" action={<Link href="/admin/activity" className="text-xs text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">Full log</Link>} flush>
           <ul className="divide-y divide-line">
             {(activity ?? []).map((a) => (
               <li key={a.id} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">

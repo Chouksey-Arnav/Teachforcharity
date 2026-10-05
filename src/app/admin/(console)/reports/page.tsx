@@ -68,7 +68,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/admin/re
                     <blockquote className="rounded-lg border-l-4 border-clay-500/50 bg-paper px-3 py-2 text-[13px] text-ink-2">
                       “{r.message_body}”{" "}
                       {r.thread_id && (
-                        <Link href={`/admin/messages/${r.thread_id}`} className="text-pine-700 hover:underline">
+                        <Link href={`/admin/messages/${r.thread_id}`} className="text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
                           Open conversation
                         </Link>
                       )}

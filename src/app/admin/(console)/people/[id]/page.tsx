@@ -170,9 +170,9 @@ export default async function PersonPage({ params }: PageProps<"/admin/people/[i
                 <span>
                   {when(x.start_at)} · {x.minutes} min · {x.subject} ·{" "}
                   {p.role === "tutor" ? (
-                    <Link href={`/admin/people/${x.family_id}`} className="text-pine-700 hover:underline">{x.student}</Link>
+                    <Link href={`/admin/people/${x.family_id}`} className="text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">{x.student}</Link>
                   ) : (
-                    <Link href={`/admin/people/${x.tutor_id}`} className="text-pine-700 hover:underline">{x.tutor}</Link>
+                    <Link href={`/admin/people/${x.tutor_id}`} className="text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">{x.tutor}</Link>
                   )}
                 </span>
                 <Badge tone={sessionTone(x.status)}>{SESSION_STATUS_LABEL[x.status] ?? x.status}</Badge>

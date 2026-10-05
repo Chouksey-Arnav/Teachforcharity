@@ -64,7 +64,7 @@ export function TutorGuardianStatus({ guardianName, guardianEmail, lastSent }: {
               Send the email again
             </Button>
             {!editing && (
-              <button type="button" onClick={() => setEditing(true)} className="text-sm text-pine-700 underline-offset-4 hover:underline">
+              <button type="button" onClick={() => setEditing(true)} className="text-sm text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
                 Use a different email
               </button>
             )}
