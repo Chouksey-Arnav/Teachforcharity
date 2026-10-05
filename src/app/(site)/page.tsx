@@ -10,7 +10,6 @@ import { RoleSwitcher } from "@/components/landing/role-switcher";
 import { SafetyDemo } from "@/components/landing/safety-demo";
 import { StatTiles, type StatTile } from "@/components/landing/stat-tiles";
 import { Cause, FaqList, HoursChain, HowSteps, InstrumentMarquee, SafetyPoints } from "@/components/landing/sections";
-import { Reveal } from "@/components/landing/reveal";
 import s from "@/components/landing/landing.module.css";
 
 export default async function HomePage() {
@@ -220,7 +219,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <Reveal />
     </>
   );
 }

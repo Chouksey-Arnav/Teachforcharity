@@ -26,17 +26,18 @@ export default async function AdminLoginPage({ searchParams }: PageProps<"/admin
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-paper px-4 py-10">
+    <main className="p-[clamp(8px,1.2vw,18px)]">
+      <div className="lm-sky lm-sky-dusk lm-panel flex min-h-[calc(100dvh-2*clamp(8px,1.2vw,18px))] items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <Logo className="mb-8" />
-        <div className="rounded-2xl border border-line bg-card p-6 shadow-lift">
-          <span className="flex size-10 items-center justify-center rounded-full bg-pine-50 text-pine-700">
+        <div className="lm-frost rounded-[26px] p-6 sm:p-7">
+          <span className="flex size-11 items-center justify-center rounded-2xl bg-ink text-glow">
             <LockKeyhole className="size-5" />
           </span>
-          <h1 className="mt-4 text-xl font-semibold">
+          <h1 className="lm-h3 mt-5">
             {step === "password" ? "Admin console" : step === "enroll" ? "Set up two-factor sign-in" : "Enter your code"}
           </h1>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-2 text-sm leading-relaxed text-muted">
             {step === "password"
               ? "Program team only. Sign in with your own admin account. Every attempt is logged."
               : step === "enroll"
@@ -46,7 +47,7 @@ export default async function AdminLoginPage({ searchParams }: PageProps<"/admin
                   : `Signed in as ${session.email}. Enter the 6-digit code from your authenticator app.`}
           </p>
           {session.state === "not_admin" && (
-            <p className="mt-4 rounded-xl bg-paper-2 px-3 py-2 text-[13px] text-ink-2">
+            <p className="mt-4 rounded-2xl bg-white/70 px-3.5 py-2.5 text-[13px] text-ink-2">
               You’re signed in as {session.email}, which isn’t an admin account. Signing in below switches accounts.
             </p>
           )}
@@ -54,7 +55,7 @@ export default async function AdminLoginPage({ searchParams }: PageProps<"/admin
           {step === "enroll" && <AdminEnroll next={next} />}
           {step === "code" && <AdminCodeForm next={next} />}
           {step !== "password" && (
-            <form action={adminLogout} className="mt-5 border-t border-line pt-4 text-center">
+            <form action={adminLogout} className="mt-5 border-t border-ink/[0.08] pt-4 text-center">
               <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline">Sign out</button>
             </form>
           )}
@@ -62,6 +63,7 @@ export default async function AdminLoginPage({ searchParams }: PageProps<"/admin
         {step !== "password" && (
           <p className="mt-4 text-center text-xs leading-relaxed text-muted">Lost your phone? Another admin can reset your two-factor from Settings.</p>
         )}
+      </div>
       </div>
     </main>
   );

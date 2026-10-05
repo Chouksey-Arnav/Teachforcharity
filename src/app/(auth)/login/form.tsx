@@ -22,7 +22,7 @@ export function LoginForm({ next }: { next: string }) {
         <PasswordInput id="password" name="password" autoComplete="current-password" required />
       </Field>
       <div className="-mt-2 text-right">
-        <Link href="/forgot-password" className="text-sm text-pine-700 underline-offset-4 hover:underline">
+        <Link href="/forgot-password" className="text-sm text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
           Forgot password?
         </Link>
       </div>

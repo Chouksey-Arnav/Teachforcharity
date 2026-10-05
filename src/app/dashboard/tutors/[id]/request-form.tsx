@@ -248,7 +248,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
           n={2}
           title="Pick a time"
           aside={
-            <button type="button" onClick={() => setManual(!manual)} className="text-[12.5px] font-medium text-pine-700 underline-offset-4 hover:underline">
+            <button type="button" onClick={() => setManual(!manual)} className="text-[12.5px] font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
               {manual ? "Back to open times" : "Suggest your own"}
             </button>
           }
@@ -301,7 +301,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
                       onClick={() => setDay(d)}
                       className={cn(
                         "flex flex-col items-center rounded-xl border py-1.5 transition",
-                        on ? "border-pine-700 bg-pine-700 text-white" : list.length ? "border-line bg-card hover:border-pine-500" : "border-transparent text-faint",
+                        on ? "border-ink bg-ink text-cream" : list.length ? "border-line bg-card hover:border-pine-500" : "border-transparent text-faint",
                       )}
                     >
                       <span className={cn("text-[10px] font-semibold uppercase", on ? "text-white/80" : "text-muted")}>{calendarLabel(d, { weekday: "short" })}</span>
@@ -335,7 +335,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
                                 className={cn(
                                   "inline-flex h-9 items-center justify-center gap-1 rounded-lg border text-[13px] font-medium tabular-nums transition",
                                   on
-                                    ? "border-pine-700 bg-pine-700 text-white shadow-[0_0_0_3px_rgb(42_106_87/0.15)]"
+                                    ? "border-ink bg-ink text-cream shadow-[0_0_0_3px_rgb(42_106_87/0.15)]"
                                     : s.both
                                       ? "border-pine-200 bg-pine-50 text-pine-800 hover:border-pine-600"
                                       : "border-line bg-card text-ink-2 hover:border-ink/30",
@@ -419,7 +419,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
             {noteIssue && <p className="mt-1.5 text-[13px] text-clay-700">Notes can’t include {noteIssue}.</p>}
           </div>
         ) : (
-          <button type="button" onClick={() => setShowNote(true)} className="text-[13px] font-medium text-pine-700 underline-offset-4 hover:underline">
+          <button type="button" onClick={() => setShowNote(true)} className="text-[13px] font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
             + Add a note for {tutorFirst}
           </button>
         )}

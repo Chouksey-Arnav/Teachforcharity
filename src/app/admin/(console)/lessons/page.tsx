@@ -63,7 +63,7 @@ export default async function LessonsPage({ searchParams }: PageProps<"/admin/le
                   </div>
                   <p className="mt-0.5 text-[13px] text-muted">
                     {when(l.start_at)} ·{" "}
-                    <Link href={`/admin/people/${l.tutor_id}`} className="text-pine-700 hover:underline">
+                    <Link href={`/admin/people/${l.tutor_id}`} className="text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
                       {l.tutor_name}
                     </Link>{" "}
                     teaching {l.student_name} ({l.family_name})

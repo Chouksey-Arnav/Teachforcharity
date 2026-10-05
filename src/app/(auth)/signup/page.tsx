@@ -21,7 +21,7 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
       <SignupForm initialRole={role} invitedEmail={invitedEmail} invitedChild={invitedChild} />
       <p className="mt-8 text-center text-sm text-muted">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-pine-700 underline-offset-4 hover:underline">
+        <Link href="/login" className="font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
           Sign in
         </Link>
       </p>

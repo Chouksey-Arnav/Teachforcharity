@@ -146,7 +146,7 @@ export function TutorSettings({ subjects, initial }: { subjects: SubjectOption[]
               <p className="text-sm font-medium">Maximum students</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                  <button key={n} type="button" onClick={() => set({ maxStudents: n })} className={cn("size-10 rounded-xl border text-sm font-medium", v.maxStudents === n ? "border-pine-700 bg-pine-700 text-white" : "border-line bg-card")}>
+                  <button key={n} type="button" onClick={() => set({ maxStudents: n })} className={cn("size-10 rounded-xl border text-sm font-medium", v.maxStudents === n ? "border-ink bg-ink text-cream" : "border-line bg-card")}>
                     {n}
                   </button>
                 ))}

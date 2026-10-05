@@ -77,7 +77,7 @@ export function StudentInstrumentsEditor({
                     onClick={() => update(i, { yearsPlaying: y.value })}
                     className={cn(
                       "rounded-full border px-3 py-1.5 text-sm transition",
-                      it.yearsPlaying === y.value ? "border-pine-700 bg-pine-700 text-white" : "border-line-2 bg-card hover:border-ink/30",
+                      it.yearsPlaying === y.value ? "border-ink bg-ink text-cream" : "border-line-2 bg-card hover:border-ink/30",
                     )}
                   >
                     {y.label}

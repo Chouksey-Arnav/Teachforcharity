@@ -78,7 +78,7 @@ export function SignupForm({ initialRole, invitedEmail, invitedChild }: { initia
               key={key}
               className={cn(
                 "flex cursor-pointer items-center gap-3 rounded-2xl border bg-card p-4 transition sm:flex-col sm:items-start sm:gap-0",
-                role === key ? "border-pine-700 ring-4 ring-pine-600/10" : "border-line hover:border-line-2",
+                role === key ? "border-ink bg-white ring-4 ring-glow/45" : "border-line hover:border-line-2",
               )}
             >
               <input type="radio" name="role" value={key} checked={role === key} onChange={() => setRole(key)} className="sr-only" />

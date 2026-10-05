@@ -137,7 +137,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
 
             <div className="mt-5 flex flex-wrap gap-2">
               {canRequest && (
-                <a href="#book" className="inline-flex h-10 items-center gap-2 rounded-full bg-pine-700 px-5 text-sm font-medium text-white hover:bg-pine-800 lg:hidden">
+                <a href="#book" className="inline-flex h-10 items-center gap-2 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-5 text-sm font-semibold text-cream lg:hidden">
                   Book a lesson
                 </a>
               )}

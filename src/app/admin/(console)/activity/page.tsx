@@ -56,7 +56,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/admin/a
                       <span className="text-xs text-muted">by the system</span>
                     )}
                     {targetIsPerson && a.target_id && a.target_id !== a.actor_id && (
-                      <Link href={`/admin/people/${a.target_id}`} className="text-xs text-pine-700 hover:underline">
+                      <Link href={`/admin/people/${a.target_id}`} className="text-xs text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
                         view person
                       </Link>
                     )}

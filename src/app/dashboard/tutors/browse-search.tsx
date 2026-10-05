@@ -37,7 +37,7 @@ export function BrowseSearch({ q, instrument, subjects, studentId }: { q: string
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Search by name, school, county or instrument"
-          className="h-11 w-full rounded-full border border-line-2 bg-card pl-10 pr-4 text-[15px] placeholder:text-faint focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10"
+          className="h-11 w-full rounded-full border border-line-2 bg-card pl-10 pr-4 text-[15px] placeholder:text-faint focus:border-ink/40 focus:outline-none focus:ring-4 focus:ring-glow/50"
         />
       </label>
       <label className="relative sm:w-56">
@@ -45,7 +45,7 @@ export function BrowseSearch({ q, instrument, subjects, studentId }: { q: string
         <select
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          className="h-11 w-full appearance-none rounded-full border border-line-2 bg-card pl-4 pr-9 text-[15px] focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10"
+          className="h-11 w-full appearance-none rounded-full border border-line-2 bg-card pl-4 pr-9 text-[15px] focus:border-ink/40 focus:outline-none focus:ring-4 focus:ring-glow/50"
         >
           <option value="">All instruments</option>
           {subjects.map((s) => (

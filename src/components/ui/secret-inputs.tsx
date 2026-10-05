@@ -15,7 +15,7 @@ export function PasswordInput({ className, ...props }: Omit<ComponentProps<"inpu
         onClick={() => setShown((s) => !s)}
         aria-label={shown ? "Hide password" : "Show password"}
         aria-pressed={shown}
-        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pine-600/20"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-glow/60"
       >
         {shown ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
       </button>

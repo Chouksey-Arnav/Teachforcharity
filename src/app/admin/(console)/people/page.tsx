@@ -69,7 +69,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/admin/peo
               {rows.map((r) => (
                 <tr key={r.id} className="block px-4 py-3 hover:bg-paper md:table-row md:p-0">
                   <td className="md:px-4 md:py-2.5">
-                    <Link href={`/admin/people/${r.id}`} className="font-medium text-pine-800 hover:underline">
+                    <Link href={`/admin/people/${r.id}`} className="font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
                       {r.full_name || "(no name yet)"}
                     </Link>
                     <span className="block truncate text-xs text-muted">{r.email}</span>

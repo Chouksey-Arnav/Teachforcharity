@@ -38,7 +38,7 @@ export function ConsentForm({ studentName, value, onChange }: { studentName: str
           <p className="text-sm font-semibold">I understand and agree that:</p>
           <button
             type="button"
-            className="text-xs font-medium text-pine-700 hover:underline"
+            className="text-xs font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink"
             onClick={() => onChange({ ...value, acks: items.map(() => !allChecked) })}
           >
             {allChecked ? "Uncheck all" : "Check all"}

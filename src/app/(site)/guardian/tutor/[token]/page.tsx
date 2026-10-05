@@ -33,19 +33,19 @@ export default async function TutorGuardianPage({ params }: PageProps<"/guardian
 
   if (!d)
     return (
-      <div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
+      <div className="lm-wash"><div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
         <p className="eyebrow">Parent page</p>
         <h1 className="display mt-3 text-4xl">This link has expired</h1>
         <p className="mt-3 text-muted">Links work for 30 days, and only the newest one works. Enter your email and we’ll send a new one.</p>
         <div className="mt-8">
           <RequestLinkForm />
         </div>
-      </div>
+      </div></div>
     );
 
   const first = d.tutor_name.split(" ")[0] || "your teen";
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
+    <div className="lm-wash"><div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
       <p className="eyebrow">Private parent page · {d.guardian_email}</p>
       <h1 className="display mt-3 text-4xl sm:text-6xl">{d.approved_at ? `${first} is approved to volunteer` : `${first} wants to volunteer`}</h1>
 
@@ -125,6 +125,6 @@ export default async function TutorGuardianPage({ params }: PageProps<"/guardian
           </div>
         </section>
       )}
-    </div>
+    </div></div>
   );
 }

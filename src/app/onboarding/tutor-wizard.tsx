@@ -206,7 +206,7 @@ export function TutorWizard({
                   key={g}
                   type="button"
                   onClick={() => set({ grade: g })}
-                  className={cn("h-12 rounded-xl border font-medium transition", p.grade === g ? "border-pine-700 bg-pine-700 text-white" : "border-line bg-card hover:border-line-2")}
+                  className={cn("h-12 rounded-xl border font-medium transition", p.grade === g ? "border-ink bg-ink text-cream" : "border-line bg-card hover:border-line-2")}
                 >
                   {g}th
                 </button>
@@ -318,7 +318,7 @@ export function TutorWizard({
                     key={n}
                     type="button"
                     onClick={() => set({ maxStudents: n })}
-                    className={cn("size-11 rounded-xl border font-medium transition", p.maxStudents === n ? "border-pine-700 bg-pine-700 text-white" : "border-line bg-card hover:border-line-2")}
+                    className={cn("size-11 rounded-xl border font-medium transition", p.maxStudents === n ? "border-ink bg-ink text-cream" : "border-line bg-card hover:border-line-2")}
                   >
                     {n}
                   </button>

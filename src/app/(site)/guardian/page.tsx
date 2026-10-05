@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Parent link", robots: { index: false
 /** Parents of tutors (and of older student accounts) don't have passwords — they use an emailed link. */
 export default function GuardianLinkPage() {
   return (
-    <div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
+    <div className="lm-wash"><div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
       <p className="eyebrow">For parents & guardians</p>
       <h1 className="display mt-3 text-4xl sm:text-5xl">Get your parent link</h1>
       <p className="mt-4 text-[16px] leading-relaxed text-muted">
@@ -20,6 +20,6 @@ export default function GuardianLinkPage() {
       <p className="mt-10 text-sm text-muted">
         Signed up your child yourself with a parent account? <a href="/login" className="text-pine-700 underline underline-offset-2">Sign in here</a> instead.
       </p>
-    </div>
+    </div></div>
   );
 }

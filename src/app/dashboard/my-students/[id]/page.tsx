@@ -54,7 +54,7 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
           </p>
         </div>
         {thread && (
-          <Link href={`/dashboard/messages/${thread.id}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-pine-700 px-5 text-sm font-medium text-white hover:bg-pine-800">
+          <Link href={`/dashboard/messages/${thread.id}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-5 text-sm font-semibold text-cream">
             <MessageCircle className="size-4" /> {selfManaged ? `Message ${s.first_name}` : "Message family"}
           </Link>
         )}

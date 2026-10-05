@@ -24,7 +24,7 @@ export function NextLessonSection({ upcoming, isStudent }: { upcoming: MySession
             </p>
           )}
         </div>
-        <Link href="/dashboard/lessons?tab=upcoming" className="shrink-0 text-sm font-medium text-pine-700 hover:underline">
+        <Link href="/dashboard/lessons?tab=upcoming" className="shrink-0 text-sm font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
           All lessons
         </Link>
       </div>
@@ -62,7 +62,7 @@ export function NextLessonSection({ upcoming, isStudent }: { upcoming: MySession
         <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-line-2 px-5 py-6 text-sm text-muted sm:flex-row sm:items-center">
           <CalendarDays className="size-5 shrink-0 text-faint" aria-hidden />
           <p className="flex-1">{isStudent ? "No lessons booked yet. Pick a tutor and tap a time that works for you." : "No lessons booked yet. Tap an open time on any tutor to request it."}</p>
-          <Link href="/dashboard/tutors" className="inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-full bg-pine-700 px-4 text-[13px] font-medium text-white hover:bg-pine-800 sm:self-auto">
+          <Link href="/dashboard/tutors" className="inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-4 text-[13px] font-semibold text-cream sm:self-auto">
             Find a time <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
@@ -140,7 +140,7 @@ export function YourTutors({ tutors, isStudent, multipleStudents }: { tutors: My
                 </Link>
                 <Link
                   href={`${profile}#book`}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-pine-700 px-3.5 text-[13px] font-medium text-white hover:bg-pine-800"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-3.5 text-[13px] font-semibold text-cream"
                   aria-label={`Book again with ${t.name}`}
                 >
                   <CalendarPlus className="size-4" aria-hidden /> Book

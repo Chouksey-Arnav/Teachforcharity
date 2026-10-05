@@ -54,7 +54,7 @@ export default async function GuardianPage({ params }: PageProps<"/guardian/[tok
 
   if (!d)
     return (
-      <div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
+      <div className="lm-wash"><div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
         <p className="eyebrow">Parent page</p>
         <h1 className="display mt-3 text-4xl sm:text-5xl">This link has expired</h1>
         <p className="mt-4 text-[16px] leading-relaxed text-muted">
@@ -63,14 +63,14 @@ export default async function GuardianPage({ params }: PageProps<"/guardian/[tok
         <div className="mt-8">
           <RequestLinkForm />
         </div>
-      </div>
+      </div></div>
     );
 
   const s = d.student;
   const name = s.first_name;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-16">
+    <div className="lm-wash"><div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-16">
       <p className="eyebrow">Private parent page · {d.guardian.email}</p>
       <h1 className="display mt-3 text-4xl sm:text-6xl">
         {d.consent ? `${name}’s lessons` : `${name} wants free music lessons`}
@@ -270,7 +270,7 @@ export default async function GuardianPage({ params }: PageProps<"/guardian/[tok
         This page is private to you. Don’t forward the link — anyone with it can read {name}’s messages. It expires 30 days after it was sent; you
         can always <Link href="/guardian" className="underline underline-offset-2">get a new link</Link>.
       </p>
-    </div>
+    </div></div>
   );
 }
 

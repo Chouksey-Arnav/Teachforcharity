@@ -86,7 +86,7 @@ export function CodeStep({
               }
             })
           }
-          className="font-medium text-pine-700 underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-faint disabled:no-underline"
+          className="font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink disabled:cursor-not-allowed disabled:text-faint disabled:no-underline"
         >
           {pending ? "Sending…" : wait > 0 ? `Send a new code in ${wait}s` : "Send a new code"}
         </button>

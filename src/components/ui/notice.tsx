@@ -3,10 +3,10 @@ import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const tones = {
-  info: { box: "bg-sky-100/60 border-sky-700/15 text-sky-700", icon: Info },
-  success: { box: "bg-pine-50 border-pine-200 text-pine-800", icon: CheckCircle2 },
-  warning: { box: "bg-brass-50 border-brass-300/70 text-brass-800", icon: AlertTriangle },
-  danger: { box: "bg-clay-50 border-clay-500/25 text-clay-800", icon: ShieldAlert },
+  info: { box: "bg-lilac/35 border-sky-700/15 text-sky-700", icon: Info },
+  success: { box: "bg-mint/35 border-pine-700/20 text-pine-800", icon: CheckCircle2 },
+  warning: { box: "bg-brass-50 border-brass-600/30 text-brass-800", icon: AlertTriangle },
+  danger: { box: "bg-clay-50 border-clay-500/30 text-clay-800", icon: ShieldAlert },
 } as const;
 
 export function Notice({
@@ -25,7 +25,7 @@ export function Notice({
   const t = tones[tone];
   const Icon = t.icon;
   return (
-    <div className={cn("flex gap-3 rounded-xl border px-4 py-3", t.box, className)} role={tone === "danger" ? "alert" : "status"}>
+    <div className={cn("flex gap-3 rounded-2xl border px-4 py-3.5", t.box, className)} role={tone === "danger" ? "alert" : "status"}>
       <Icon className="mt-0.5 size-[18px] shrink-0" aria-hidden />
       <div className="min-w-0 flex-1 text-sm leading-relaxed">
         {title && <p className="font-semibold">{title}</p>}

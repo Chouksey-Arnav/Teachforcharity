@@ -48,7 +48,7 @@ export function InstrumentPicker({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search or type an instrument (e.g. clarinet, euphonium, viola)"
-          className="h-11 w-full rounded-xl border border-line-2 bg-card pl-10 pr-3 text-[15px] placeholder:text-faint focus:border-pine-600 focus:outline-none focus:ring-4 focus:ring-pine-600/10"
+          className="h-11 w-full rounded-xl border border-line-2 bg-card pl-10 pr-3 text-[15px] placeholder:text-faint focus:border-ink/40 focus:outline-none focus:ring-4 focus:ring-glow/50"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

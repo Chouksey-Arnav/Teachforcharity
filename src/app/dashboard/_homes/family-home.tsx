@@ -158,7 +158,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <span className="size-2 rounded-full bg-brass-500" /> Needs your attention
             </h2>
-            <Link href="/dashboard/lessons?tab=action" className="text-sm text-pine-700 hover:underline">
+            <Link href="/dashboard/lessons?tab=action" className="text-sm text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
               See all
             </Link>
           </div>

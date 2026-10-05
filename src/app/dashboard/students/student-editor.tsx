@@ -131,7 +131,7 @@ export function StudentEditor({
             <p className="text-sm font-medium">Grade</p>
             <div className="mt-1.5 grid grid-cols-3 gap-2">
               {[6, 7, 8].map((g) => (
-                <button key={g} type="button" onClick={() => setS({ ...s, grade: g })} className={cn("h-11 rounded-xl border text-sm font-medium", s.grade === g ? "border-pine-700 bg-pine-700 text-white" : "border-line bg-card")}>
+                <button key={g} type="button" onClick={() => setS({ ...s, grade: g })} className={cn("h-11 rounded-xl border text-sm font-medium", s.grade === g ? "border-ink bg-ink text-cream" : "border-line bg-card")}>
                   {g}th
                 </button>
               ))}
@@ -172,7 +172,7 @@ export function StudentEditor({
           <ChoiceCards name="es" value={s.explainStyle} onChange={(v) => setS({ ...s, explainStyle: v })} columns={1} size="sm" choices={EXPLAIN_STYLES.map((t) => ({ value: t.key, label: t.label }))} />
           <div className="flex gap-2">
             {[30, 45, 60].map((m) => (
-              <button key={m} type="button" onClick={() => setS({ ...s, preferredMinutes: m })} className={cn("h-10 rounded-xl border px-5 text-sm", s.preferredMinutes === m ? "border-pine-700 bg-pine-700 text-white" : "border-line bg-card")}>
+              <button key={m} type="button" onClick={() => setS({ ...s, preferredMinutes: m })} className={cn("h-10 rounded-xl border px-5 text-sm", s.preferredMinutes === m ? "border-ink bg-ink text-cream" : "border-line bg-card")}>
                 {m} min
               </button>
             ))}

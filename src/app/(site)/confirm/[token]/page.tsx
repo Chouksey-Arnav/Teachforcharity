@@ -33,19 +33,19 @@ export default async function ConfirmLessonPage({ params }: PageProps<"/confirm/
 
   if (!lesson)
     return (
-      <div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
+      <div className="lm-wash"><div className="mx-auto max-w-xl px-4 py-16 sm:px-6 sm:py-24">
         <p className="eyebrow">Lesson confirmation</p>
         <h1 className="display mt-3 text-4xl">{!check.ok && check.reason === "expired" ? "This link has expired" : "This link doesn’t work"}</h1>
         <p className="mt-3 text-muted">You can still confirm the lesson from your dashboard.</p>
-        <Link href="/dashboard/lessons?tab=action" className="mt-6 inline-flex h-11 items-center rounded-full bg-pine-700 px-5 text-sm font-medium text-white hover:bg-pine-800">
+        <Link href="/dashboard/lessons?tab=action" className="mt-6 inline-flex h-11 items-center rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-5 text-sm font-semibold text-cream">
           Sign in to confirm
         </Link>
-      </div>
+      </div></div>
     );
 
   const answered = lesson.status !== "completed";
   return (
-    <div className="mx-auto max-w-xl px-4 py-12 sm:px-6 sm:py-20">
+    <div className="lm-wash"><div className="mx-auto max-w-xl px-4 py-12 sm:px-6 sm:py-20">
       <p className="eyebrow">Lesson confirmation</p>
       <h1 className="display mt-3 text-4xl sm:text-5xl">Did {lesson.student_name}’s lesson happen?</h1>
       <div className="mt-6 space-y-2 rounded-2xl border border-line bg-card p-5 text-[15px]">
@@ -75,6 +75,6 @@ export default async function ConfirmLessonPage({ params }: PageProps<"/confirm/
       ) : (
         <ConfirmChoices token={decodeURIComponent(token)} tutorName={lesson.tutor_name} />
       )}
-    </div>
+    </div></div>
   );
 }

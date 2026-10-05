@@ -76,10 +76,10 @@ export function WhoItsFor() {
     },
   ];
   return (
-    <div className="grid gap-px overflow-hidden rounded-3xl border border-line bg-line md:grid-cols-3">
+    <div className="grid gap-px overflow-hidden rounded-[26px] border border-ink/10 bg-ink/10 md:grid-cols-3">
       {items.map((i) => (
         <div key={i.n} className="bg-card p-7 sm:p-8">
-          <span className="font-serif text-2xl italic text-brass-600">{i.n}</span>
+          <span className="font-mono text-[12px] tracking-[0.14em] text-pine-700">{i.n}</span>
           <h3 className="mt-6 text-lg font-semibold text-ink">{i.title}</h3>
           <p className="mt-2 text-[15px] leading-relaxed text-muted">{i.body}</p>
         </div>
@@ -107,13 +107,18 @@ export const STEPS = [
   },
 ];
 
+/** The landing page's door-icon tints, cycled across numbered tiles. */
+const TILE_TONES = ["bg-mint", "bg-peach", "bg-lilac", "bg-glow"];
+
 export function Steps({ tone = "light" }: { tone?: "light" | "card" }) {
   return (
     <ol className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
       {STEPS.map((s, i) => (
-        <li key={s.title} className={cn("relative rounded-2xl p-6", tone === "card" ? "border border-line bg-card" : "bg-paper-2/70")}>
-          <span className="display text-5xl text-pine-700/90">{i + 1}</span>
-          <h3 className="mt-4 text-base font-semibold">{s.title}</h3>
+        <li key={s.title} className={cn("relative rounded-[22px] p-6", tone === "card" ? "border border-ink/10 bg-white shadow-card" : "bg-white/60")}>
+          <span className={cn("flex size-11 items-center justify-center rounded-[13px] font-mono text-[13px] text-ink", TILE_TONES[i % TILE_TONES.length])}>
+            {String(i + 1).padStart(2, "0")}
+          </span>
+          <h3 className="mt-5 text-[16.5px] font-semibold tracking-[-0.01em]">{s.title}</h3>
           <p className="mt-2 text-[14.5px] leading-relaxed text-muted">{s.body}</p>
         </li>
       ))}
@@ -134,13 +139,15 @@ export const SAFETY_POINTS: { icon: typeof Wifi; title: string; body: string }[]
   { icon: HeartHandshake, title: "Concerns are acted on", body: "Any report — from a student, a parent, or our safety scanner — goes straight to the program team. A safety report pauses the tutor immediately." },
 ];
 
-export function SafetyGrid({ inverted = true }: { inverted?: boolean }) {
+export function SafetyGrid({ inverted = false }: { inverted?: boolean }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {SAFETY_POINTS.map(({ icon: Icon, title, body }) => (
-        <div key={title} className={cn("rounded-2xl p-6", inverted ? "bg-white/[0.06] ring-1 ring-inset ring-white/10" : "border border-line bg-card")}>
-          <Icon className={cn("size-6", inverted ? "text-brass-300" : "text-pine-700")} strokeWidth={1.6} />
-          <h3 className={cn("mt-4 font-semibold", inverted ? "text-white" : "text-ink")}>{title}</h3>
+        <div key={title} className={cn("rounded-[22px] p-6", inverted ? "bg-white/[0.06] ring-1 ring-inset ring-white/10" : "border border-ink/10 bg-white shadow-card")}>
+          <span className={cn("flex size-11 items-center justify-center rounded-[13px]", inverted ? "bg-white/10 text-glow" : "bg-ink text-glow")}>
+            <Icon className="size-5" strokeWidth={1.8} />
+          </span>
+          <h3 className={cn("mt-5 text-[16.5px] font-semibold tracking-[-0.01em]", inverted ? "text-white" : "text-ink")}>{title}</h3>
           <p className={cn("mt-1.5 text-[14.5px] leading-relaxed", inverted ? "text-white/70" : "text-muted")}>{body}</p>
         </div>
       ))}
@@ -162,13 +169,13 @@ export function HoursTimeline({ compact }: { compact?: boolean }) {
           <div className="flex flex-col items-center sm:flex-row">
             <span
               className={cn(
-                "z-10 flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-4 ring-paper",
-                i === 3 ? "bg-pine-700 text-white" : "bg-card text-ink ring-offset-0 border border-line-2",
+                "z-10 flex size-9 shrink-0 items-center justify-center rounded-full font-mono text-[12px] ring-4 ring-white",
+                i === 3 ? "bg-pine-700 text-white" : "border border-ink/15 bg-white text-ink",
               )}
             >
               {i === 3 ? <Check className="size-4" /> : i + 1}
             </span>
-            {i < 3 && <span className="w-px flex-1 bg-line-2 sm:h-px sm:w-full sm:flex-1" aria-hidden />}
+            {i < 3 && <span className="w-px flex-1 bg-ink/15 sm:h-px sm:w-full sm:flex-1" aria-hidden />}
           </div>
           <div className="sm:mt-4">
             <p className="font-semibold text-ink">{s.t}</p>
@@ -183,16 +190,16 @@ export function HoursTimeline({ compact }: { compact?: boolean }) {
 export function CauseCard({ config, className }: { config: PublicConfig | null; className?: string }) {
   const p = config?.partner;
   return (
-    <div className={cn("overflow-hidden rounded-3xl border border-line bg-card", className)}>
+    <div className={cn("overflow-hidden rounded-[26px] border border-ink/10 bg-white shadow-card", className)}>
       <div className="grid md:grid-cols-[1.2fr_1fr]">
         <div className="p-7 sm:p-10">
           <p className="eyebrow">Current cause</p>
-          <h3 className="display mt-3 text-3xl sm:text-4xl">{p ? p.cause_title : "Our partner's cause will be posted here"}</h3>
+          <h3 className="lm-h3 mt-4 !text-[clamp(28px,3vw,40px)]">{p ? p.cause_title : "Our partner's cause will be posted here"}</h3>
           {p && (
             <p className="mt-2 text-sm font-medium text-ink-2">
               {p.partnership_confirmed ? "With our nonprofit partner " : "Chosen by "}
               {p.website_url ? (
-                <a href={p.website_url} target="_blank" rel="noopener noreferrer" className="text-pine-700 underline underline-offset-4">
+                <a href={p.website_url} target="_blank" rel="noopener noreferrer" className="text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink">
                   {p.name}
                 </a>
               ) : (
@@ -207,19 +214,19 @@ export function CauseCard({ config, className }: { config: PublicConfig | null; 
                 href={p.donation_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-brass-500 px-5 text-sm font-semibold text-pine-950 transition hover:bg-brass-300"
+                className="lm-btn lm-btn-glow lm-btn-sm"
               >
                 Donate on {p.short_name}&apos;s website <ArrowUpRight className="size-4" />
               </a>
             ) : (
-              <span className="inline-flex h-11 items-center rounded-full border border-dashed border-line-2 px-5 text-sm text-muted">
+              <span className="inline-flex h-11 items-center rounded-full border border-dashed border-ink/20 px-5 text-sm text-muted">
                 Donation link coming soon
               </span>
             )}
           </div>
         </div>
-        <div className="grain border-t border-line bg-paper-2/70 p-7 sm:p-10 md:border-l md:border-t-0">
-          <h4 className="font-semibold">How giving works</h4>
+        <div className="lm-sky lm-sky-gold border-t border-ink/[0.08] p-7 sm:p-10 md:border-l md:border-t-0">
+          <h4 className="lm-micro text-pine-700">How giving works</h4>
           <ul className="mt-4 space-y-3 text-[14.5px] leading-relaxed text-ink-2">
             {[
               "Lessons are always free. Donating is optional and never expected in exchange for a lesson.",
@@ -227,7 +234,7 @@ export function CauseCard({ config, className }: { config: PublicConfig | null; 
               `${"Teach for a Cause"} never collects, holds, or passes along money — not from families, not to tutors.`,
             ].map((t) => (
               <li key={t} className="flex gap-2.5">
-                <Check className="mt-1 size-4 shrink-0 text-pine-600" />
+                <Check className="mt-1 size-4 shrink-0 text-pine-700" />
                 {t}
               </li>
             ))}
@@ -240,12 +247,12 @@ export function CauseCard({ config, className }: { config: PublicConfig | null; 
 
 export function Faq({ items }: { items: { q: string; a: ReactNode }[] }) {
   return (
-    <div className="divide-y divide-line rounded-3xl border border-line bg-card">
+    <div className="divide-y divide-ink/[0.08] rounded-[26px] border border-ink/10 bg-white shadow-card">
       {items.map((i) => (
         <details key={i.q} className="group px-6 py-5 sm:px-8">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-[16px] font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-[16px] font-semibold text-ink">
             {i.q}
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line-2 text-muted transition group-open:rotate-45">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink transition group-open:rotate-45 group-open:bg-ink group-open:text-cream">
               <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
                 <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>

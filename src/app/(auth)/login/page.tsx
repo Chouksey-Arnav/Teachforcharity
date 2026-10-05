@@ -35,7 +35,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <LoginForm next={next} />
       <p className="mt-8 text-center text-sm text-muted">
         New here?{" "}
-        <Link href="/signup" className="font-medium text-pine-700 underline-offset-4 hover:underline">
+        <Link href="/signup" className="font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
           Create an account
         </Link>
       </p>
