@@ -2,7 +2,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Activity, CalendarDays, Gauge, LogOut, Mail, Menu, MessagesSquare, PhoneCall, RotateCw, Search, Settings, ShieldAlert, Siren, Users, X } from "lucide-react";
+import { Activity, BadgeCheck, CalendarDays, Gauge, LogOut, Mail, Menu, MessagesSquare, PhoneCall, RotateCw, Search, Settings, ShieldAlert, Siren, Users, X } from "lucide-react";
 import { Spinner } from "@/components/ui/button";
 import { LogoMark } from "@/components/brand/logo";
 import { adminLogout } from "@/app/actions/admin";
@@ -24,6 +24,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   {
     label: "Safety",
     items: [
+      { href: "/admin/checks", label: "Account checks", icon: BadgeCheck, hint: "Automated tutor checks: exceptions only" },
       { href: "/admin/consents", label: "Parent calls", icon: PhoneCall, badge: "calls", hint: "Confirm consent by phone" },
       { href: "/admin/reports", label: "Reports", icon: Siren, badge: "reports", hint: "Concerns people have reported" },
       { href: "/admin/safety", label: "Safety scan", icon: ShieldAlert, badge: "flags", hint: "Messages the scanner flagged" },

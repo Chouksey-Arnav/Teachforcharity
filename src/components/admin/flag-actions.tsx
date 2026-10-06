@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { runScanNow, updateFlag } from "@/app/actions/admin";
+import { runScanNow, runAccountChecksNow, updateFlag } from "@/app/actions/admin";
 import { AdminButton } from "@/components/admin/admin-button";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,19 @@ export function RunScanButton() {
     <span className="flex flex-wrap items-center gap-2">
       <Button size="sm" pending={pending} onClick={() => start(async () => { const r = await runScanNow(); setMsg(r?.ok ? (r.message ?? "Done") : (r?.error.message ?? "Failed")); })}>
         Run scan now
+      </Button>
+      {msg && <span className="text-xs text-muted">{msg}</span>}
+    </span>
+  );
+}
+
+export function RunChecksButton() {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <Button size="sm" pending={pending} onClick={() => start(async () => { const r = await runAccountChecksNow(); setMsg(r?.ok ? (r.message ?? "Done") : (r?.error.message ?? "Failed")); })}>
+        Check every tutor now
       </Button>
       {msg && <span className="text-xs text-muted">{msg}</span>}
     </span>

@@ -118,31 +118,104 @@ export async function cancelLesson(input: { sessionId: string; reason?: string; 
   return done(data && data > 1 ? `Cancelled ${data} lessons. We let the other side know.` : "Cancelled. We let the other side know.");
 }
 
-export async function logLesson(input: { sessionId: string; happened: boolean; note?: string; practice?: string }): Promise<ActionState> {
+export async function logLesson(input: { sessionId: string; happened: boolean; note?: string; practice?: string; attest: boolean }): Promise<ActionState> {
   if (!uuid.safeParse(input.sessionId).success) return { ok: false, error: { message: "Lesson not found." } };
+  if (input.attest !== true) return { ok: false, error: { message: "Please confirm your log is truthful." } };
   const bad = checkNote(input.note) ?? checkNote(input.practice);
   if (bad) return { ok: false, error: { message: bad } };
   if ((input.practice ?? "").length > 1000) return { ok: false, error: { message: "Keep practice notes under 1,000 characters." } };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("log_session", {
+  const { data, error } = await supabase.rpc("log_session", {
     p_session: input.sessionId,
     p_happened: input.happened,
     p_note: input.note?.trim().slice(0, 500) || undefined,
     p_practice: input.happened ? input.practice?.trim() || undefined : undefined,
+    p_attest: true,
   });
   if (error) return { ok: false, error: toActionError(error) };
-  return done(input.happened ? "Logged. We asked the family to confirm." : "Marked as not happened.");
+  if (!input.happened) return done("Marked as not happened.");
+  return done(
+    data === "confirmed"
+      ? "Logged — your student already confirmed you were there."
+      : data === "disputed"
+        ? "Logged — but your student said you weren’t there. The program team will review it."
+        : "Logged. Your student will be asked to confirm next time they open the site.",
+  );
 }
 
-export async function confirmLesson(input: { sessionId: string; happened: boolean; note?: string }): Promise<ActionState> {
+/**
+ * The family's check-in after a lesson: was the tutor there? `attest` is the
+ * "my answer is truthful" box. Works before or after the tutor logs it.
+ */
+export async function answerAttendance(input: { sessionId: string; present: boolean; attest: boolean; note?: string }): Promise<ActionState> {
   if (!uuid.safeParse(input.sessionId).success) return { ok: false, error: { message: "Lesson not found." } };
+  if (input.attest !== true) return { ok: false, error: { message: "Please confirm your answer is truthful." } };
   const bad = checkNote(input.note);
   if (bad) return { ok: false, error: { message: bad } };
-  if (!input.happened && !input.note?.trim()) return { ok: false, error: { message: "Please tell us briefly what happened." } };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("confirm_session", { p_session: input.sessionId, p_happened: input.happened, p_note: input.note?.trim().slice(0, 500) || undefined });
+  const { error } = await supabase.rpc("answer_attendance", {
+    p_session: input.sessionId,
+    p_present: input.present,
+    p_attest: true,
+    p_note: input.note?.trim().slice(0, 500) || undefined,
+  });
   if (error) return { ok: false, error: toActionError(error) };
-  return done(input.happened ? "Thanks — confirmed!" : "Thanks for letting us know. The program team will review it.");
+  kickEmails();
+  revalidatePath("/dashboard", "layout");
+  return {
+    ok: true,
+    message: input.present ? "Thanks — you verified the lesson." : "Thanks for telling us. This lesson won’t count, and the program team will look at it.",
+  };
+}
+
+/** Tutor dismisses the "your student answered" notices they've read. */
+export async function ackAttendanceVerdicts(sessionIds: string[]): Promise<ActionState> {
+  const ids = sessionIds.filter((x) => uuid.safeParse(x).success).slice(0, 50);
+  if (!ids.length) return { ok: true };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("ack_attendance_verdicts", { p_sessions: ids });
+  if (error) return { ok: false, error: toActionError(error) };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+const proposeSchema = z.object({
+  studentId: uuid,
+  subjectId: uuid,
+  date: z.string(),
+  time: z.string(),
+  minutes: z.coerce.number(),
+  note,
+  weeks: z.coerce.number().int().min(1).max(12).default(1),
+  attest: z.literal(true, { message: "Please confirm you’ll follow the lesson rules." }),
+});
+
+/** A tutor proposes a time (or weekly lessons) to a student. Nothing is booked until the family accepts. */
+export async function proposeLesson(input: z.input<typeof proposeSchema>): Promise<ActionState<{ id: string }>> {
+  const p = proposeSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: { message: p.error.issues[0]?.message ?? "Please complete every field." } };
+  const bad = checkNote(p.data.note);
+  if (bad) return { ok: false, error: { message: bad } };
+  const slot = slotFrom(p.data.date, p.data.time, p.data.minutes);
+  if ("error" in slot) return { ok: false, error: { message: slot.error } };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("tutor_propose_session", {
+    p_student: p.data.studentId,
+    p_subject: p.data.subjectId,
+    p_start: slot.iso,
+    p_minutes: p.data.minutes,
+    p_note: p.data.note || undefined,
+    p_weeks: p.data.weeks,
+    p_attest: true,
+  });
+  if (error) return { ok: false, error: toActionError(error) };
+  kickEmails();
+  revalidatePath("/dashboard", "layout");
+  return {
+    ok: true,
+    data: { id: data as string },
+    message: p.data.weeks > 1 ? `Proposed ${p.data.weeks} weekly lessons. We emailed the family.` : "Proposed! We emailed the family — it’s booked once they accept.",
+  };
 }
 
 export async function offerToTeach(input: { studentId: string; subjectId: string; note?: string }): Promise<ActionState<{ threadId: string }>> {

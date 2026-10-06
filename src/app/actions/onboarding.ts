@@ -6,6 +6,7 @@ import { toActionError, type ActionState } from "@/lib/errors";
 import { ALL_SLOTS, GOALS, INTERESTS, LEVELS, NC_COUNTIES } from "@/lib/constants";
 import { normalizeMeetUrl } from "@/lib/meet";
 import { kickEmails } from "@/lib/email/kick";
+import { kickAccountCheck } from "@/lib/verification/runner";
 
 type Supa = Awaited<ReturnType<typeof createClient>>;
 
@@ -366,6 +367,7 @@ export async function saveTutorAbout(input: z.input<typeof tutorAbout>): Promise
     const t = await supabase.rpc("accept_terms", { p_kind: "terms" });
     if (t.error) return { ok: false, error: toActionError(t.error) };
   }
+  kickAccountCheck(uid);
   revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
@@ -466,6 +468,7 @@ export async function saveMeetLink(input: { url: string }): Promise<ActionState<
   const { supabase, uid } = await session();
   const { error } = await supabase.from("tutor_profiles").update({ meet_url: url }).eq("user_id", uid);
   if (error) return { ok: false, error: toActionError(error) };
+  kickAccountCheck(uid);
   revalidatePath("/dashboard", "layout");
   return { ok: true, data: { url } };
 }
@@ -492,6 +495,9 @@ export async function signTutorAgreement(input: z.input<typeof agreement>): Prom
   const done = await supabase.rpc("complete_onboarding");
   if (done.error) return { ok: false, error: toActionError(done.error) };
   kickEmails();
+  // The automated account check decides whether the tutor can go live once their parent approves.
+  const { data: me } = await supabase.auth.getUser();
+  if (me.user) kickAccountCheck(me.user.id);
   revalidatePath("/dashboard", "layout");
   return { ok: true, data: { status: String((done.data as { status?: string } | null)?.status ?? "pending") } };
 }
@@ -518,6 +524,8 @@ export async function updateTutorGuardian(input: z.input<typeof tutorGuardian>):
   const { error } = await supabase.rpc("tutor_update_guardian", { p_name: p.data.name, p_email: p.data.email });
   if (error) return { ok: false, error: toActionError(error) };
   kickEmails();
+  const { data: me } = await supabase.auth.getUser();
+  if (me.user) kickAccountCheck(me.user.id);
   revalidatePath("/dashboard");
   return { ok: true, message: `Sent to ${p.data.email}.` };
 }

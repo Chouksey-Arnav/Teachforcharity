@@ -307,6 +307,10 @@ export type MySession = {
   awaiting_me: boolean;
   thread_id: string | null;
   created_at: string;
+  /** The family's check-in answer: was the tutor there? */
+  family_attendance: "present" | "absent" | null;
+  /** Tutor's own lessons only: whether they opened it from the site. */
+  tutor_joined: boolean | null;
 };
 
 export async function getMySessions(supabase: Supa, scope: "all" | "upcoming" | "action" | "history", limit = 100): Promise<MySession[]> {

@@ -108,6 +108,7 @@ export function navFor(role: Role, counts: { action: number; unread: number }, k
         {
           label: "You",
           items: [
+            { href: "/dashboard/tutor-directory", label: "Fellow tutors", icon: "tutors", hint: "Who else teaches, and what" },
             { href: "/dashboard/hours", label: "Volunteer hours", icon: "hours", hint: "Verified hours and printable record" },
             { href: "/dashboard/profile", label: "Tutor profile", icon: "profile", hint: "Bio, instruments, availability" },
             REPORT,

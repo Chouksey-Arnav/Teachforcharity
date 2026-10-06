@@ -303,7 +303,9 @@ begin
   if public.tutor_guardian_approve(tok, 'Rosa Rodriguez', 'Mother', 'rosa rodriguez', true, true, true) <> 'pending' then
     raise exception 'FAIL tutor skipped admin review'; end if;
   execute 'reset role';
-  if pg_temp.mail('tutor_pending_review', 'alerts@example.test') is null then raise exception 'FAIL admins not asked to review'; end if;
+  -- Nobody reviews tutors by hand by default: the automated account check decides (see v4_verification_test.sql).
+  if pg_temp.mail('tutor_pending_review', 'alerts@example.test') is not null then raise exception 'FAIL admins asked to hand-review a tutor'; end if;
+  if (select verification_status from public.tutor_profiles where user_id = tut) not in ('unverified', 'stale') then raise exception 'FAIL tutor marked checked without a check'; end if;
   if pg_temp.mail('tutor_guardian_approved', 'v3-tutor@example.test') is null then raise exception 'FAIL tutor not told their parent approved'; end if;
   perform pg_temp.act_as(tut);
   if pg_temp.hint_of('select public.resend_tutor_guardian_request()') <> 'ALREADY_APPROVED' then raise exception 'FAIL resend after approval'; end if;
@@ -470,7 +472,7 @@ begin
     values (tut, stu, mom, clar, now() - interval '2 days', 45, now() - interval '2 days' + interval '45 minutes', 'scheduled', 'family')
     returning id into sess;
   perform pg_temp.act_as(tut);
-  perform public.log_session(sess, true, 'Worked on long tones', 'Long tones 10 min a day; scales in F and B-flat');
+  perform public.log_session(sess, true, 'Worked on long tones', 'Long tones 10 min a day; scales in F and B-flat', true);
   execute 'reset role';
   if (select status from public.sessions where id = sess) <> 'completed'
      or (select practice_plan from public.sessions where id = sess) not like 'Long tones%' then
@@ -489,9 +491,9 @@ begin
   perform pg_temp.act_as_service();
   j := public.lesson_for_link(sess);
   if j ->> 'student_name' is null or j ? 'tutor_note' or j ? 'family_id' then raise exception 'FAIL lesson_for_link shape: %', j; end if;
-  if pg_temp.hint_of(format('select public.confirm_session_by_link(%L, false)', sess)) <> 'NOTE_REQUIRED' then raise exception 'FAIL dispute without a note'; end if;
+  -- Old emailed links still work and go through the same attendance rules (a "no" no longer needs a note).
   if public.confirm_session_by_link(sess, true) <> 'confirmed' then raise exception 'FAIL one-tap confirm'; end if;
-  if pg_temp.hint_of(format('select public.confirm_session_by_link(%L, false, ''no'')', sess)) <> 'NOT_AWAITING' then raise exception 'FAIL confirmed twice'; end if;
+  if pg_temp.hint_of(format('select public.confirm_session_by_link(%L, false, ''no'')', sess)) <> 'ALREADY_ANSWERED' then raise exception 'FAIL confirmed twice'; end if;
   execute 'reset role';
   if not exists (select 1 from public.audit_log where action = 'lesson.confirmed_by_link' and target_id = sess::text) then raise exception 'FAIL link confirmation not audited'; end if;
   perform pg_temp.act_as(tut);

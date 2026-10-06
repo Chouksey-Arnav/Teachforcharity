@@ -1,7 +1,8 @@
 // The whole program in one run, against the local stack (npx supabase start + next dev/start):
-// tutor sign-up → parent + admin approval; a student asks a parent → parent onboards → phone check;
-// weekly lessons from open times → tutor suggests a new time → family accepts; joining only in the window;
-// logging with a practice plan → one-tap confirmation from email → hours verified → public verification page.
+// tutor sign-up → parent approval → automated account check puts them live (no admin); a student asks a
+// parent → parent onboards → phone check; weekly lessons from open times → tutor suggests a new time → family
+// accepts; joining only in the window; truthful log with a practice plan → on-site check-in ("was your tutor
+// there?", no email) → tutor sees "you're good to go" → partner certifies → public verification page.
 import { BASE, PW, adminLogin, browser, clearInbox, codeIn, forgetAdminSecret, login, shot, sql, step, waitForEmail } from "./common.mjs";
 import { tutorOnboard, tutorParentApproves } from "./flows.mjs";
 
@@ -15,19 +16,20 @@ try {
   await clearInbox();
   await forgetAdminSecret();
 
-  // ---------- Tutor: sign up, parent approves, admin approves ----------
+  // ---------- Tutor: sign up, parent approves, the automated account check puts them live ----------
   await tutorOnboard(b, "e2e-tutor@tfac-e2e.test", {
     instrumentQuery: "clar", instrumentName: "Clarinet", levels: ["Beginner", "Developing"], school: "Green Level High School",
     meet: "https://meet.google.com/abc-defg-hij", guardian, name: "Maya Rodriguez",
   });
   const { ctx: pc } = await tutorParentApproves(b, guardian, "Maya");
   await pc.close();
+  for (let i = 0; i < 40 && (await sql(`select status from tutor_profiles t join profiles p on p.id = t.user_id where p.email = 'e2e-tutor@tfac-e2e.test'`)) !== "active"; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  expect((await sql(`select status || '/' || verification_status from tutor_profiles t join profiles p on p.id = t.user_id where p.email = 'e2e-tutor@tfac-e2e.test'`)) === "active/verified", "account check didn't put the tutor live");
+  expect((await sql(`select count(*) from email_outbox where template = 'tutor_pending_review'`)) === "0", "an admin was asked to hand-approve the tutor");
   const { ctx: actx, page: admin } = await adminLogin(b);
-  await admin.goto(`${BASE}/admin/people?kind=tutor`);
-  await admin.getByText("Maya Rodriguez").first().click();
-  await admin.getByRole("button", { name: /^Approve/ }).first().click();
-  await admin.waitForTimeout(1500);
-  step("tutor Maya live (parent + admin approved)");
+  step("tutor Maya live (parent approved, automated account check verified; no admin)");
 
   // ---------- Family: student asks, parent signs up, onboards, phone check ----------
   {
@@ -152,32 +154,40 @@ try {
   await toLog.getByRole("button", { name: "It happened" }).click();
   await toLog.getByLabel(/What should Leo practice/).fill("Long tones for 5 minutes a day.\nMeasures 20–40, slowly.");
   await toLog.getByPlaceholder(/Optional private note/).fill("Great focus today.");
+  expect(await toLog.getByRole("button", { name: "Log lesson" }).isDisabled(), "logged without confirming it's truthful");
+  await toLog.getByRole("checkbox", { name: /This log is truthful/ }).check();
   await shot(tutor, "journey-03-log-with-practice");
   await toLog.getByRole("button", { name: "Log lesson" }).click();
   await tutor.waitForTimeout(1500);
   expect((await sql(`select status from sessions where id = '${firstId}'`)) === "completed", "lesson not logged");
   step("tutor logged the lesson with a practice plan");
 
-  const ask = await waitForEmail(mom, /Did Leo's lesson happen\?/);
-  const confirmUrl = ask.html.match(/href="([^"]*\/confirm\/[^"]+)"/)?.[1]?.replace(/&amp;/g, "&");
-  expect(confirmUrl, "confirmation email has no one-tap link");
-  // A fresh browser with no session: the link alone is enough, and just opening it changes nothing.
-  const lctx = await b.newContext();
-  const linkPage = await lctx.newPage();
-  await linkPage.goto(confirmUrl);
-  await linkPage.getByText("What to practice").waitFor();
-  expect((await sql(`select status from sessions where id = '${firstId}'`)) === "completed", "opening the link changed the lesson");
-  await shot(linkPage, "journey-04-one-tap-confirm");
-  await linkPage.getByRole("button", { name: "Yes, it happened" }).click();
-  await linkPage.getByRole("status").or(linkPage.getByText(/Thank/)).first().waitFor();
-  expect((await sql(`select status from sessions where id = '${firstId}'`)) === "confirmed", "one-tap confirmation not saved");
-  await linkPage.reload();
-  await linkPage.getByText("Already confirmed").waitFor();
-  const forged = confirmUrl.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
-  await linkPage.goto(forged);
-  await linkPage.getByText("This link doesn’t work").waitFor();
-  await lctx.close();
-  step("family confirmed from the email link without signing in; forged links refused");
+  // The family is asked on the site the next time they open it, not by email.
+  await fam.goto(`${BASE}/dashboard`);
+  const checkIn = fam.getByRole("dialog", { name: /Was Maya R\. there\?/ });
+  await checkIn.waitFor();
+  await shot(fam, "journey-04-check-in", false);
+  expect(await checkIn.getByRole("button", { name: "Submit answer" }).isDisabled(), "answered without choosing");
+  await checkIn.getByRole("radio", { name: "Yes, they were there" }).click();
+  expect(await checkIn.getByRole("button", { name: "Submit answer" }).isDisabled(), "answered without confirming it's truthful");
+  await checkIn.getByRole("checkbox", { name: /My answer is truthful/ }).check();
+  await checkIn.getByRole("button", { name: "Submit answer" }).click();
+  const done = fam.getByRole("dialog", { name: "All caught up" });
+  await done.waitFor();
+  expect((await sql(`select status || '/' || family_attendance || '/' || (family_attested_at is not null) from sessions where id = '${firstId}'`)) === "confirmed/present/true", "check-in not saved");
+  await done.getByRole("button", { name: "Done" }).click();
+  expect((await fam.getByRole("dialog").count()) === 0 || !(await fam.getByRole("dialog").isVisible()), "check-in didn't close");
+  expect((await sql(`select count(*) from email_outbox where template in ('session_confirm_request', 'confirm_reminder')`)) === "0", "a confirmation email was sent");
+  step("family verified the lesson in the on-site check-in (no email)");
+
+  await tutor.goto(`${BASE}/dashboard`);
+  await tutor.getByText("You’re good to go — your hours have been verified").waitFor();
+  await shot(tutor, "journey-05-tutor-verified", false);
+  await tutor.getByRole("button", { name: "Got it" }).click();
+  await tutor.waitForTimeout(1000);
+  await tutor.reload();
+  expect((await tutor.getByText("You’re good to go").count()) === 0, "dismissed notice came back");
+  step("tutor saw “you’re good to go” and dismissed it");
 
   // The family sees the practice plan, but not the tutor's private note.
   await fam.goto(`${BASE}/dashboard/lessons?tab=history`);
@@ -190,7 +200,7 @@ try {
   await admin.getByRole("button", { name: "Verify selected" }).click();
   await admin.waitForTimeout(2000);
   expect((await sql(`select status from sessions where id = '${firstId}'`)) === "verified", "hours not verified");
-  step("admin verified the hours");
+  step("partner step: admin certified the hours");
 
   // ---------- Hours record → verification link → public page ----------
   await tutor.goto(`${BASE}/dashboard/hours`);
@@ -198,7 +208,7 @@ try {
   await tutor.getByRole("button", { name: "Create a verification link" }).click();
   const qr = tutor.locator('[aria-label="QR code for the verification link"]');
   await qr.waitFor();
-  const verifyUrl = (await tutor.locator("span.font-mono").first().innerText()).trim();
+  const verifyUrl = (await tutor.locator("p", { hasText: "can scan the code or visit" }).locator("span.font-mono").innerText()).trim();
   expect(/\/verify\/[a-z2-9]{10}$/.test(verifyUrl), `bad verification url ${verifyUrl}`);
   await shot(tutor, "journey-05-hours-with-qr");
   const vctx = await b.newContext({ viewport: { width: 390, height: 844 } });

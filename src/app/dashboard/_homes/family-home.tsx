@@ -74,7 +74,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
         { label: "Make your music profile", detail: "Tell us your instrument and when you’re free.", done: students.some((s) => s.subjects.length), href: "/dashboard/students", cta: "Finish profile" },
         { label: "Parent approves", detail: "Your parent opens the email we sent and says OK, then we call them to double-check.", done: verified },
         { label: "Request a lesson", detail: "Pick a tutor you like and ask for a time.", done: requested, href: "/dashboard/tutors", cta: "Find tutors" },
-        { label: "Have your first lesson", detail: "Join from Lessons when it’s time, then tap “Yes, it happened”.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
+        { label: "Have your first lesson", detail: "Join from Lessons when it’s time. Afterward, we’ll ask you here if your tutor was there.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
       ]
     : [
         { label: "Add your student", detail: "A short questionnaire about their instrument, level and free times.", done: students.length > 0, href: "/dashboard/students/new", cta: "Add a student" },
@@ -83,7 +83,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
           ? [{ label: "Quick phone check", detail: "We call the number on your consent form to confirm it was you — about two minutes, usually within two days.", done: verified }]
           : []),
         { label: "Request a lesson", detail: "Open a matched tutor and pick a time — they’re emailed right away.", done: requested, href: "/dashboard/tutors", cta: "Find tutors" },
-        { label: "First lesson", detail: "After the lesson, confirm it happened so the tutor’s hours count.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
+        { label: "First lesson", detail: "After the lesson, the site asks whether the tutor was there — your answer is how their hours count.", done: hadLesson, href: "/dashboard/lessons", cta: "See lessons" },
       ];
 
   return (

@@ -49,12 +49,16 @@ begin
   j := public.complete_onboarding();
   if j ->> 'status' <> 'pending' then raise exception 'FAIL tutor live before their parent approved: %', j; end if;
   execute 'reset role';
-  -- With admin review off, the parent's approval is the last step.
+  -- With admin review off, the parent's approval is the last human step; the automated account check puts the tutor live.
   update public.app_settings set require_tutor_approval = false;
   if public.tutor_guardian_approve(
        (select payload ->> 'token' from public.email_outbox where template = 'tutor_guardian_request' and to_email = 'rosa@example.test' order by id desc limit 1),
-       'Rosa Rodriguez', 'Mother', 'Rosa Rodriguez', true, true, true) <> 'active' then
-    raise exception 'FAIL tutor not auto-active after parent approval'; end if;
+       'Rosa Rodriguez', 'Mother', 'Rosa Rodriguez', true, true, true) <> 'pending' then
+    raise exception 'FAIL tutor went live before the account check'; end if;
+  j := public.verification_apply(jsonb_build_array(jsonb_build_object('tutorId', tut, 'decision', 'verified', 'risk', 0,
+         'summary', 'Verified: every check passed.', 'checks', '[]'::jsonb, 'hints', '[]'::jsonb, 'fingerprint', '[]', 'version', 'test')), 'event');
+  if (j ->> 'activated')::int <> 1 or (select status from public.tutor_profiles where user_id = tut) <> 'active' then
+    raise exception 'FAIL tutor not auto-active after parent approval + account check: %', j; end if;
   log := log || 'auto-activate ok; ';
 
   -- ===== student account =====

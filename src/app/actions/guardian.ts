@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { toActionError, type ActionState } from "@/lib/errors";
 import { kickEmails } from "@/lib/email/kick";
+import { kickAccountCheck } from "@/lib/verification/runner";
 
 /**
  * Parent/guardian actions. The parent has no account: the 256-bit token from
@@ -154,6 +155,8 @@ export async function tutorGuardianApprove(input: z.input<typeof tutorApproval>)
   });
   if (error) return { ok: false, error: toActionError(error) };
   kickEmails();
+  // The parent's approval is the last human step: the account check can now put the tutor live.
+  kickAccountCheck();
   revalidatePath(`/guardian/tutor/${p.data.token}`);
   return { ok: true, data: { status: data as string } };
 }

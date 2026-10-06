@@ -5,6 +5,7 @@
   "buildCommand": "npm run build",
   "crons": [
     { "path": "/api/cron/email", "schedule": "0 12 * * *" },
-    { "path": "/api/cron/safety", "schedule": "30 7 * * *" }
+    { "path": "/api/cron/safety", "schedule": "30 7 * * *" },
+    { "path": "/api/cron/verify?scope=all", "schedule": "45 8 * * *" }
   ]
 }

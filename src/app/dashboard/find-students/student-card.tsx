@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertCircle, Check, HandHeart, MessageCircle } from "lucide-react";
+import { AlertCircle, CalendarPlus, Check, HandHeart, MessageCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,9 @@ import { Select, Textarea } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { MatchScore } from "@/components/dashboard/tutor-card";
 import { goalLabel, interestLabel, LEVEL_INFO, type Level } from "@/lib/constants";
-import { formatRelative } from "@/lib/time";
-import { offerToTeach } from "@/app/actions/lessons";
+import { easternDateOffset, formatRelative } from "@/lib/time";
+import { offerToTeach, proposeLesson } from "@/app/actions/lessons";
+import { DateTimeFields, type DateTimeValue } from "@/components/forms/date-time-fields";
 import { messageViolation } from "@/lib/moderation";
 import { cn } from "@/lib/cn";
 
@@ -44,8 +45,9 @@ const TIER: Record<string, { label: string; tone: Tone }> = {
   full: { label: "Match", tone: "neutral" },
 };
 
-export function StudentCard({ s, canOffer, blockedReason }: { s: StudentCardData; canOffer: boolean; blockedReason?: string }) {
+export function StudentCard({ s, canOffer, blockedReason, durations }: { s: StudentCardData; canOffer: boolean; blockedReason?: string; durations: number[] }) {
   const [open, setOpen] = useState(false);
+  const [proposing, setProposing] = useState(false);
   const [subject, setSubject] = useState(s.match?.subjectId ?? s.offerable[0]?.subjectId ?? "");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +107,9 @@ export function StudentCard({ s, canOffer, blockedReason }: { s: StudentCardData
       </div>
 
       <div className="mt-auto pt-4">
-        {sent ? (
+        {proposing ? (
+          <ProposeForm s={s} durations={durations} onClose={() => setProposing(false)} />
+        ) : sent ? (
           <Notice tone="success">
             Offer sent! {s.firstName} got an email.{" "}
             <Link href={`/dashboard/messages/${sent}`} className="font-medium underline underline-offset-2">
@@ -113,14 +117,28 @@ export function StudentCard({ s, canOffer, blockedReason }: { s: StudentCardData
             </Link>
           </Notice>
         ) : s.connected && s.threadId ? (
-          <Link
-            href={`/dashboard/messages/${s.threadId}`}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-2 px-4 text-sm font-medium hover:border-ink/30"
-          >
-            <MessageCircle className="size-4" /> Message
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {s.offerable.length > 0 && (
+              <Button size="sm" onClick={() => setProposing(true)}>
+                <CalendarPlus className="size-4" /> Propose a time
+              </Button>
+            )}
+            <Link
+              href={`/dashboard/messages/${s.threadId}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line-2 px-4 text-sm font-medium hover:border-ink/30"
+            >
+              <MessageCircle className="size-4" /> Message
+            </Link>
+          </div>
         ) : recentlyOffered ? (
-          <p className="text-[13px] text-muted">You offered {formatRelative(s.offeredAt!)} — waiting for them to reply.</p>
+          <div className="space-y-2">
+            <p className="text-[13px] text-muted">You offered {formatRelative(s.offeredAt!)} — waiting for them to reply.</p>
+            {canOffer && s.offerable.length > 0 && (
+              <Button size="sm" variant="secondary" onClick={() => setProposing(true)}>
+                <CalendarPlus className="size-4" /> Propose a time
+              </Button>
+            )}
+          </div>
         ) : !s.offerable.length ? null : !canOffer ? (
           <p className="text-[13px] text-muted">{blockedReason}</p>
         ) : open ? (
@@ -171,11 +189,85 @@ export function StudentCard({ s, canOffer, blockedReason }: { s: StudentCardData
             </p>
           </form>
         ) : (
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <HandHeart className="size-4" /> Offer to teach
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => setProposing(true)}>
+              <CalendarPlus className="size-4" /> Propose a time
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+              <HandHeart className="size-4" /> Offer to teach
+            </Button>
+          </div>
         )}
       </div>
     </article>
+  );
+}
+
+const WEEK_CHOICES = [1, 4, 8, 12];
+
+/** A tutor proposes a specific time (or weekly lessons). Nothing is booked until the family accepts. */
+function ProposeForm({ s, durations, onClose }: { s: StudentCardData; durations: number[]; onClose: () => void }) {
+  const [subject, setSubject] = useState(s.match?.subjectId ?? s.offerable[0]?.subjectId ?? "");
+  const [dt, setDt] = useState<DateTimeValue>({ date: easternDateOffset(2), time: "", minutes: durations.includes(45) ? 45 : durations[0] });
+  const [weeks, setWeeks] = useState(1);
+  const [note, setNote] = useState("");
+  const [attest, setAttest] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  if (done) return <Notice tone="success">{done}</Notice>;
+  return (
+    <form
+      noValidate
+      className="space-y-3 animate-fade"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const v = note.trim() ? messageViolation(note) : null;
+        if (v) return setError(`Your note can’t include ${v}.`);
+        start(async () => {
+          setError(null);
+          const r = await proposeLesson({ studentId: s.id, subjectId: subject, ...dt, weeks, note, attest: attest as true });
+          if (r?.ok) setDone(r.message ?? "Proposed!");
+          else if (r) setError(r.error.message);
+        });
+      }}
+    >
+      <p className="eyebrow">Propose a lesson to {s.firstName}</p>
+      {s.offerable.length > 1 && (
+        <Select aria-label="Instrument" value={subject} onChange={(e) => setSubject(e.target.value)}>
+          {s.offerable.map((o) => (
+            <option key={o.subjectId} value={o.subjectId}>
+              {o.name}
+            </option>
+          ))}
+        </Select>
+      )}
+      <DateTimeFields value={dt} onChange={setDt} min={easternDateOffset(0)} max={easternDateOffset(89)} durations={durations} />
+      <Select aria-label="How many weeks" value={String(weeks)} onChange={(e) => setWeeks(Number(e.target.value))}>
+        {WEEK_CHOICES.map((w) => (
+          <option key={w} value={w}>
+            {w === 1 ? "Just this lesson" : `Weekly, ${w} weeks`}
+          </option>
+        ))}
+      </Select>
+      <Textarea aria-label="Short note" placeholder="Optional note. No contact info." value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={2} className="min-h-16" />
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-paper-2/60 p-3 text-[12.5px] leading-snug text-ink-2">
+        <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} className="mt-0.5 size-4 accent-pine-700" />
+        <span>
+          I’ll follow the <Link href="/legal/tutor-agreement" className="underline underline-offset-2" target="_blank">Tutor Agreement</Link>: online only, never recorded, a parent reachable, and all contact on this site.
+        </span>
+      </label>
+      {error && <Notice tone="danger">{error}</Notice>}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" pending={pending} disabled={!attest || !dt.time}>
+          Send proposal
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+      <p className="text-[11.5px] leading-snug text-faint">Nothing is booked until {s.firstName}’s family accepts. They can also suggest another time.</p>
+    </form>
   );
 }

@@ -244,14 +244,14 @@ begin
   log := log || 'messaging ok; ';
 
   -- ===== after the lesson: log -> confirm -> verify =====
-  begin perform public.log_session(sess, true, null); ok := false;
+  begin perform public.log_session(sess, true, null, null, true); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'TOO_EARLY'; end;
   if not ok then raise exception 'FAIL logged future lesson'; end if;
   execute 'reset role';
   update public.sessions set start_at = now() - interval '2 hours', end_at = now() - interval '75 minutes' where id = sess;
   perform set_config('request.jwt.claims', json_build_object('sub', t1, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  if public.log_session(sess, true, 'Worked on long tones') <> 'completed' then raise exception 'FAIL log'; end if;
+  if public.log_session(sess, true, 'Worked on long tones', null, true) <> 'completed' then raise exception 'FAIL log'; end if;
 
   execute 'reset role';
   perform set_config('request.jwt.claims', json_build_object('sub', rev, 'role', 'authenticated')::text, true);

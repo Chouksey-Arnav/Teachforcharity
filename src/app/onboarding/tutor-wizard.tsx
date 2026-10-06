@@ -168,7 +168,7 @@ export function TutorWizard({
         <p className="mx-auto mt-4 max-w-lg text-[16px] leading-relaxed text-muted">
           {active
             ? "Families can now find you. When someone requests a lesson, you’ll get an email and see it on your dashboard."
-            : `We just emailed ${p.guardianEmail || "your parent or guardian"} a link to approve you — tutors are minors too, so a parent says yes first. After that, the program team reviews your profile (usually within a couple of days) and we’ll email you the moment families can see you.`}
+            : `We just emailed ${p.guardianEmail || "your parent or guardian"} a link to approve you — tutors are minors too, so a parent says yes first. As soon as they do, our automated account check reviews your profile — usually within minutes — and we’ll email you the moment families can see you.`}
         </p>
         <LinkButton href="/dashboard" size="lg" className="mt-8">
           Go to my dashboard
@@ -412,7 +412,7 @@ export function TutorWizard({
       {...shared}
       nextLabel="Sign & ask my parent"
       title="The tutor agreement"
-      description={`These are the rules that keep students — and you — safe. Then we’ll email your parent or guardian to approve${requireApproval ? ", and the program team reviews your profile" : ""}.`}
+      description={`These are the rules that keep students — and you — safe. Then we’ll email your parent or guardian to approve, and our automated account check reviews your profile${requireApproval ? " before the program team approves it" : ""}.`}
     >
       <div className="space-y-6">
         <div className="divide-y divide-line rounded-2xl border border-line bg-card">
