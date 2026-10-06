@@ -30,11 +30,20 @@ const hrs = (m: number) => (m / 60).toFixed(1).replace(/\.0$/, "");
 
 export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; passwordUpdated?: boolean }) {
   const supabase = await createClient();
-  const [action, upcoming, all] = await Promise.all([getMySessions(supabase, "action"), getMySessions(supabase, "upcoming", 5), getMySessions(supabase, "all", 500)]);
+  const [action, upcoming, all, { data: checkData }] = await Promise.all([
+    getMySessions(supabase, "action"),
+    getMySessions(supabase, "upcoming", 5),
+    getMySessions(supabase, "all", 500),
+    supabase.rpc("my_account_check"),
+  ]);
+  const check = checkData as { status: string; hints: string[] } | null;
+  const hints = check?.hints ?? [];
   const t = viewer.tutor!;
   const sum = (st: string[]) => all.filter((s) => st.includes(s.status)).reduce((a, s) => a + s.duration_minutes, 0);
-  const verified = sum(["verified"]);
-  const pendingV = sum(["completed", "confirmed"]);
+  // Two-step hours: the student verifies attendance, then the partner nonprofit certifies.
+  const certified = sum(["verified"]);
+  const studentVerified = sum(["confirmed", "verified"]);
+  const awaitingStudent = sum(["completed"]);
   const activeStudents = new Set(
     all.filter((s) => ["pending", "scheduled", "completed", "confirmed", "verified"].includes(s.status) && new Date(s.start_at).getTime() > Date.now() - 45 * 86400000).map((s) => s.student_id),
   ).size;
@@ -43,10 +52,10 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
   const steps: SetupStep[] = [
     { label: "Add a photo & intro", detail: "Families are far more likely to pick a tutor with a photo and a short intro.", done: Boolean(viewer.profile.avatar_path && t.bio), href: "/dashboard/profile", cta: "Edit profile" },
     { label: "Parent approves", detail: "Your parent or guardian approves from the email we sent them.", done: Boolean(t.guardian_approved_at) },
-    { label: "Profile goes live", detail: "The program team reviews your profile — we’ll email you when families can see you.", done: t.status === "active" },
+    { label: "Profile goes live", detail: "Our automated account check reviews your profile right after your parent approves — we’ll email you when families can see you.", done: t.status === "active" },
     { label: "Book a first lesson", detail: "Offer to teach a matched student, or accept a request under Lessons.", done: has(["scheduled", "completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/find-students", cta: "Find students" },
-    { label: "Log it afterward", detail: "After a lesson ends, open Lessons and log it so the family can confirm.", done: has(["completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/lessons", cta: "Open lessons" },
-    { label: "Hours verified", detail: "Once the family confirms, the partner nonprofit verifies your hours each week.", done: has(["verified"]), href: "/dashboard/hours", cta: "See hours" },
+    { label: "Log it afterward", detail: "After a lesson ends, log it truthfully under Lessons. Your student confirms you were there next time they open the site.", done: has(["completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/lessons", cta: "Open lessons" },
+    { label: "Hours verified", detail: "Your student verifies you were there, then the partner nonprofit certifies the hours each week.", done: has(["confirmed", "verified"]), href: "/dashboard/hours", cta: "See hours" },
   ];
 
   return (
@@ -62,9 +71,30 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
         <TutorGuardianStatus guardianName={t.guardian_name ?? ""} guardianEmail={t.guardian_email ?? ""} lastSent={t.guardian_last_invited_at} />
       )}
       {t.status === "pending" && t.guardian_approved_at && (
-        <Notice tone="info" className="mb-6" title="Your profile is being reviewed">
-          The program team reviews every tutor before families can see them — usually within a couple of days. We’ll email you when you’re approved.
-          Meanwhile, you can polish your <Link href="/dashboard/profile" className="underline underline-offset-2">profile</Link>.
+        <Notice tone="info" className="mb-6" title={check?.status === "review" || check?.status === "blocked" ? "Your profile needs a closer look" : "Your profile is being checked"}>
+          {check?.status === "review" || check?.status === "blocked"
+            ? "Our automated account check sent your profile to the program team for a closer look. They’ll be in touch, usually within a couple of days."
+            : "Our automated account check reviews every tutor before families can see them — usually within minutes. We’ll email you when you’re live."}
+          {hints.length > 0 && (
+            <>
+              {" "}You can speed things up:
+              <ul className="mt-2 list-disc space-y-0.5 pl-5">
+                {hints.map((h) => (
+                  <li key={h}>{h}</li>
+                ))}
+              </ul>
+            </>
+          )}{" "}
+          Edit your <Link href="/dashboard/profile" className="underline underline-offset-2">profile</Link>.
+        </Notice>
+      )}
+      {t.status === "active" && hints.length > 0 && (
+        <Notice tone="info" className="mb-6" title="Make your profile stronger">
+          <ul className="list-disc space-y-0.5 pl-5">
+            {hints.map((h) => (
+              <li key={h}>{h}</li>
+            ))}
+          </ul>
         </Notice>
       )}
       {t.status === "paused" && (
@@ -81,8 +111,8 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
       {(t.status === "active" || t.status === "pending") && <SetupSteps title="Getting started as a tutor" steps={steps} />}
 
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat href="/dashboard/hours" icon={Clock3} label="Verified hours" value={hrs(verified)} hint="Your hours record" />
-        <Stat href="/dashboard/lessons?tab=history" icon={Hourglass} label="Awaiting verification" value={hrs(pendingV)} hint="Logged or confirmed" />
+        <Stat href="/dashboard/hours" icon={Clock3} label="Student-verified hours" value={hrs(studentVerified)} hint={`${hrs(certified)} certified by the partner`} />
+        <Stat href="/dashboard/lessons?tab=history" icon={Hourglass} label="Awaiting student check-in" value={hrs(awaitingStudent)} hint="Logged, not yet confirmed" />
         <Stat href="/dashboard/lessons?tab=upcoming" icon={Users} label="Active students" value={`${activeStudents}/${t.max_students}`} hint="Change your limit in Profile" />
         <Stat href="/dashboard/lessons?tab=upcoming" icon={CalendarDays} label="Upcoming lessons" value={String(upcoming.filter((u) => u.status === "scheduled").length)} hint="See your schedule" />
       </div>

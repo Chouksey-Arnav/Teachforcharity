@@ -1035,6 +1035,9 @@ export type Database = {
           decline_reason: string | null
           duration_minutes: number
           end_at: string
+          family_attendance: string | null
+          family_attendance_at: string | null
+          family_attested_at: string | null
           family_id: string
           family_join_ack_at: string | null
           family_responded_at: string | null
@@ -1043,6 +1046,7 @@ export type Database = {
           practice_plan: string | null
           proposal_round: number
           proposed_by: string
+          proposer_attested_at: string | null
           request_note: string | null
           review_note: string | null
           series_id: string | null
@@ -1051,10 +1055,12 @@ export type Database = {
           status: Database["public"]["Enums"]["session_status"]
           student_id: string
           subject_id: string
+          tutor_attested_at: string | null
           tutor_id: string
           tutor_join_ack_at: string | null
           tutor_log_note: string | null
           tutor_logged_at: string | null
+          tutor_verdict_seen_at: string | null
           updated_at: string
           verified_at: string | null
           verified_by: string | null
@@ -1066,6 +1072,9 @@ export type Database = {
           decline_reason?: string | null
           duration_minutes: number
           end_at: string
+          family_attendance?: string | null
+          family_attendance_at?: string | null
+          family_attested_at?: string | null
           family_id: string
           family_join_ack_at?: string | null
           family_responded_at?: string | null
@@ -1074,6 +1083,7 @@ export type Database = {
           practice_plan?: string | null
           proposal_round?: number
           proposed_by: string
+          proposer_attested_at?: string | null
           request_note?: string | null
           review_note?: string | null
           series_id?: string | null
@@ -1082,10 +1092,12 @@ export type Database = {
           status?: Database["public"]["Enums"]["session_status"]
           student_id: string
           subject_id: string
+          tutor_attested_at?: string | null
           tutor_id: string
           tutor_join_ack_at?: string | null
           tutor_log_note?: string | null
           tutor_logged_at?: string | null
+          tutor_verdict_seen_at?: string | null
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
@@ -1097,6 +1109,9 @@ export type Database = {
           decline_reason?: string | null
           duration_minutes?: number
           end_at?: string
+          family_attendance?: string | null
+          family_attendance_at?: string | null
+          family_attested_at?: string | null
           family_id?: string
           family_join_ack_at?: string | null
           family_responded_at?: string | null
@@ -1105,6 +1120,7 @@ export type Database = {
           practice_plan?: string | null
           proposal_round?: number
           proposed_by?: string
+          proposer_attested_at?: string | null
           request_note?: string | null
           review_note?: string | null
           series_id?: string | null
@@ -1113,10 +1129,12 @@ export type Database = {
           status?: Database["public"]["Enums"]["session_status"]
           student_id?: string
           subject_id?: string
+          tutor_attested_at?: string | null
           tutor_id?: string
           tutor_join_ack_at?: string | null
           tutor_log_note?: string | null
           tutor_logged_at?: string | null
+          tutor_verdict_seen_at?: string | null
           updated_at?: string
           verified_at?: string | null
           verified_by?: string | null
@@ -1500,6 +1518,10 @@ export type Database = {
           teaching_style: string | null
           updated_at: string
           user_id: string
+          verification_checked_at: string | null
+          verification_cleared_fp: string | null
+          verification_hints: string[]
+          verification_status: string
           verify_code: string | null
         }
         Insert: {
@@ -1535,6 +1557,10 @@ export type Database = {
           teaching_style?: string | null
           updated_at?: string
           user_id: string
+          verification_checked_at?: string | null
+          verification_cleared_fp?: string | null
+          verification_hints?: string[]
+          verification_status?: string
           verify_code?: string | null
         }
         Update: {
@@ -1570,6 +1596,10 @@ export type Database = {
           teaching_style?: string | null
           updated_at?: string
           user_id?: string
+          verification_checked_at?: string | null
+          verification_cleared_fp?: string | null
+          verification_hints?: string[]
+          verification_status?: string
           verify_code?: string | null
         }
         Relationships: [
@@ -1634,12 +1664,85 @@ export type Database = {
           },
         ]
       }
+      tutor_verifications: {
+        Row: {
+          action: string | null
+          checks: Json
+          created_at: string
+          decision: string
+          effective_decision: string
+          fingerprint: string
+          id: number
+          pipeline_version: string
+          risk: number
+          source: string
+          summary: string
+          tutor_id: string
+        }
+        Insert: {
+          action?: string | null
+          checks?: Json
+          created_at?: string
+          decision: string
+          effective_decision: string
+          fingerprint: string
+          id?: never
+          pipeline_version: string
+          risk: number
+          source: string
+          summary: string
+          tutor_id: string
+        }
+        Update: {
+          action?: string | null
+          checks?: Json
+          created_at?: string
+          decision?: string
+          effective_decision?: string
+          fingerprint?: string
+          id?: never
+          pipeline_version?: string
+          risk?: number
+          source?: string
+          summary?: string
+          tutor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_verifications_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       accept_terms: { Args: { p_kind: string }; Returns: undefined }
+      ack_attendance_verdicts: {
+        Args: { p_sessions: string[] }
+        Returns: number
+      }
+      admin_account_checks: {
+        Args: { p_decision?: string; p_limit?: number }
+        Returns: {
+          action: string
+          checks: Json
+          created_at: string
+          decision: string
+          effective_decision: string
+          risk: number
+          source: string
+          summary: string
+          tutor_id: string
+          tutor_name: string
+          tutor_status: Database["public"]["Enums"]["tutor_status"]
+        }[]
+      }
       admin_activity: {
         Args: { p_action?: string; p_before?: number; p_limit?: number }
         Returns: {
@@ -1911,6 +2014,15 @@ export type Database = {
         Args: { p_consent: string; p_note: string; p_verified: boolean }
         Returns: undefined
       }
+      answer_attendance: {
+        Args: {
+          p_attest: boolean
+          p_note?: string
+          p_present: boolean
+          p_session: string
+        }
+        Returns: Database["public"]["Enums"]["session_status"]
+      }
       attest_guardian: { Args: never; Returns: undefined }
       auth_user_by_email: {
         Args: { p_email: string }
@@ -2095,6 +2207,7 @@ export type Database = {
       }
       log_session: {
         Args: {
+          p_attest?: boolean
           p_happened: boolean
           p_note?: string
           p_practice?: string
@@ -2146,6 +2259,35 @@ export type Database = {
           thread_id: string
         }[]
       }
+      my_account_check: { Args: never; Returns: Json }
+      my_attendance_prompts: {
+        Args: never
+        Returns: {
+          duration_minutes: number
+          end_at: string
+          session_id: string
+          start_at: string
+          student_name: string
+          subject_name: string
+          tutor_avatar: string
+          tutor_logged: boolean
+          tutor_name: string
+        }[]
+      }
+      my_attendance_verdicts: {
+        Args: never
+        Returns: {
+          answered_at: string
+          attendance: string
+          duration_minutes: number
+          session_id: string
+          start_at: string
+          status: Database["public"]["Enums"]["session_status"]
+          student_name: string
+          subject_name: string
+          tutor_joined: boolean
+        }[]
+      }
       my_offers: {
         Args: never
         Returns: {
@@ -2171,6 +2313,7 @@ export type Database = {
           decline_reason: string
           duration_minutes: number
           end_at: string
+          family_attendance: string
           family_name: string
           family_responded_at: string
           family_response_note: string
@@ -2196,6 +2339,7 @@ export type Database = {
           thread_id: string
           tutor_avatar: string
           tutor_id: string
+          tutor_joined: boolean
           tutor_log_note: string
           tutor_logged_at: string
           tutor_name: string
@@ -2411,9 +2555,34 @@ export type Database = {
         Args: { p_note?: string; p_student: string; p_subject: string }
         Returns: string
       }
+      tutor_propose_session: {
+        Args: {
+          p_attest?: boolean
+          p_minutes: number
+          p_note?: string
+          p_start: string
+          p_student: string
+          p_subject: string
+          p_weeks?: number
+        }
+        Returns: string
+      }
       tutor_update_guardian: {
         Args: { p_email: string; p_name: string; p_phone?: string }
         Returns: undefined
+      }
+      verification_apply: {
+        Args: { p_results: Json; p_source: string }
+        Returns: Json
+      }
+      verification_inputs: {
+        Args: {
+          p_after?: string
+          p_limit?: number
+          p_scope?: string
+          p_tutor?: string
+        }
+        Returns: Json
       }
     }
     Enums: {

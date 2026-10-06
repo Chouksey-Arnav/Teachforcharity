@@ -99,6 +99,32 @@ function make(subject: string, b: Omit<Block, "textLines"> & { textLines?: strin
 
 export function renderEmail(template: string, p: P): RenderedEmail | null {
   switch (template) {
+    case "session_proposed": {
+      const forGuardian = Boolean(p.guardian);
+      return make(
+        isSeries(p)
+          ? `${str(p.tutor_name)} proposed weekly ${str(p.subject)} lessons for ${str(p.student_name)}`
+          : `${str(p.tutor_name)} proposed a ${str(p.subject)} lesson for ${str(p.student_name)} — ${str(p.when)}`,
+        {
+          heading: isSeries(p) ? "A tutor proposed weekly lessons" : "A tutor proposed a lesson",
+          paragraphs: [
+            hi(p),
+            `<strong>${esc(p.tutor_name)}</strong> proposed ${isSeries(p) ? `${esc(p.weeks)} weekly ${esc(p.minutes)}-minute` : `a ${esc(p.minutes)}-minute`} <strong>${esc(p.subject)}</strong> ${isSeries(p) ? "lessons" : "lesson"} for ${esc(p.student_name)}.`,
+            forGuardian
+              ? "This is just so you know. Nothing is booked unless your student accepts, and you can read every message on the parent page."
+              : "Nothing is booked until you accept. You can also suggest another time or decline.",
+          ],
+          details: [
+            ["When", esc(whenText(p))],
+            ["Length", `${esc(p.minutes)} minutes`],
+            ...(p.note ? ([["Tutor's note", esc(p.note)]] as [string, string][]) : []),
+          ],
+          cta: forGuardian ? undefined : { label: "Review the proposal", href: lessonsLink(p) },
+          note: "Proposals expire automatically if the time passes without an answer.",
+        },
+      );
+    }
+
     case "session_requested":
       return make(
         isSeries(p)
@@ -377,8 +403,8 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           hi(p),
           `${esc(p.guardian_first) || "Your parent"} approved you to volunteer.`,
           p.needs_review
-            ? "Next, the program team reviews your profile — usually within a couple of days. We’ll email you the moment families can see you."
-            : "Your profile is live: families can now find you and request lessons.",
+            ? "Next, our automated account check reviews your profile, then the program team approves it — usually within a couple of days. We’ll email you the moment families can see you."
+            : "Next, our automated account check reviews your profile — usually within minutes. We’ll email you the moment families can see you.",
         ],
         cta: { label: "Open your dashboard", href: link("/dashboard") },
       });
@@ -462,6 +488,20 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         cta: { label: "Review tutors", href: link("/admin/people?kind=tutor") },
       });
 
+    case "tutor_account_check": {
+      const blocked = p.decision === "blocked";
+      const action = p.action === "paused" ? "They were paused automatically and their upcoming lessons were cancelled." : p.action === "held" ? "They're held back from going live." : "Nothing changed on their account.";
+      return make(`${blocked ? "URGENT: " : ""}Account check ${blocked ? "blocked" : "flagged"} ${str(p.tutor_name)}`, {
+        heading: blocked ? "A tutor account was blocked by the account check" : "A tutor account needs a person to look",
+        paragraphs: [
+          `The automated account check ${blocked ? "<strong>blocked</strong>" : "flagged"} <strong>${esc(p.tutor_name)}</strong>. ${esc(action)}`,
+          "If it's a false alarm, make the tutor live from their page — the same findings won't be raised again.",
+        ],
+        details: p.summary ? [["Findings", esc(p.summary)]] : undefined,
+        cta: { label: "Open account checks", href: link("/admin/checks") },
+      });
+    }
+
     case "tutor_status_changed": {
       const s = str(p.status);
       const first = Boolean(p.first_approval);
@@ -495,9 +535,17 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
 
     case "session_disputed":
       return make(`Disputed lesson: ${str(p.tutor_name)} / ${str(p.student_name)}`, {
-        heading: "A family said a lesson didn't happen",
+        heading: "A student said their tutor wasn't there",
         paragraphs: [`${esc(p.student_name)}'s family disputed a lesson logged by <strong>${esc(p.tutor_name)}</strong> on ${esc(p.when)}.`],
-        details: p.note ? [["Family note", esc(p.note)]] : undefined,
+        details: [
+          ...(p.note ? [["Family note", esc(p.note)] as [string, string]] : []),
+          ...(p.tutor_joined === undefined
+            ? []
+            : [
+                ["Tutor opened the lesson", p.tutor_joined ? "Yes" : "No"] as [string, string],
+                ["Family opened the lesson", p.family_joined ? "Yes" : "No"] as [string, string],
+              ]),
+        ],
         cta: { label: "Review disputed lessons", href: link("/admin/lessons?status=disputed") },
       });
 

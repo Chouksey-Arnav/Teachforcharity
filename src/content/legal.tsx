@@ -18,6 +18,11 @@ const V = "2026-09-v1";
 // app_settings versions must match (migration 20260928000800_legal_v2.sql).
 const EFFECTIVE_V2 = "October 1, 2026";
 const V2 = "2026-09-v2";
+// Terms and Privacy revised for the automated tutor account check (instead of an administrator
+// approving every Tutor), on-site attendance check-ins, truthfulness confirmations, and Tutors
+// proposing lesson times. Must match app_settings.terms_version (migration 20261006000400_legal_v3.sql).
+const EFFECTIVE_V3 = "October 6, 2026";
+const V3 = "2026-10-v3";
 const N = SITE.name;
 
 const Contact = () => (SITE.contactEmail ? <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> : <>{contactLine()}</>);
@@ -27,8 +32,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
     slug: "terms",
     title: "Terms of Service",
     summary: "The rules for using the site, for students, parents and tutors alike.",
-    version: V2,
-    effective: EFFECTIVE_V2,
+    version: V3,
+    effective: EFFECTIVE_V3,
     body: (
       <>
         <p>
@@ -58,8 +63,9 @@ export const LEGAL_DOCS: LegalDoc[] = [
           <li>
             <strong>Tutor accounts</strong> are for high school students in grades 9–12. A Tutor must sign the{" "}
             <Link href="/legal/tutor-agreement">Tutor Agreement</Link> and give a parent or guardian’s name and email. That parent or
-            guardian must approve the Tutor’s participation from the link we email them, and a Program administrator must approve the
-            Tutor, before the Tutor is shown to Students. A parent or guardian can withdraw their approval at any time, which pauses the
+            guardian must approve the Tutor’s participation from the link we email them, and the Tutor’s account must pass the Program’s
+            automated account check (section 8), before the Tutor is shown to Students. Accounts the check can’t clear are reviewed by a
+            Program administrator. A parent or guardian can withdraw their approval at any time, which pauses the
             Tutor. Tutors may be paused or removed at any time (see section 8).
           </li>
           <li>
@@ -97,10 +103,13 @@ export const LEGAL_DOCS: LegalDoc[] = [
 
         <h2>5. Volunteer hours</h2>
         <p>
-          The Program records lessons that the Tutor logs and the family confirms, and our nonprofit partner (or, until a partner is
-          confirmed, the Program administrator) reviews and verifies them weekly. The Program does not guarantee that any school,
-          honor society, or other organization will accept these hours toward its requirements. Hours that are not confirmed by the
-          family, or that are rejected on review, are not counted. A Tutor may create a private link that lets an organization they
+          Hours are verified in two steps. After a lesson ends, the Tutor logs whether it happened, and the next time the Student’s
+          account (or their parent’s) opens the site, it asks whether the Tutor was there (step 1). Our nonprofit partner (or, until a
+          partner is confirmed, the Program administrator) then reviews student-verified lessons weekly and certifies them (step 2).
+          Only certified hours appear on a Tutor’s printable record and verification link. If the Student says the Tutor wasn’t there,
+          the lesson does not count and is reviewed by the Program. The Program does not guarantee that any school, honor society, or
+          other organization will accept these hours toward its requirements. Hours that are not confirmed, or that are rejected on
+          review, are not counted. A Tutor may create a private link that lets an organization they
           choose see their verified totals, and can turn it off at any time.
         </p>
 
@@ -108,20 +117,37 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <p>
           Tutor skill levels and experience are self-reported and are not independently verified. Match scores are a suggestion based on
           the information users provide (such as instruments, level, availability, goals, and interests). Students and parents decide
-          which Tutor to request, and Tutors decide which requests to accept. Tutors may offer to teach a Student; the Student or parent
-          decides whether to accept.
+          which Tutor to request, and Tutors decide which requests to accept. Tutors may offer to teach a Student or propose a lesson
+          time; nothing is booked unless the Student or parent accepts.
         </p>
 
         <h2>7. Your responsibilities</h2>
         <ul>
           <li>Provide accurate information and keep it up to date.</li>
+          <li>
+            Answer truthfully whenever the site asks you to confirm something, including whether a lesson happened. Tutors confirm each
+            lesson log is truthful, and Students and parents confirm each attendance answer is truthful. A false log or answer affects
+            someone’s official volunteer record and may lead to removal from the Program; we may tell the nonprofit partner verifying
+            hours.
+          </li>
           <li>Keep your password secure and do not share your account. Sign out on shared devices.</li>
           <li>Follow the Messaging Guidelines and Code of Conduct.</li>
           <li>Keep all Program communication on the Program’s messaging system.</li>
           <li>Report any concern immediately using “Report a concern” in your dashboard. In an emergency, call 911 first.</li>
         </ul>
 
-        <h2>8. Safety reviews, pausing, and removal</h2>
+        <h2>8. Automated checks, safety reviews, pausing, and removal</h2>
+        <p>
+          <strong>Tutor account check.</strong> Every Tutor account is checked automatically when the Tutor signs up or changes their
+          profile, and again every day. The check reads the Tutor’s names, their parent or guardian’s name and email, school, grade, bio,
+          and Google Meet link; every message in the Tutor’s conversations from the last 30 days; open safety flags and reports involving
+          the Tutor; and lesson attendance records. It looks for things like faked parent approval, contact details or payment requests
+          in a profile, unsafe language, patterns of concern across a conversation, a Student asking the Tutor to stop, and Students
+          repeatedly saying the Tutor wasn’t at a logged lesson. A Tutor who passes goes live once their parent has approved. A Tutor who
+          doesn’t pass waits, or, for a serious safety signal, is paused and their upcoming lessons are cancelled. In both cases a
+          Program administrator reviews the account. The check never lifts a pause; only a person does. If you think a decision about
+          your account is wrong, contact <Contact /> or use “Report a concern,” and a person will review it.
+        </p>
         <p>
           The Program may review messages, lesson records, and reports to keep participants safe. Messages are checked automatically by
           software that runs on our own systems, without sending message contents to any outside or artificial-intelligence service;
@@ -169,8 +195,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
     slug: "privacy",
     title: "Privacy Policy",
     summary: "What we collect, why, who can see it, and how to delete it.",
-    version: V2,
-    effective: EFFECTIVE_V2,
+    version: V3,
+    effective: EFFECTIVE_V3,
     body: (
       <>
         <p>
@@ -229,6 +255,15 @@ export const LEGAL_DOCS: LegalDoc[] = [
             about when a Tutor becomes available.
           </li>
           <li>Messages sent through the Program, the results of automated safety checks on them, and any reports submitted.</li>
+          <li>
+            For Tutors: the results of the automated account check (each check’s outcome, a risk score, and short quotes of what
+            triggered it), kept for 180 days, plus the latest result. Tutors see their status and any profile fixes they can make;
+            only Program administrators see the full results.
+          </li>
+          <li>
+            Each Student’s or parent’s answer to “was the Tutor there?”, with the time and their confirmation that it’s truthful, and
+            each Tutor’s confirmation that their lesson log is truthful.
+          </li>
           <li>A security log of account events such as sign-ins, sign-outs, password resets, and consent changes.</li>
           <li>
             A random identifier stored in a cookie on each device you sign in from, with a short description such as “Chrome on Mac,” so
@@ -289,6 +324,11 @@ export const LEGAL_DOCS: LegalDoc[] = [
             To keep participants safe, including filtering messages, running automated safety checks, and investigating reports. Our
             safety checks run on our own systems using fixed rules; message contents are never sent to an artificial-intelligence or
             other outside analysis service.
+          </li>
+          <li>
+            To decide automatically whether a Tutor’s account can be shown to Students (the account check described in section 8 of the{" "}
+            <Link href="/legal/terms">Terms</Link>). It uses the same fixed rules on our own systems. Accounts it doesn’t clear are
+            reviewed by a person, and anyone can ask for a person to review a decision about their account.
           </li>
         </ul>
         <p>We do not sell or rent personal information, and we do not use it for advertising or marketing.</p>
@@ -441,13 +481,14 @@ export const LEGAL_DOCS: LegalDoc[] = [
     slug: "tutor-agreement",
     title: "Tutor Agreement",
     summary: "What every tutor commits to before teaching.",
-    version: V2,
-    effective: EFFECTIVE_V2,
+    version: V3,
+    effective: EFFECTIVE_V3,
     body: (
       <>
         <p>
           Every Tutor signs this agreement. Before their profile is shown to Students, their parent or guardian must approve their
-          participation from the link we email them, and a Program administrator must approve the Tutor.
+          participation from the link we email them, and the Tutor’s account must pass the Program’s automated account check (see section 8
+          of the <Link href="/legal/terms">Terms</Link>). Accounts the check can’t clear are reviewed by a Program administrator.
         </p>
         <h2>As a Tutor, I agree to:</h2>
         <ol>
@@ -462,8 +503,10 @@ export const LEGAL_DOCS: LegalDoc[] = [
           </li>
           <li>Never accept payment or gifts, and never discuss money with a family.</li>
           <li>
-            Show up on time, cancel through the dashboard as early as possible if I can’t make it, and log every lesson honestly. Practice
-            notes I write are shared with the family.
+            Show up on time, cancel through the dashboard as early as possible if I can’t make it, and log every lesson honestly — I
+            confirm each log is truthful. I understand the Student is asked whether I was there, that a lesson they say I missed doesn’t
+            count, and that false logs can get me removed and may be reported to the partner verifying hours. Practice notes I write are
+            shared with the family.
           </li>
           <li>Only list instruments I actually play, and describe my skill level honestly.</li>
           <li>Follow the Messaging Guidelines and Code of Conduct.</li>
@@ -472,9 +515,10 @@ export const LEGAL_DOCS: LegalDoc[] = [
             in the dashboard.
           </li>
           <li>
-            Understand that my account becomes active only after my parent or guardian and a Program administrator approve it, that I am
-            paused if my parent or guardian withdraws their approval, that I may be paused automatically when a report or serious safety
-            flag is raised while it is investigated, and that I may be removed if I break this agreement. Hours from lessons that aren’t
+            Understand that my account becomes active only after my parent or guardian approves it and it passes the automated account
+            check, that the check runs again every day over my profile, messages, reports and attendance, that I am paused if my parent or
+            guardian withdraws their approval, that I may be paused automatically when a report, serious safety flag or the account check
+            raises a concern while it is investigated, and that I may be removed if I break this agreement. Hours from lessons that aren’t
             confirmed or are rejected on review won’t count.
           </li>
         </ol>

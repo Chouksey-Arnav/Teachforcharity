@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { toActionError, type ActionState } from "@/lib/errors";
+import { kickAccountCheck } from "@/lib/verification/runner";
 
 async function session() {
   const supabase = await createClient();
@@ -63,6 +64,7 @@ export async function updateAccount(input: z.input<typeof account>): Promise<Act
     })
     .eq("id", uid);
   if (error) return { ok: false, error: toActionError(error) };
+  if (me?.role === "tutor") kickAccountCheck(uid);
   revalidatePath("/dashboard", "layout");
   return { ok: true, message: "Saved." };
 }

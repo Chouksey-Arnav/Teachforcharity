@@ -13,6 +13,7 @@ import { signOut } from "@/app/actions/auth";
 import { collapsePendingSeries, type MySession } from "@/lib/data";
 import { TermsBanner } from "@/components/dashboard/terms-banner";
 import { roleLabel } from "@/components/site/account";
+import { AttendanceCheckIn, AttendanceVerdicts, type AttendancePrompt, type AttendanceVerdict } from "@/components/dashboard/check-ins";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const viewer = await requireViewer();
@@ -21,11 +22,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (viewer.role === "admin") redirect("/admin");
 
   const counts = { action: 0, unread: 0 };
+  let prompts: AttendancePrompt[] = [];
+  let verdicts: AttendanceVerdict[] = [];
   if (viewer.role === "family" || viewer.role === "tutor") {
-    const [actions, threads] = await Promise.all([
+    // After a lesson: families are asked "was the tutor there?" on their next visit; tutors see the answer.
+    const [actions, threads, checkIns] = await Promise.all([
       supabase.rpc("my_sessions", { p_scope: "action", p_limit: 100 }),
       supabase.rpc("my_threads"),
+      viewer.role === "family" ? supabase.rpc("my_attendance_prompts") : supabase.rpc("my_attendance_verdicts"),
     ]);
+    if (viewer.role === "family") prompts = (checkIns.data ?? []) as AttendancePrompt[];
+    else verdicts = (checkIns.data ?? []) as AttendanceVerdict[];
     // A pending weekly request is one thing to answer, not one per week.
     counts.action = collapsePendingSeries((actions.data ?? []) as MySession[]).length;
     counts.unread = (threads.data ?? []).filter((t) => t.unread).length;
@@ -79,9 +86,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
           {termsOutdated && <TermsBanner tutor={viewer.role === "tutor"} />}
+          <AttendanceVerdicts verdicts={verdicts} />
           {children}
         </main>
       </div>
+      <AttendanceCheckIn prompts={prompts} isStudent={viewer.profile.account_kind === "student"} />
       <LiveRefresh userId={viewer.id} />
       <NavTrail />
     </div>

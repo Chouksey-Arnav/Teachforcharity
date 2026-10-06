@@ -60,6 +60,11 @@ export default async function LessonsPage({ searchParams }: PageProps<"/dashboar
         }
         actions={viewer.role === "family" ? <LinkButton href="/dashboard/tutors">Request a lesson</LinkButton> : undefined}
       />
+      {sp.booked === "1" && (
+        <Notice tone="success" className="mb-6 animate-rise" title="Booked!">
+          Confirmation emails are on their way. You can join from the lesson card 15 minutes before it starts.
+        </Notice>
+      )}
       {typeof sp.join === "string" && JOIN_ERRORS[sp.join] && (
         <Notice tone="warning" className="mb-6" title="Couldn’t open the lesson">
           {JOIN_ERRORS[sp.join]}

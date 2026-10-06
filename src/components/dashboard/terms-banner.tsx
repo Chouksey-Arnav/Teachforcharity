@@ -12,8 +12,10 @@ export function TermsBanner({ tutor }: { tutor: boolean }) {
     <div role="region" aria-label="Updated terms" className="no-print mb-6 rounded-2xl border border-brass-300 bg-brass-50 px-4 py-4 sm:px-5">
       <p className="text-sm font-semibold text-ink">We’ve updated our terms</p>
       <p className="mt-1 text-sm text-ink-2">
-        Parents now create students’ accounts and confirm by phone, tutors need their parent’s approval, and the Meet link appears only
-        around lesson time. Please review the <Link href="/legal/terms" className="underline underline-offset-2">Terms</Link>,{" "}
+        {tutor
+          ? "Your account is now checked automatically (when you sign up, when you edit your profile, and daily) instead of by hand, students confirm on the site whether you were at each lesson, and you confirm each lesson log is truthful. You can also propose lesson times to students."
+          : "After each lesson, the site now asks you whether the tutor was there (no more emails for this), and you confirm your answer is truthful. Tutors are checked automatically every day, and can propose lesson times for you to accept."}{" "}
+        Please review the <Link href="/legal/terms" className="underline underline-offset-2">Terms</Link>,{" "}
         <Link href="/legal/privacy" className="underline underline-offset-2">Privacy Policy</Link> and{" "}
         {tutor ? (
           <Link href="/legal/tutor-agreement" className="underline underline-offset-2">Tutor Agreement</Link>

@@ -34,14 +34,14 @@ export default async function HoursPage() {
       <div className="no-print">
         <PageHeader
           title="Volunteer hours"
-          description="Hours count once you log a lesson, the family confirms it, and our nonprofit partner verifies it."
+          description="Two-step verification: you log a lesson truthfully, your student confirms you were there (step 1), and our nonprofit partner certifies it in a weekly review (step 2). Only certified hours appear on your printed record and verification link."
           actions={verified.length ? <PrintButton /> : undefined}
         />
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           {[
-            ["Verified hours", minutes(["verified"])],
-            ["Hours awaiting weekly verification", minutes(["confirmed"])],
-            ["Hours awaiting family confirmation", minutes(["completed"])],
+            ["Certified hours (both steps done)", minutes(["verified"])],
+            ["Student-verified, awaiting partner", minutes(["confirmed"])],
+            ["Awaiting your student’s check-in", minutes(["completed"])],
           ].map(([label, m]) => (
             <div key={String(label)} className="rounded-2xl border border-line bg-card p-5">
               <p className="display text-5xl">{h(Number(m))}</p>
@@ -53,7 +53,7 @@ export default async function HoursPage() {
 
       {sessions.length === 0 ? (
         <Empty icon={<BadgeCheck className="size-5" />} title="No logged lessons yet">
-          After each lesson, open it in Lessons and tap “It happened.” The family then confirms, and our partner verifies your hours weekly.
+          After each lesson, open it in Lessons and tap “It happened.” Your student confirms you were there next time they open the site, and our partner certifies your hours weekly.
         </Empty>
       ) : (
         <section className="print-card rounded-2xl border border-line bg-card">
@@ -121,7 +121,7 @@ export default async function HoursPage() {
             </div>
           </div>
           <p className="border-t border-line px-5 py-4 text-xs leading-relaxed text-muted sm:px-7">
-            Each verified lesson was logged by the tutor, confirmed by the student’s parent or guardian, and verified in a weekly review by the program’s nonprofit partner (or, where shown, the program administrator).
+            Each verified lesson was logged by the tutor, confirmed on the site by the student or their parent or guardian, and verified in a weekly review by the program’s nonprofit partner (or, where shown, the program administrator).
             Acceptance of these hours toward any school or honor-society requirement is determined by that organization.
           </p>
         </section>

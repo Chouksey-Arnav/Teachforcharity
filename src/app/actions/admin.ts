@@ -13,6 +13,7 @@ import { logAppEvent } from "@/lib/audit";
 import { recordSignInDevice } from "@/lib/auth/sign-in-device";
 import { safeNext } from "@/lib/redirect";
 import { runSafetyScan } from "@/lib/safety/scanner";
+import { runAccountChecks } from "@/lib/verification/runner";
 
 /**
  * Admin console actions. Every one goes through adminDb(), which requires a
@@ -233,6 +234,15 @@ export async function runScanNow(): Promise<ActionState> {
   revalidatePath("/admin", "layout");
   if (!r.ok) return { ok: false, error: { message: `Scan failed: ${r.error}` } };
   return { ok: true, message: `Scanned ${r.scanned} new message${r.scanned === 1 ? "" : "s"} · ${r.flagged} new flag${r.flagged === 1 ? "" : "s"}.` };
+}
+
+/** Runs the automated account check over every tutor now (the same as the daily run). */
+export async function runAccountChecksNow(): Promise<ActionState> {
+  await adminDb();
+  const r = await runAccountChecks({ scope: "all", source: "manual" });
+  revalidatePath("/admin", "layout");
+  if (!r.ok) return { ok: false, error: { message: `Check failed: ${r.error}` } };
+  return { ok: true, message: `Checked ${r.checked} tutor${r.checked === 1 ? "" : "s"} · ${r.verified} verified · ${r.review} to review · ${r.blocked} blocked · ${r.activated} went live.` };
 }
 
 // ---------------------------------------------------------------------------

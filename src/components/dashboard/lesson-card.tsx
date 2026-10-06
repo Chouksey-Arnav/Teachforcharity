@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ArrowRightLeft, BadgeCheck, CheckCircle2, Clock, MessageCircle, Repeat, Video, X, XCircle } from "lucide-react";
 import type { MySession } from "@/lib/data";
@@ -11,11 +12,11 @@ import { Avatar } from "@/components/ui/avatar";
 import { Notice } from "@/components/ui/notice";
 import { Textarea } from "@/components/ui/field";
 import { DateTimeFields, type DateTimeValue } from "@/components/forms/date-time-fields";
-import { cancelLesson, confirmLesson, logLesson, respondLesson } from "@/app/actions/lessons";
+import { answerAttendance, cancelLesson, logLesson, respondLesson } from "@/app/actions/lessons";
 import type { ActionState } from "@/lib/errors";
 import { cn } from "@/lib/cn";
 
-type Panel = null | "counter" | "decline" | "cancel" | "log-yes" | "log-no" | "confirm-no" | "join";
+type Panel = null | "counter" | "decline" | "cancel" | "log-yes" | "log-no" | "answer-yes" | "answer-no" | "join";
 
 function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(() => Date.now());
@@ -35,6 +36,8 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
     return { date: p.date, time: p.time, minutes: s.duration_minutes };
   });
   const [result, setResult] = useState<ActionState>(null);
+  const [attest, setAttest] = useState(false);
+  const router = useRouter();
   const [pending, start] = useTransition();
 
   const start_ = new Date(s.start_at).getTime();
@@ -44,6 +47,9 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const canJoin = s.status === "scheduled" && now >= start_ - 15 * 60000 && now <= end + 15 * 60000;
   const started = now >= start_;
   const ended = now >= end;
+  // The family's check-in: open from the moment the lesson ends until they answer (30 days).
+  const canAnswer = !isTutor && ended && !s.family_attendance && (s.status === "scheduled" || s.status === "completed") && now - end < 30 * 86400000;
+  const needsAttest = panel === "log-yes" || panel === "log-no" || panel === "answer-yes" || panel === "answer-no";
 
   const run = (fn: () => Promise<ActionState>) =>
     start(async () => {
@@ -52,6 +58,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
       if (r?.ok) {
         setPanel(null);
         setNote("");
+        setAttest(false);
       }
     });
 
@@ -124,17 +131,29 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
           {s.request_note && s.status === "pending" && <p className="mt-1.5 rounded-lg bg-paper-2 px-3 py-2 text-[13px] text-ink-2">“{s.request_note}”</p>}
           {s.status === "declined" && s.decline_reason && <p className="mt-1.5 text-[13px] text-muted">Note: “{s.decline_reason}”</p>}
           {s.status === "cancelled" && s.cancel_reason && <p className="mt-1.5 text-[13px] text-muted">Reason: “{s.cancel_reason}”</p>}
-          {s.status === "completed" && !isTutor && (
-            <p className="mt-2 text-[13.5px] text-ink-2">{s.tutor_name} logged this lesson. Did it happen?</p>
+          {canAnswer && <p className="mt-2 text-[13.5px] text-ink-2">Was {s.tutor_name} there? Your answer decides whether this lesson counts toward their hours.</p>}
+          {!isTutor && s.status === "scheduled" && s.family_attendance && (
+            <p className="mt-2 text-[13.5px] text-muted">You said {s.tutor_name} {s.family_attendance === "present" ? "was" : "wasn’t"} there. It’s applied when they log the lesson.</p>
           )}
-          {s.status === "completed" && isTutor && <p className="mt-2 text-[13.5px] text-muted">Waiting for {s.student_name}’s side to confirm it happened.</p>}
-          {s.status === "confirmed" && <p className="mt-2 text-[13.5px] text-muted">Confirmed by {isTutor ? `${s.student_name}’s side` : "you"} — waiting for weekly verification.</p>}
-          {s.status === "verified" && (
+          {isTutor && s.status === "scheduled" && ended && s.family_attendance === "present" && (
+            <p className="mt-2 text-[13.5px] text-pine-800">{s.student_name} already confirmed you were there — log it to add the hours.</p>
+          )}
+          {s.status === "completed" && isTutor && <p className="mt-2 text-[13.5px] text-muted">Waiting for {s.student_name} to confirm you were there. They’re asked next time they open the site.</p>}
+          {s.status === "confirmed" && (
             <p className="mt-2 flex items-center gap-1.5 text-[13.5px] text-pine-800">
-              <BadgeCheck className="size-4" /> Verified{s.verifier_org ? ` by ${s.verifier_org}` : ""}
+              <BadgeCheck className="size-4" /> {isTutor ? `${s.student_name} verified you were there` : "You verified this lesson"} — step 1 of 2. The partner nonprofit certifies the hours weekly.
             </p>
           )}
-          {s.status === "disputed" && <p className="mt-2 text-[13.5px] text-clay-800">{isTutor ? `${s.student_name}’s side` : "You"} said this lesson didn’t happen. The program team is reviewing it.</p>}
+          {s.status === "verified" && (
+            <p className="mt-2 flex items-center gap-1.5 text-[13.5px] text-pine-800">
+              <BadgeCheck className="size-4" /> Student-verified and certified{s.verifier_org ? ` by ${s.verifier_org}` : ""}
+            </p>
+          )}
+          {s.status === "disputed" && (
+            <p className="mt-2 text-[13.5px] text-clay-800">
+              {isTutor ? `${s.student_name} said you weren’t there, so these hours don’t count. Please only log lessons that really happened.` : `You said ${s.tutor_name} wasn’t there.`} The program team is reviewing it.
+            </p>
+          )}
           {s.status === "rejected" && s.review_note && <p className="mt-2 text-[13.5px] text-clay-800">Not verified: “{s.review_note}”</p>}
           {s.practice_plan && ["completed", "confirmed", "verified", "disputed"].includes(s.status) && (
             <div className="mt-3 rounded-xl bg-paper-2/70 px-3.5 py-2.5 text-[13.5px]">
@@ -152,7 +171,18 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
       <div className="flex flex-wrap items-center gap-2 border-t border-line bg-paper/50 px-4 py-3 sm:px-5">
         {s.status === "pending" && s.awaiting_me && (
           <>
-            <Button size="sm" pending={pending && panel === null} onClick={() => run(() => respondLesson({ sessionId: s.id, action: "accept" }))}>
+            <Button
+              size="sm"
+              pending={pending && panel === null}
+              onClick={() =>
+                run(async () => {
+                  const r = await respondLesson({ sessionId: s.id, action: "accept" });
+                  // Accepting moves the lesson out of "Needs you", which unmounts this card and its message.
+                  if (r?.ok) router.push(`/dashboard/lessons?tab=upcoming&focus=${s.id}&booked=1`);
+                  return r;
+                })
+              }
+            >
               <CheckCircle2 className="size-4" /> Accept
             </Button>
             <Button size="sm" variant="secondary" onClick={() => setPanel(panel === "counter" ? null : "counter")}>
@@ -198,13 +228,13 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             )}
           </>
         )}
-        {s.status === "completed" && !isTutor && (
+        {canAnswer && (
           <>
-            <Button size="sm" pending={pending && panel === null} onClick={() => run(() => confirmLesson({ sessionId: s.id, happened: true }))}>
-              <CheckCircle2 className="size-4" /> Yes, it happened
+            <Button size="sm" onClick={() => setPanel(panel === "answer-yes" ? null : "answer-yes")} aria-expanded={panel === "answer-yes"}>
+              <CheckCircle2 className="size-4" /> Yes, they were there
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setPanel(panel === "confirm-no" ? null : "confirm-no")}>
-              <XCircle className="size-4" /> No, it didn’t
+            <Button size="sm" variant="ghost" onClick={() => setPanel(panel === "answer-no" ? null : "answer-no")} aria-expanded={panel === "answer-no"}>
+              <XCircle className="size-4" /> No, they weren’t
             </Button>
           </>
         )}
@@ -226,7 +256,8 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               {panel === "cancel" && (s.status === "pending" ? (isWeekly ? `Withdraw the request for ${weeksPending} weekly lessons` : "Withdraw this request") : "Cancel this lesson")}
               {panel === "log-yes" && "Log this lesson"}
               {panel === "log-no" && "What happened?"}
-              {panel === "confirm-no" && "Tell us what happened"}
+              {panel === "answer-yes" && `Confirm ${s.tutor_name} was there`}
+              {panel === "answer-no" && `${s.tutor_name} wasn’t there`}
             </p>
             <button type="button" onClick={() => setPanel(null)} className="rounded-full p-1 text-muted hover:bg-paper-2" aria-label="Close">
               <X className="size-4" />
@@ -244,8 +275,8 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               Also cancel the {laterWeeks} later week{laterWeeks === 1 ? "" : "s"} of this series
             </label>
           )}
-          {panel === "confirm-no" && (
-            <p className="mb-2 text-[13px] text-muted">This flags the lesson for review — it won’t count toward the tutor’s hours. If something made you uncomfortable, please also use “Report a concern.”</p>
+          {panel === "answer-no" && (
+            <p className="mb-2 text-[13px] text-muted">This lesson won’t count toward the tutor’s hours, and the program team will look at it. If something made you uncomfortable, please also use “Report a concern.”</p>
           )}
           {panel === "log-yes" && (
             <>
@@ -263,34 +294,47 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               />
             </>
           )}
-          <Textarea
-            className="mt-3 min-h-16"
-            placeholder={panel === "confirm-no" ? "Required: briefly, what happened?" : panel === "log-yes" ? "Optional private note for the program (not shown to the family)" : "Optional note (no contact info)"}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            maxLength={300}
-            rows={2}
-          />
+          {panel !== "answer-yes" && (
+            <Textarea
+              className="mt-3 min-h-16"
+              placeholder={panel === "answer-no" ? "Optional: briefly, what happened?" : panel === "log-yes" ? "Optional private note for the program (not shown to the family)" : "Optional note (no contact info)"}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={300}
+              rows={2}
+            />
+          )}
+          {needsAttest && (
+            <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl bg-paper-2/60 p-3 text-[13px] leading-snug text-ink-2">
+              <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} className="mt-0.5 size-4 accent-pine-700" />
+              <span>
+                {isTutor
+                  ? "This log is truthful. I understand false logs can remove me from the program and are reported to the partner verifying my hours."
+                  : "My answer is truthful. I understand it affects a volunteer’s official hours record."}
+              </span>
+            </label>
+          )}
           <div className="mt-3 flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={() => setPanel(null)}>
               Never mind
             </Button>
             <Button
               size="sm"
-              variant={panel === "counter" || panel === "log-yes" ? "primary" : "danger"}
+              variant={panel === "counter" || panel === "log-yes" || panel === "answer-yes" ? "primary" : "danger"}
               pending={pending}
+              disabled={needsAttest && !attest}
               onClick={() =>
                 run(() => {
                   if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note });
                   if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note });
                   if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" });
-                  if (panel === "log-yes") return logLesson({ sessionId: s.id, happened: true, note, practice });
-                  if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note });
-                  return confirmLesson({ sessionId: s.id, happened: false, note });
+                  if (panel === "log-yes") return logLesson({ sessionId: s.id, happened: true, note, practice, attest });
+                  if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note, attest });
+                  return answerAttendance({ sessionId: s.id, present: panel === "answer-yes", note, attest });
                 })
               }
             >
-              {panel === "counter" ? "Send new time" : panel === "log-yes" ? "Log lesson" : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : "Submit"}
+              {panel === "counter" ? "Send new time" : panel === "log-yes" ? "Log lesson" : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : panel === "answer-yes" ? "Verify lesson" : "Submit"}
             </Button>
           </div>
         </div>

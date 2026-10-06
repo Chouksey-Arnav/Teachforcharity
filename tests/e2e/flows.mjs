@@ -36,7 +36,12 @@ export async function tutorOnboard(b, email, { instrumentQuery, instrumentName, 
   await page.getByLabel("Parent/guardian email").fill(guardian.email);
   await page.getByLabel("Your signature").fill(name.toLowerCase());
   await page.getByRole("button", { name: /Sign & ask my parent/ }).click();
-  await page.getByText("You’re all set up!").waitFor({ timeout: 20000 });
+  try {
+    await page.getByText("You’re all set up!").waitFor({ timeout: 20000 });
+  } catch (e) {
+    await shot(page, `tutor-onboard-failed-${email.split("@")[0]}`);
+    throw e;
+  }
   if (shots) await shot(page, "tutor-done", false);
   await ctx.close();
 }

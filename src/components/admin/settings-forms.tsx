@@ -23,8 +23,8 @@ export function SettingsForm({
       <Checkbox
         checked={v.requireApproval}
         onChange={(e) => setV({ ...v, requireApproval: e.target.checked })}
-        label="Require admin approval before tutors go live"
-        description="Recommended. After a tutor finishes signing up and their parent approves, they wait in People → Tutors until an admin approves them. Off: tutors go live as soon as their parent approves."
+        label="Also wait for a person after the automated account check"
+        description="Off (default): a tutor goes live on their own once their parent approves and the automated account check verifies them. Anything the check flags waits in Account checks for a person. On: verified tutors also wait for an admin to approve them in People → Tutors."
       />
       <Checkbox
         checked={v.requireConsentVerification}

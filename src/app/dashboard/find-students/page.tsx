@@ -127,7 +127,7 @@ export default async function FindStudentsPage({ searchParams }: PageProps<"/das
         {top.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {top.map((s) => (
-              <StudentCard key={s.id} s={s} canOffer={canOffer} blockedReason={blockedReason} />
+              <StudentCard key={s.id} s={s} canOffer={canOffer} blockedReason={blockedReason} durations={me.sessionMinutes} />
             ))}
           </div>
         ) : (
@@ -171,7 +171,7 @@ export default async function FindStudentsPage({ searchParams }: PageProps<"/das
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {shown.map((s) => (
-              <StudentCard key={s.id} s={s} canOffer={canOffer} blockedReason={blockedReason} />
+              <StudentCard key={s.id} s={s} canOffer={canOffer} blockedReason={blockedReason} durations={me.sessionMinutes} />
             ))}
           </div>
         )}

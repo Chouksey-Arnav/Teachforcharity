@@ -149,9 +149,9 @@ export const SESSION_STATUS_LABEL: Record<string, string> = {
   declined: "Declined",
   cancelled: "Cancelled",
   expired: "Expired",
-  completed: "Awaiting family confirmation",
-  confirmed: "Confirmed · awaiting verification",
-  disputed: "Under review",
-  verified: "Verified",
+  completed: "Awaiting student check-in",
+  confirmed: "Student-verified · awaiting partner",
+  disputed: "Student said tutor wasn’t there",
+  verified: "Certified by partner",
   rejected: "Not verified",
 };

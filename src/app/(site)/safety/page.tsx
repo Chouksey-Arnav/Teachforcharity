@@ -15,7 +15,7 @@ const DETAILS: [string, React.ReactNode][] = [
   ],
   [
     "Tutors are accountable from day one",
-    "Tutors are high schoolers in grades 9–12. Each one completes a skill questionnaire and signs the tutor agreement. Their own parent or guardian must then approve from an emailed link, and the program team reviews them, before any family can see them. Their profile comes down the moment their parent withdraws approval, a student or parent reports them, or a serious safety flag is raised. Skill levels are self-reported, and we say so on every profile.",
+    "Tutors are high schoolers in grades 9–12. Each one completes a skill questionnaire and signs the tutor agreement. Their own parent or guardian must then approve from an emailed link, and an automated account check reviews their names, parent details, profile and messages before any family can see them — and again every day after. Anything it can’t clear goes to a person. Their profile comes down the moment their parent withdraws approval, a student or parent reports them, or a serious safety flag is raised. Skill levels are self-reported, and we say so on every profile.",
   ],
   [
     "Contact stays on the platform",
