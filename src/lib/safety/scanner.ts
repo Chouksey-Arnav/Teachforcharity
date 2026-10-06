@@ -2,15 +2,36 @@ import "server-only";
 import { after } from "next/server";
 import { createServiceClient } from "../supabase/admin";
 import { drainOutbox } from "../email/worker";
-import { flagsForConversation, flagsForMessage, flagsForText, type Flag, type ScanMessage } from "./analyze";
+import { flagsForConversation, flagsForMessage, flagsForText, SEVERITY_RANK, type Flag, type ScanMessage } from "./analyze";
+import { MODEL_REVIEW_VERSION, modelReviewEnabled, reviewWithModel, type ModelFinding, type ReviewItem } from "./model-review";
 
 export interface ScanResult {
   ok: boolean;
   run?: number;
   scanned: number;
   flagged: number;
+  /** Items the AI reviewer looked at (0 when it's off). */
+  modelReviewed?: number;
+  /** The AI reviewer couldn't finish; the rules' result stands. */
+  modelError?: string;
   error?: string;
 }
+
+/** A model finding as a flag: always for a person to review, never an automatic action. */
+function modelFlag(f: ModelFinding, base: Pick<Flag, "source_type" | "source_id" | "message_id" | "thread_id" | "author_id">, body: string): Flag {
+  return {
+    ...base,
+    category: f.category,
+    severity: f.severity,
+    score: f.severity === "high" ? 7.5 : 5,
+    evidence: [{ rule: "model_review", match: f.reason, weight: f.severity === "high" ? 7.5 : 5, negated: false, precise: false, why: `AI reviewer (${MODEL_REVIEW_VERSION})` }],
+    excerpt: body.length > 400 ? `${body.slice(0, 399)}…` : body,
+    actions: [],
+  };
+}
+
+/** Ids whose rule flags already reached a person (medium or higher). */
+const reviewedByRules = (flags: Flag[]) => new Set(flags.filter((f) => SEVERITY_RANK[f.severity] >= SEVERITY_RANK.medium).map((f) => f.source_id));
 
 const BATCH = 500;
 const MAX_BATCHES = 20;
@@ -38,6 +59,9 @@ export async function runSafetyScan(source: "cron" | "manual" | "realtime"): Pro
 
   let scanned = 0;
   let flagged = 0;
+  const useModel = modelReviewEnabled();
+  let modelReviewed = 0;
+  const modelErrors: string[] = [];
   try {
     for (let i = 0; i < MAX_BATCHES; i++) {
       const { data: batch, error } = await db.rpc("moderation_batch", { p_limit: BATCH });
@@ -66,6 +90,28 @@ export async function runSafetyScan(source: "cron" | "manual" | "realtime"): Pro
       }
       for (const [threadId, list] of byThread) flags.push(...flagsForConversation(threadId, tutorOf.get(threadId)!, list));
 
+      // Second opinion on everything the rules let through, with the conversation leading up to it.
+      if (useModel) {
+        const done = reviewedByRules(flags);
+        const items: ReviewItem[] = messages
+          .filter((m) => !done.has(m.id))
+          .map((m) => ({
+            id: m.id,
+            side: m.sender_side,
+            kind: "message",
+            body: m.body,
+            context: (byThread.get(m.thread_id) ?? []).filter((c) => c.created_at < m.created_at).map((c) => ({ side: c.sender_side, body: c.body })),
+          }));
+        const review = await reviewWithModel(items);
+        modelReviewed += review.reviewed;
+        if (review.error) modelErrors.push(review.error);
+        const byId = new Map(messages.map((m) => [m.id, m]));
+        for (const f of review.findings) {
+          const m = byId.get(f.id)!;
+          flags.push(modelFlag(f, { source_type: "message", source_id: m.id, message_id: m.id, thread_id: m.thread_id, author_id: m.sender_id }, m.body));
+        }
+      }
+
       const { data: n, error: applyErr } = await db.rpc("moderation_apply", {
         p_run: run,
         p_flags: flags as unknown as never,
@@ -84,6 +130,21 @@ export async function runSafetyScan(source: "cron" | "manual" | "realtime"): Pro
     const textFlags = (texts ?? []).flatMap((t) =>
       flagsForText(t.source_type as Flag["source_type"], t.source_id, t.author_id, t.body),
     );
+    if (useModel && texts?.length) {
+      const done = reviewedByRules(textFlags);
+      const key = (t: { source_type: string; source_id: string }) => `${t.source_type}:${t.source_id}`;
+      const pending = texts.filter((t) => !done.has(t.source_id));
+      const review = await reviewWithModel(
+        pending.map((t) => ({ id: key(t), side: t.source_type === "student_note" ? "family" : "tutor", kind: "profile", body: t.body })),
+      );
+      modelReviewed += review.reviewed;
+      if (review.error) modelErrors.push(review.error);
+      const byKey = new Map(pending.map((t) => [key(t), t]));
+      for (const f of review.findings) {
+        const t = byKey.get(f.id)!;
+        textFlags.push(modelFlag(f, { source_type: t.source_type as Flag["source_type"], source_id: t.source_id, author_id: t.author_id }, t.body));
+      }
+    }
     if (textFlags.length) {
       const { data: n, error } = await db.rpc("moderation_apply", { p_run: run, p_flags: textFlags as unknown as never, p_scanned: [] });
       if (error) throw new Error(error.message);
@@ -92,7 +153,8 @@ export async function runSafetyScan(source: "cron" | "manual" | "realtime"): Pro
 
     await db.rpc("moderation_finish", { p_run: run });
     if (flagged > 0) await drainOutbox(2); // alert admins right away
-    return { ok: true, run, scanned, flagged };
+    if (modelErrors.length) console.error("[safety] AI review incomplete:", modelErrors.join("; "));
+    return { ok: true, run, scanned, flagged, ...(useModel ? { modelReviewed, modelError: modelErrors[0] } : {}) };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[safety] scan failed:", message);

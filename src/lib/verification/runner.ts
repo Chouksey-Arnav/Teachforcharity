@@ -3,6 +3,26 @@ import { after } from "next/server";
 import { createServiceClient } from "../supabase/admin";
 import { drainOutbox } from "../email/worker";
 import { verifyAccount, type AccountInput, type Verification } from "./pipeline";
+import { modelReviewEnabled, reviewWithModel } from "../safety/model-review";
+
+/** When the AI reviewer is on, a second opinion on each tutor's bio and school, attached to the input. */
+async function withModelFindings(inputs: AccountInput[]): Promise<AccountInput[]> {
+  if (!modelReviewEnabled()) return inputs;
+  const items = inputs.flatMap((a) =>
+    (["bio", "school"] as const)
+      .filter((field) => (a[field] ?? "").trim())
+      .map((field) => ({ id: `${a.tutorId}:${field}`, side: "tutor" as const, kind: "profile" as const, body: a[field]!.trim() })),
+  );
+  if (!items.length) return inputs;
+  const review = await reviewWithModel(items);
+  if (review.error) console.error("[account-check] AI review incomplete:", review.error);
+  return inputs.map((a) => ({
+    ...a,
+    modelFindings: review.findings
+      .filter((f) => f.id.startsWith(`${a.tutorId}:`))
+      .map((f) => ({ field: f.id.endsWith(":school") ? ("school" as const) : ("bio" as const), category: f.category, severity: f.severity, reason: f.reason })),
+  }));
+}
 
 export type CheckSource = "daily" | "pending" | "event" | "manual";
 
@@ -48,8 +68,9 @@ export async function runAccountChecks(opts: { scope: "all" | "pending"; source:
     for (let page = 0; page < MAX_PAGES; page++) {
       const { data, error } = await db.rpc("verification_inputs", { p_scope: opts.scope, p_tutor: opts.tutorId, p_limit: PAGE, p_after: after_ });
       if (error) throw new Error(error.message);
-      const inputs = (data ?? []) as unknown as AccountInput[];
-      if (!inputs.length) break;
+      const raw = (data ?? []) as unknown as AccountInput[];
+      if (!raw.length) break;
+      const inputs = await withModelFindings(raw);
       const results = inputs.map((input) => {
         const v = verifyAccount(input);
         return { tutorId: v.tutorId, decision: v.decision, risk: v.risk, summary: v.summary, checks: v.checks, hints: v.tutorHints, fingerprint: fingerprint(v), version: v.version };
