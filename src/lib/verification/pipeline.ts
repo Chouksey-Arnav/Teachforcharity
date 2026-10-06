@@ -99,6 +99,11 @@ export interface AccountInput {
     /** …of which the tutor never opened the lesson from the site. */
     loggedWithoutJoining: number;
   };
+  /**
+   * What the AI reviewer said about the bio and school (see ../safety/model-review.ts),
+   * when it's on. Fetched by the runner so this function stays pure.
+   */
+  modelFindings?: { field: "bio" | "school"; category: string; severity: "medium" | "high"; reason: string }[];
 }
 
 export interface Verification {
@@ -302,6 +307,20 @@ function profileChecks(a: AccountInput): Check[] {
   else if (!SCHOOL_WORDS.test(normalize(school).words))
     checks.push({ id: "school", stage: "profile", outcome: "warn", points: 5, detail: "The school name doesn't look like a school.", evidence: [school] });
   else checks.push(pass("school", "profile", "School looks like a school."));
+
+  // A second opinion on wording the rules don't know. A person reviews; it never blocks on its own.
+  for (const f of a.modelFindings ?? []) {
+    if (checks.some((c) => c.id === `${f.field}_safety` && c.outcome === "fail")) continue;
+    checks.push({
+      id: `${f.field}_ai_review`,
+      stage: "profile",
+      outcome: f.severity === "high" ? "fail" : "warn",
+      points: f.severity === "high" ? 30 : 15,
+      detail: `AI review of the ${f.field} (${f.category.replace(/_/g, " ")}): ${f.reason}`,
+      evidence: [quote(f.field === "bio" ? bio : school)],
+      tutorHint: f.category === "commercial" ? "Lessons here are always free — remove anything about rates or payment." : "Keep your profile about music and teaching.",
+    });
+  }
 
   if (a.grade === null || a.grade < 9 || a.grade > 12)
     checks.push({ id: "grade", stage: "profile", outcome: "fail", points: 30, detail: "Tutors must be in grades 9–12.", tutorHint: "Set your grade (9–12) on your profile." });

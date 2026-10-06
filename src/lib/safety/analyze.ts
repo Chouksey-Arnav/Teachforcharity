@@ -23,7 +23,8 @@
  *   must not disappear — an adult needs to see it.
  */
 import { NEGATIONS, RULES, type Category } from "./lexicon";
-import { normalize, tokenize } from "./normalize";
+import { clauses, normalize, tokenize } from "./normalize";
+import { FRAMES, matchFrames } from "./frames";
 
 export type Severity = "low" | "medium" | "high" | "critical";
 export type Side = "tutor" | "family";
@@ -35,6 +36,12 @@ export interface Evidence {
   match: string;
   weight: number;
   negated: boolean;
+  /** High-precision evidence: the only kind that can trigger an automatic action. */
+  precise?: boolean;
+  /** Hyperbole context lowered this ("…if I don't make first chair lol"). Still reviewed, never dropped. */
+  dampened?: boolean;
+  /** Plain English for admins. */
+  why?: string;
 }
 
 export interface CategoryHit {
@@ -42,6 +49,8 @@ export interface CategoryHit {
   score: number; // 0–10
   severity: Severity;
   evidence: Evidence[];
+  /** True when at least one piece of evidence is high-precision. */
+  precise: boolean;
 }
 
 export const SEVERITY_RANK: Record<Severity, number> = { low: 1, medium: 2, high: 3, critical: 4 };
@@ -55,53 +64,102 @@ export function severityFor(score: number): Severity | null {
 }
 
 const NEGATION_FACTOR = 0.4;
+/** Hyperbole lowers self-harm to a review item, never below it: a person still reads it. */
+const DAMPENED_WEIGHT = 5;
+/** Markers that a dramatic phrase is a joke or about a performance, not about their life. */
+const HYPERBOLE = /\b(?:lol|lmao|lmfao|haha\w*|jk|just kidding|if i (?:don'?t|do not|fail|mess|miss|have to|get)|first chair|audition|recital|concert|test|exam|so funny|embarrass\w*|cringe|of laughter|laughing|this (?:piece|song|etude|part)|the (?:piece|song|etude|high part|solo))\b/;
+/** Rules compiled once, with a global copy for finding every match in a clause. */
+const COMPILED = RULES.map((rule) => ({ rule, re: rule.pattern ? new RegExp(rule.pattern.source, "g") : null }));
+const CATEGORY_OF = new Map<string, Category>([...RULES.map((r) => [r.id, r.category] as const), ...FRAMES.map((f) => [f.id, f.category] as const)]);
+const HYPERBOLE_EMOJI = /[\u{1F602}\u{1F923}\u{1F480}\u{1F62D}]/u; // 😂 🤣 💀 😭
 
-/** Scores one piece of text. Returns one hit per category that fired, strongest first. */
-export function analyzeText(text: string): CategoryHit[] {
-  const n = normalize(text);
-  if (!n.words && !n.base) return [];
-  const tokens = tokenize(n.words);
-  const byCat = new Map<Category, Evidence[]>();
+/**
+ * Scores one piece of text. Returns one hit per category that fired, strongest first.
+ *
+ * Every rule runs on each clause separately (so "meet me in the lesson link.
+ * then come over" is judged as two thoughts), against the clause's canonical
+ * form: look-alike letters mapped, leetspeak and spacing undone, texting
+ * shorthand expanded. Patterns that need punctuation (links, emails, phone
+ * numbers) run once over the whole message.
+ */
+export function analyzeText(text: string, side?: Side): CategoryHit[] {
+  // The account check and the conversation patterns analyze the same messages again; reuse the result.
+  const key = `${side ?? ""}\u0000${text}`;
+  const cached = MEMO.get(key);
+  if (cached) return cached;
+  const hits = analyzeUncached(text, side);
+  if (MEMO.size >= MEMO_MAX) MEMO.delete(MEMO.keys().next().value!);
+  MEMO.set(key, hits);
+  return hits;
+}
 
-  for (const rule of RULES) {
-    const matches: { text: string; index: number; inWords: boolean }[] = [];
-    if (rule.pattern) {
-      const re = new RegExp(rule.pattern.source, "g");
+const MEMO = new Map<string, CategoryHit[]>();
+const MEMO_MAX = 20000;
+
+function analyzeUncached(text: string, side?: Side): CategoryHit[] {
+  const whole = normalize(text);
+  if (!whole.words && !whole.base) return [];
+  const byRule = new Map<string, Evidence>();
+  const keep = (rule: (typeof RULES)[number], e: Evidence) => {
+    const prev = byRule.get(rule.id);
+    if (!prev || e.weight > prev.weight) byRule.set(rule.id, e);
+  };
+
+  const parts = clauses(text);
+  for (const clause of parts.length ? parts : [text]) {
+    const n = normalize(clause);
+    if (!n.canon) continue;
+    const tokens = tokenize(n.canon);
+    const hyperbole = HYPERBOLE.test(n.canon) || HYPERBOLE_EMOJI.test(clause);
+    for (const f of matchFrames(tokens.map((t) => t.token), side)) {
+      const { frame } = f;
+      const prev = byRule.get(frame.id);
+      if (!prev || frame.weight > prev.weight)
+        byRule.set(frame.id, { rule: frame.id, match: f.match, weight: frame.weight, negated: false, precise: Boolean(frame.precise), why: frame.why });
+    }
+    for (const { rule, re } of COMPILED) {
+      if (!re) continue;
+      if (rule.from && side && rule.from !== side) continue;
+      re.lastIndex = 0;
+      if (!re.test(n.canon)) continue;
+      if (rule.unless && rule.unless.test(n.canon)) continue;
+      re.lastIndex = 0;
       let m: RegExpExecArray | null;
-      while ((m = re.exec(n.words))) {
-        matches.push({ text: m[0], index: m.index, inWords: true });
-        if (m[0].length === 0) re.lastIndex++;
+      while ((m = re.exec(n.canon))) {
+        if (m[0].length === 0) {
+          re.lastIndex++;
+          continue;
+        }
+        let negated = false;
+        if (rule.negatable) {
+          const before = tokens.filter((t) => t.start < m!.index).slice(-3);
+          negated = before.some((t) => NEGATIONS.has(t.token));
+        }
+        let weight = negated ? rule.weight * NEGATION_FACTOR : rule.weight;
+        const dampened = Boolean(rule.dampen && hyperbole && weight > DAMPENED_WEIGHT);
+        if (dampened) weight = DAMPENED_WEIGHT;
+        keep(rule, { rule: rule.id, match: m[0].trim().slice(0, 80), weight: round1(weight), negated, precise: Boolean(rule.precise) && !negated && !dampened, dampened: dampened || undefined, why: rule.why });
       }
     }
-    if (rule.basePattern) {
-      const m = rule.basePattern.exec(n.base);
-      if (m) matches.push({ text: m[0].trim(), index: m.index, inWords: false });
-    }
-    if (!matches.length) continue;
-
-    // Use the strongest occurrence (a non-negated one if any).
-    let best: Evidence | null = null;
-    for (const m of matches) {
-      let negated = false;
-      if (rule.negatable && m.inWords) {
-        const before = tokens.filter((t) => t.start < m.index).slice(-3);
-        negated = before.some((t) => NEGATIONS.has(t.token));
-      }
-      const weight = negated ? rule.weight * NEGATION_FACTOR : rule.weight;
-      if (!best || weight > best.weight) best = { rule: rule.id, match: m.text.slice(0, 80), weight: round1(weight), negated };
-    }
-    const list = byCat.get(rule.category) ?? [];
-    list.push(best!);
-    byCat.set(rule.category, list);
+  }
+  for (const rule of RULES) {
+    if (!rule.basePattern) continue;
+    const m = rule.basePattern.exec(whole.base);
+    if (m) keep(rule, { rule: rule.id, match: m[0].trim().slice(0, 80), weight: rule.weight, negated: false, precise: Boolean(rule.precise), why: rule.why });
   }
 
+  const byCat = new Map<Category, Evidence[]>();
+  for (const [id, e] of byRule) {
+    const cat = CATEGORY_OF.get(id)!;
+    byCat.set(cat, [...(byCat.get(cat) ?? []), e]);
+  }
   const hits: CategoryHit[] = [];
   for (const [category, evidence] of byCat) {
     evidence.sort((a, b) => b.weight - a.weight);
     // Strongest rule + a little for each additional distinct rule, capped at 10.
     const score = Math.min(10, evidence[0].weight + evidence.slice(1).reduce((a, e) => a + e.weight * 0.25, 0));
     const severity = severityFor(score);
-    if (severity) hits.push({ category, score: round1(score), severity, evidence });
+    if (severity) hits.push({ category, score: round1(score), severity, evidence, precise: evidence.some((e) => e.precise) });
   }
   return hits.sort((a, b) => b.score - a.score || a.category.localeCompare(b.category));
 }
@@ -120,7 +178,7 @@ const TUTOR_PAUSE_CATEGORIES = new Set<string>(["sexual", "grooming_secrecy", "t
 export function adjustForAuthor(hit: { category: string; score: number }, side: Side): number {
   let score = hit.score;
   if (side === "tutor") {
-    if (["sexual", "grooming_secrecy", "personal_probe", "affection", "meeting", "gifts_money"].includes(hit.category)) score += 1;
+    if (["sexual", "grooming_secrecy", "isolation", "personal_probe", "affection", "meeting", "gifts_money"].includes(hit.category)) score += 1;
   } else {
     // Students (usually 11–14) sharing their own feelings or swearing are handled gently;
     // what they say about harming themselves is never downgraded.
@@ -129,8 +187,17 @@ export function adjustForAuthor(hit: { category: string; score: number }, side: 
   return Math.max(0, Math.min(10, round1(score)));
 }
 
-export function policy(category: string, severity: Severity, side: Side | null): Action[] {
-  if (category === "self_harm") return [];
+/** A child asking for help, or saying something felt wrong, must reach an adult: never hidden. */
+const NEVER_HIDE = new Set<string>(["self_harm", "disclosure"]);
+
+/**
+ * What happens automatically. Only high-precision evidence (`precise`) can
+ * hide a message or pause a tutor; everything else is queued for a person,
+ * and high/critical flags email the admins either way. A fuzzy signal must
+ * never punish someone on its own.
+ */
+export function policy(category: string, severity: Severity, side: Side | null, precise = true): Action[] {
+  if (NEVER_HIDE.has(category) || !precise) return [];
   const actions: Action[] = [];
   if (SEVERITY_RANK[severity] >= SEVERITY_RANK.high) actions.push("hide_message");
   if (side === "tutor" && severity === "critical" && TUTOR_PAUSE_CATEGORIES.has(category)) actions.push("pause_tutor");
@@ -167,7 +234,7 @@ const excerpt = (s: string, n = 400) => (s.length > n ? `${s.slice(0, n - 1)}…
 
 /** Flags for a single message. */
 export function flagsForMessage(m: ScanMessage): Flag[] {
-  return analyzeText(m.body).flatMap((hit) => {
+  return analyzeText(m.body, m.sender_side).flatMap((hit) => {
     const score = adjustForAuthor(hit, m.sender_side);
     const severity = severityFor(score);
     if (!severity) return [];
@@ -183,7 +250,7 @@ export function flagsForMessage(m: ScanMessage): Flag[] {
         score,
         evidence: hit.evidence,
         excerpt: excerpt(m.body),
-        actions: policy(hit.category, severity, m.sender_side),
+        actions: policy(hit.category, severity, m.sender_side, hit.precise),
       },
     ];
   });
@@ -207,7 +274,7 @@ export function flagsForText(sourceType: Flag["source_type"], sourceId: string, 
 // ---------------------------------------------------------------------------
 // Conversation-level patterns
 // ---------------------------------------------------------------------------
-const GROOMING_SIGNALS = new Set<string>(["grooming_secrecy", "personal_probe", "affection", "meeting", "contact_migration", "gifts_money", "sexual"]);
+const GROOMING_SIGNALS = new Set<string>(["grooming_secrecy", "isolation", "personal_probe", "affection", "meeting", "contact_migration", "gifts_money", "sexual"]);
 
 function etHour(iso: string): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }).format(new Date(iso)));
@@ -228,7 +295,7 @@ export function flagsForConversation(threadId: string, tutorId: string, messages
 
   for (const m of messages) {
     const side = perSide[m.sender_side];
-    for (const hit of analyzeText(m.body)) {
+    for (const hit of analyzeText(m.body, m.sender_side)) {
       const strongest = hit.evidence[0];
       if (strongest.negated) continue;
       if (GROOMING_SIGNALS.has(hit.category) && hit.score >= 4 && !side.signals.has(hit.category)) {
@@ -249,7 +316,9 @@ export function flagsForConversation(threadId: string, tutorId: string, messages
   const tutor = perSide.tutor;
   const distinct = tutor.signals.size;
   if (distinct >= 2) {
-    const severity: Severity = distinct >= 3 || tutor.signals.has("grooming_secrecy") || tutor.signals.has("sexual") ? "critical" : "high";
+    // Three different kinds of signal, or one unmistakable secrecy/sexual message, is critical.
+    const strong = (c: string) => Boolean(tutor.signals.get(c)?.precise);
+    const severity: Severity = distinct >= 3 || strong("grooming_secrecy") || strong("sexual") ? "critical" : "high";
     const ev = [...tutor.signals.entries()].map(([category, e]) => ({ category, rule: e.rule, match: e.match }));
     flags.push({
       source_type: "thread",

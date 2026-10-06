@@ -51,8 +51,10 @@ function joinSpacedLetters(t: string): string {
 export interface Normalized {
   /** Lowercased and cleaned, punctuation kept (for emails, links, handles). */
   base: string;
-  /** Words only: evasion undone, punctuation → spaces, whitespace collapsed. What lexicon rules match against. */
+  /** Words only: evasion undone, punctuation → spaces, whitespace collapsed. */
   words: string;
+  /** `words` with texting shorthand expanded. What lexicon rules and frames match against. */
+  canon: string;
 }
 
 export function normalize(input: string): Normalized {
@@ -65,7 +67,50 @@ export function normalize(input: string): Normalized {
   w = w.replace(/[’'`]/g, "'").replace(/[^a-z0-9' ]+/g, " ");
   w = w.replace(/([a-z])\1{2,}/g, "$1$1"); // "sooooo" → "soo"
   w = w.replace(/\s+/g, " ").trim();
-  return { base, words: w };
+  return { base, words: w, canon: canonicalize(w) };
+}
+
+/**
+ * Texting shorthand → the words the rules are written in. Applied to whole
+ * tokens of the `words` form only, so "ur" becomes "your" but "your" and
+ * "tour" are untouched. Contractions ("don't", "you're") are left alone: the
+ * rules and frames list both spellings.
+ */
+const SLANG: Record<string, string> = {
+  u: "you", ya: "you", yu: "you", yah: "you", ur: "your", yur: "your", r: "are",
+  rn: "right now", atm: "right now", tn: "tonight", tonite: "tonight", "2nite": "tonight", tmr: "tomorrow", tmrw: "tomorrow",
+  wyd: "what are you doing", wbu: "what about you", hbu: "how about you", hmu: "hit me up", lmk: "let me know",
+  pic: "picture", pics: "pictures", pix: "pictures", piccy: "picture", vid: "video", vids: "videos", selfie: "selfie",
+  convo: "conversation", convos: "conversations", msg: "message", msgs: "messages", txt: "text", txts: "texts", dms: "messages",
+  ig: "instagram", insta: "instagram", fb: "facebook", gc: "group chat",
+  bf: "boyfriend", gf: "girlfriend", bff: "best friend", ppl: "people", pls: "please", plz: "please",
+  cuz: "because", bc: "because", abt: "about", wanna: "want to", gonna: "going to", gotta: "got to",
+  k: "ok", kk: "ok", okay: "ok", idk: "i don't know", nvm: "never mind", sum1: "someone", some1: "someone", ppls: "people",
+  thx: "thanks", ty: "thank you", luv: "love", wat: "what", wut: "what", dat: "that", da: "the", n: "and", w: "with",
+  b4: "before", l8r: "later", gr8: "great", sry: "sorry", srsly: "seriously", tbh: "to be honest", ngl: "not going to lie",
+  im: "i'm", ive: "i've", youre: "you're", dont: "don't", doesnt: "doesn't", didnt: "didn't",
+  cant: "can't", wont: "won't", wouldnt: "wouldn't", shouldnt: "shouldn't", isnt: "isn't", arent: "aren't", wasnt: "wasn't",
+  whats: "what's", thats: "that's", lets: "let's", hes: "he's", shes: "she's", theyre: "they're",
+};
+
+/** `words` with shorthand expanded (see SLANG). What rules and frames match against. */
+export function canonicalize(words: string): string {
+  return words
+    .split(" ")
+    .map((t) => SLANG[t] ?? t)
+    .join(" ");
+}
+
+/**
+ * Splits text into clauses at sentence punctuation, line breaks and a few
+ * clause-joining words, so "meet me in the lesson link. then come over" is two
+ * clauses and context in one doesn't excuse the other. Works on raw text.
+ */
+export function clauses(input: string): string[] {
+  return (input ?? "")
+    .split(/[.!?;\n\r]+|,\s+(?=(?:but|and then|then|so|also)\b)|\s+-\s+|\s+—\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /** Word tokens with their start offsets in `words` (for negation look-behind). */

@@ -8,6 +8,7 @@ import { LessonCard } from "@/components/dashboard/lesson-card";
 import { AcceptingToggle } from "@/components/dashboard/accepting-toggle";
 import { Notice } from "@/components/ui/notice";
 import { TutorGuardianStatus } from "./tutor-guardian-status";
+import { AccountCheckPanel, type CheckStatus } from "./account-check-panel";
 import { LinkButton } from "@/components/ui/button";
 import { greeting } from "./greeting";
 import { SetupSteps, type SetupStep } from "@/components/dashboard/setup-steps";
@@ -36,7 +37,7 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
     getMySessions(supabase, "all", 500),
     supabase.rpc("my_account_check"),
   ]);
-  const check = checkData as { status: string; hints: string[] } | null;
+  const check = checkData as { status: string; checked_at: string | null; hints: string[] } | null;
   const hints = check?.hints ?? [];
   const t = viewer.tutor!;
   const sum = (st: string[]) => all.filter((s) => st.includes(s.status)).reduce((a, s) => a + s.duration_minutes, 0);
@@ -70,23 +71,8 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
       {t.status === "pending" && !t.guardian_approved_at && (
         <TutorGuardianStatus guardianName={t.guardian_name ?? ""} guardianEmail={t.guardian_email ?? ""} lastSent={t.guardian_last_invited_at} />
       )}
-      {t.status === "pending" && t.guardian_approved_at && (
-        <Notice tone="info" className="mb-6" title={check?.status === "review" || check?.status === "blocked" ? "Your profile needs a closer look" : "Your profile is being checked"}>
-          {check?.status === "review" || check?.status === "blocked"
-            ? "Our automated account check sent your profile to the program team for a closer look. They’ll be in touch, usually within a couple of days."
-            : "Our automated account check reviews every tutor before families can see them — usually within minutes. We’ll email you when you’re live."}
-          {hints.length > 0 && (
-            <>
-              {" "}You can speed things up:
-              <ul className="mt-2 list-disc space-y-0.5 pl-5">
-                {hints.map((h) => (
-                  <li key={h}>{h}</li>
-                ))}
-              </ul>
-            </>
-          )}{" "}
-          Edit your <Link href="/dashboard/profile" className="underline underline-offset-2">profile</Link>.
-        </Notice>
+      {((t.status === "pending" && t.guardian_approved_at) || t.status === "active") && (
+        <AccountCheckPanel status={(check?.status as CheckStatus | undefined) ?? null} checkedAt={check?.checked_at ?? null} hints={hints} live={t.status === "active"} />
       )}
       {t.status === "active" && hints.length > 0 && (
         <Notice tone="info" className="mb-6" title="Make your profile stronger">
