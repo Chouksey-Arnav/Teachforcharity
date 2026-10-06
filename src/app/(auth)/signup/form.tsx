@@ -4,11 +4,12 @@ import { useActionState, useEffect, useState } from "react";
 import { GraduationCap, Music2, Users } from "lucide-react";
 import { requestParentInvite, signUp, verifySignup } from "@/app/actions/auth";
 import { CodeStep } from "@/components/auth/code-step";
-import { Checkbox, Field, Input } from "@/components/ui/field";
+import { Checkbox, Field, Input, Textarea } from "@/components/ui/field";
 import { PasswordInput } from "@/components/ui/secret-inputs";
 import { Submit } from "@/components/ui/submit";
 import { Notice } from "@/components/ui/notice";
 import { cn } from "@/lib/cn";
+import { INVITE_NOTE_MAX } from "@/lib/constants";
 
 export type Role = "student" | "family" | "tutor";
 
@@ -178,18 +179,21 @@ export function SignupForm({ initialRole, invitedEmail, invitedChild }: { initia
 
 /**
  * What a middle schooler sees: no account, no password — just their first
- * name and a parent's email so we can invite the parent to sign them up.
+ * name, a parent's email and an optional note, so we can invite the parent.
  */
 function StudentAskParent() {
   const [state, action] = useActionState(requestParentInvite, null);
+  // Controlled so a rejected note doesn't wipe what the student typed (React resets forms after an action).
+  const [v, setV] = useState({ childFirst: "", parentEmail: "" });
+  const [note, setNote] = useState("");
   const fe = state && !state.ok ? state.fieldErrors ?? {} : {};
   if (state?.ok && state.data) {
     return (
       <div className="animate-rise rounded-2xl border border-pine-200 bg-pine-50 p-5" role="status">
         <p className="display text-2xl">We emailed your parent!</p>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">
-          Ask them to check <strong>{state.data.parentEmail}</strong> (and the spam folder). They’ll create the account, add you, and choose your tutor
-          with you. There’s nothing else you need to do here.
+          Ask them to check <strong>{state.data.parentEmail}</strong> (and the spam folder). The email has a link where they can see what the program
+          is{note.trim() ? ", read your note," : ""} and approve you. Then you’ll pick a tutor together. There’s nothing else you need to do here.
         </p>
       </div>
     );
@@ -197,14 +201,51 @@ function StudentAskParent() {
   return (
     <div className="animate-rise space-y-5">
       <Notice tone="info" title="A parent signs you up">
-        Middle schoolers don’t make their own accounts. Tell us your first name and your parent or guardian’s email, and we’ll send them everything they
-        need. We don’t save anything else about you.
+        Middle schoolers don’t make their own accounts. Tell us your first name and your parent or guardian’s email, and we’ll send them a link to
+        approve you. We don’t save anything else about you.
       </Notice>
       <Field label="Your first name" htmlFor="childFirst" error={fe.childFirst}>
-        <Input id="childFirst" name="childFirst" autoComplete="given-name" maxLength={40} required aria-invalid={Boolean(fe.childFirst)} />
+        <Input
+          id="childFirst"
+          name="childFirst"
+          autoComplete="given-name"
+          maxLength={40}
+          required
+          value={v.childFirst}
+          onChange={(e) => setV({ ...v, childFirst: e.target.value })}
+          aria-invalid={Boolean(fe.childFirst)}
+        />
       </Field>
       <Field label="Your parent or guardian’s email" htmlFor="parentEmail" error={fe.parentEmail} hint="Not your own email — theirs.">
-        <Input id="parentEmail" name="parentEmail" type="email" autoComplete="off" required aria-invalid={Boolean(fe.parentEmail)} />
+        <Input
+          id="parentEmail"
+          name="parentEmail"
+          type="email"
+          autoComplete="off"
+          required
+          value={v.parentEmail}
+          onChange={(e) => setV({ ...v, parentEmail: e.target.value })}
+          aria-invalid={Boolean(fe.parentEmail)}
+        />
+      </Field>
+      <Field
+        label="A note to your parent"
+        htmlFor="note"
+        optional
+        error={fe.note}
+        hint={`Why you want lessons, in your own words. It goes in the email. ${note.length}/${INVITE_NOTE_MAX}`}
+      >
+        <Textarea
+          id="note"
+          name="note"
+          rows={3}
+          maxLength={INVITE_NOTE_MAX}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="I really want to get better at trumpet before the spring concert!"
+          className="min-h-20"
+          aria-invalid={Boolean(fe.note)}
+        />
       </Field>
       {state && !state.ok && !Object.keys(fe).length && <Notice tone="danger">{state.error.message}</Notice>}
       <Submit className="w-full" size="lg" pendingText="Sending…" formAction={action}>

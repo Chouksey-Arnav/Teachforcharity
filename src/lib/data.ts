@@ -23,23 +23,17 @@ export interface FamilyStudent {
   is_active: boolean;
   created_at: string;
   subjects: { subject_id: string; slug: string; name: string; family: string; level: Level; years_playing: number; in_school_program: boolean; has_instrument: boolean }[];
-  /** The current, signed (not withdrawn) consent, whether or not the phone check is done. */
-  consent: { signed_at: string; guardian_name: string; version: string; phone: string; status: "pending" | "verified" | "rejected" } | null;
-  /** Consent that actually unlocks lessons and messaging: signed and phone-checked (or checks are off). */
+  /** The current, signed (not withdrawn) consent. */
+  consent: { signed_at: string; guardian_name: string; version: string; phone: string } | null;
+  /** Whether lessons and messaging are unlocked. Mirrors private.has_consent() in the database. */
   consentActive: boolean;
 }
 
-/** "none": not signed · "pending": signed, waiting for the phone check · "active": unlocks lessons. */
-export type ConsentState = "none" | "pending" | "active";
+/** "none": nobody has signed the current consent · "active": signed, lessons unlocked. */
+export type ConsentState = "none" | "active";
 
-export function consentState(s: Pick<FamilyStudent, "consent" | "consentActive">): ConsentState {
-  return s.consentActive ? "active" : s.consent ? "pending" : "none";
-}
-
-/** Whether a signed consent unlocks lessons. Mirrors private.has_consent() in the database. */
-export function consentUnlocks(consent: FamilyStudent["consent"], config: Pick<PublicConfig, "require_consent_verification"> | null): boolean {
-  if (!consent) return false;
-  return consent.status === "verified" || config?.require_consent_verification === false;
+export function consentState(s: Pick<FamilyStudent, "consentActive">): ConsentState {
+  return s.consentActive ? "active" : "none";
 }
 
 export async function getFamilyStudents(supabase: Supa, familyId: string, config: PublicConfig | null): Promise<FamilyStudent[]> {
@@ -52,14 +46,14 @@ export async function getFamilyStudents(supabase: Supa, familyId: string, config
     .eq("family_id", familyId)
     .order("created_at");
   return (data ?? []).map((s) => {
-    const row = (s.consents ?? []).find((c) => c.version === consentVersion && !c.revoked_at) ?? null;
+    const row =
+      (s.consents ?? []).find((c) => c.version === consentVersion && !c.revoked_at && c.verification_status !== "rejected") ?? null;
     const consent = row
       ? {
           signed_at: row.signed_at,
           guardian_name: row.guardian_name,
           version: row.version,
           phone: row.guardian_phone,
-          status: row.verification_status as "pending" | "verified" | "rejected",
         }
       : null;
     return {
@@ -88,7 +82,7 @@ export async function getFamilyStudents(supabase: Supa, familyId: string, config
         has_instrument: ss.has_instrument,
       })),
       consent,
-      consentActive: consentUnlocks(consent, config),
+      consentActive: consent !== null,
     };
   });
 }

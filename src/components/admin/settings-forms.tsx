@@ -8,14 +8,12 @@ import type { ActionState } from "@/lib/errors";
 
 export function SettingsForm({
   requireApproval,
-  requireConsentVerification,
   adminEmails,
 }: {
   requireApproval: boolean;
-  requireConsentVerification: boolean;
   adminEmails: string;
 }) {
-  const [v, setV] = useState({ requireApproval, requireConsentVerification, adminEmails });
+  const [v, setV] = useState({ requireApproval, adminEmails });
   const [res, setRes] = useState<ActionState>(null);
   const [pending, start] = useTransition();
   return (
@@ -25,12 +23,6 @@ export function SettingsForm({
         onChange={(e) => setV({ ...v, requireApproval: e.target.checked })}
         label="Also wait for a person after the automated account check"
         description="Off (default): a tutor goes live on their own once their parent approves and the automated account check verifies them. Anything the check flags waits in Account checks for a person. On: verified tutors also wait for an admin to approve them in People → Tutors."
-      />
-      <Checkbox
-        checked={v.requireConsentVerification}
-        onChange={(e) => setV({ ...v, requireConsentVerification: e.target.checked })}
-        label="Require a phone check before consent counts"
-        description="Recommended. Each signed consent waits in Parent calls until someone confirms by phone that it came from the parent. Off: consent counts as soon as it’s signed, and a child could sign as their own parent."
       />
       <Field label="Who gets safety alerts" htmlFor="ae" hint="Comma-separated emails. Reports, critical safety flags, disputes, and account deletions are emailed here immediately. Add at least one address you check every day.">
         <Input id="ae" value={v.adminEmails} onChange={(e) => setV({ ...v, adminEmails: e.target.value })} />

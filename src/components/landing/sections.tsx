@@ -78,7 +78,7 @@ export function InstrumentMarquee({ open }: { open: { name: string; tutors: numb
   );
 }
 
-export function HowSteps({ phoneCheck }: { phoneCheck: boolean }) {
+export function HowSteps() {
   return (
     <div className={s.steps}>
       {[1, 2].map((n) => (
@@ -104,8 +104,7 @@ export function HowSteps({ phoneCheck }: { phoneCheck: boolean }) {
           <p className={s.stepNum}>01 · Sign up</p>
           <h3>A parent says yes first</h3>
           <p>
-            A parent creates the account, adds their middle schooler and signs consent.
-            {phoneCheck ? " A quick phone call confirms it’s really them." : " Nothing unlocks until they do."}
+            A parent creates the account from a verified email, adds their middle schooler and signs consent. Nothing unlocks until they do.
           </p>
         </div>
       </article>

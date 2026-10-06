@@ -14,7 +14,7 @@ export interface LegalDoc {
 const EFFECTIVE = "September 26, 2026";
 const V = "2026-09-v1";
 // Terms, Privacy, Consent and the Tutor Agreement were revised for parent-created student accounts,
-// the phone check, tutor parent approval and the lesson-time Meet link. The database's
+// parent verification, tutor parent approval and the lesson-time Meet link. The database's
 // app_settings versions must match (migration 20260928000800_legal_v2.sql).
 const EFFECTIVE_V2 = "October 1, 2026";
 const V2 = "2026-09-v2";
@@ -56,9 +56,9 @@ export const LEGAL_DOCS: LegalDoc[] = [
           <li>
             <strong>Parent accounts</strong> are created by a parent or legal guardian (18 or older), who adds and manages up to six
             Students (middle school students in grades 6–8) and signs the <Link href="/legal/consent">consent form</Link> for each. A
-            Student cannot create their own account; a Student who tries can only ask us to email their parent an invitation. Until
-            consent is signed and, where the Program requires it, confirmed by a short phone call with a Program administrator, a
-            Student cannot request lessons, message anyone, or be seen by Tutors.
+            Student cannot create their own account; a Student who tries can only ask us to email their parent an invitation. A parent
+            account is created only after the parent enters a code we email to them. Until consent is signed, a Student cannot request
+            lessons, message anyone, or be seen by Tutors.
           </li>
           <li>
             <strong>Tutor accounts</strong> are for high school students in grades 9–12. A Tutor must sign the{" "}
@@ -207,14 +207,13 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <h2>Children’s privacy</h2>
         <p>
           Accounts for middle school Students (who may be under 13) are created by a parent or guardian, not by the Student. If a Student
-          tries to sign up, we ask only for their first name and their parent’s email address, use them once to email the parent an
-          invitation, and delete them after 14 days (or as soon as the parent signs up).
+          tries to sign up, we ask only for their first name, their parent’s email address and, if they choose, a short note to their
+          parent. We use them once to email the parent an invitation, and delete them after 14 days (or as soon as the parent signs up).
         </p>
         <ul>
           <li>
-            A parent adds their child and signs the consent form. Where the Program requires it, a Program administrator then calls the
-            parent at the number on the form to confirm they are the Student’s parent or guardian. Until then, the Student’s information
-            is not shown to any Tutor, and no lessons or messages can happen.
+            A parent verifies their email address with a code we send, adds their child, and signs the consent form. Until then, the
+            Student’s information is not shown to any Tutor, and no lessons or messages can happen.
           </li>
           <li>We never ask a Student for a phone number, home address, photo, last name, or birth date.</li>
           <li>
@@ -231,14 +230,14 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <h2>What we collect</h2>
         <h3>Student and parent accounts</h3>
         <ul>
-          <li>If a Student asks us to invite their parent: the Student’s first name and the parent’s email (deleted within 14 days).</li>
+          <li>If a Student asks us to invite their parent: the Student’s first name, the parent’s email, and any short note the Student
+            adds for their parent (all deleted within 14 days).</li>
           <li>For a parent account: parent/guardian name, email address, and phone number (so you can be reached during lessons).</li>
           <li>
             For each Student: first name, grade, optional school and county, instruments and experience level, learning goals,
             musical interests, learning preferences, and weekly availability. We do not ask for a Student’s last name, photo, or birth date.
           </li>
-          <li>The signed consent form: guardian name, relationship, phone, typed signature, date, and browser information, plus the result
-            and brief notes of the verification call, if one is made.</li>
+          <li>The signed consent form: guardian name, relationship, phone, typed signature, date, and browser information.</li>
         </ul>
         <h3>Tutor accounts</h3>
         <ul>
@@ -388,9 +387,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
         <p>
           Before a Student can request a lesson, message a Tutor, or be seen by Tutors, the Student’s parent or legal guardian (18+) must
           sign this consent in their parent dashboard. Consent is recorded per Student with the signer’s typed name, relationship, phone
-          number, and the date, and a copy is emailed to them. Where the Program requires it, a Program administrator then calls the
-          phone number on the form to confirm the signer is the Student’s parent or guardian. Consent takes effect after that call. If the
-          name or phone number changes, a new call is needed.
+          number, and the date, and a copy is emailed to them. Consent is given from a parent account whose email address the parent
+          has verified (or from a private link emailed to the parent), and takes effect as soon as it is signed.
         </p>
         <h2>By signing, the parent or guardian confirms that:</h2>
         <ol>

@@ -297,14 +297,9 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
 
     case "consent_receipt":
       return make(`Your consent form for ${str(p.student_name)}`, {
-        heading: p.verification ? "Consent received — we’ll call you to confirm" : "Consent form received",
+        heading: "Consent received — lessons are unlocked",
         paragraphs: [
           hi(p),
-          ...(p.verification
-            ? [
-                `<strong>One more step:</strong> someone from the program will call you at <strong>${esc(p.guardian_phone)}</strong>, usually within two days, to confirm you’re ${esc(p.student_name)}’s parent or guardian. It takes about two minutes. Lessons and messaging start right after that call.`,
-              ]
-            : []),
           `This is your copy of the parent/guardian consent you signed for <strong>${esc(p.student_name)}</strong>. You agreed that:`,
           "• Lessons happen only online, over Google Meet — never in person.<br>• Lessons are never recorded.<br>• A parent or guardian will be reachable by phone or text for the full length of every lesson.<br>• Concerns are reported through the site, reviewed promptly, and a tutor may be paused while a concern is reviewed.<br>• Lessons are always free. Donations to our partner are optional and go directly to them.<br>• Messages on the platform are filtered and may be reviewed by program administrators for safety.",
         ],
@@ -323,55 +318,29 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
       });
 
     case "parent_invite": {
-      const signupUrl = link(`/signup?role=family&email=${encodeURIComponent(str(p.parent_email))}&child=${encodeURIComponent(str(p.child_first))}`);
-      return make(`${str(p.child_first)} asked you to sign them up for free music lessons`, {
-        heading: `${str(p.child_first)} wants free music lessons`,
+      const child = str(p.child_first);
+      // Older emails queued before invitation pages existed have no token: link straight to sign-up.
+      const pageUrl = p.token
+        ? link(`/invite/${encodeURIComponent(str(p.token))}`)
+        : p.has_account
+          ? link("/dashboard/students/new")
+          : link(`/signup?role=family&email=${encodeURIComponent(str(p.parent_email))}&child=${encodeURIComponent(child)}`);
+      return make(`${child} is asking you to approve free music lessons`, {
+        heading: `${child} wants free music lessons`,
         paragraphs: [
           "Hello,",
-          `<strong>${esc(p.child_first)}</strong> asked us to email you about ${esc(SITE.name)}: free, one-on-one band and orchestra lessons for North Carolina middle schoolers, taught online by high school musicians.`,
-          "Middle schoolers can’t sign up on their own — a parent or guardian creates the account, adds their child, and signs a consent form. Nothing about your child is saved until you do.",
+          `<strong>${esc(child)}</strong> found ${esc(SITE.name)} and asked us to send you this: free, one-on-one band and orchestra lessons for North Carolina middle schoolers, taught online by high school musicians.`,
+          ...(p.note ? [`${esc(child)} wrote you a note:<br><em>“${esc(p.note)}”</em>`] : []),
+          "Middle schoolers can’t sign up on their own. Nothing happens until a parent or guardian approves, and nothing about your child is saved until you do.",
           p.has_account
-            ? `You already have an account. Sign in and choose “Add a student” to add ${esc(p.child_first)}.`
-            : "It takes about five minutes.",
+            ? `You already have an account, so approving takes a minute: sign in and add ${esc(child)}.`
+            : "Approving takes about five minutes: create your parent account, add your child, and sign the consent form.",
         ],
-        cta: p.has_account ? { label: `Add ${str(p.child_first)}`, href: link("/dashboard/students/new") } : { label: "Sign up as a parent", href: signupUrl },
-        note: `Lessons are free, online only, never recorded, and a parent stays reachable during every lesson. See <a href="${esc(link("/safety"))}" style="color:#1F5446">how we keep students safe</a>.`,
+        cta: { label: `Review and approve ${child}`, href: pageUrl },
+        note: `Always free, online only, never recorded, and you can read every message. See <a href="${esc(link("/safety"))}" style="color:#1F5446">how we keep students safe</a>.`,
         footer: `You’re getting this because someone entered your email on ${esc(SITE.url.replace(/^https?:\/\//, ""))} and said you’re their parent or guardian. If you don’t know who this is, ignore this email — we delete the request after 14 days and won’t email you again unless asked.`,
       });
     }
-
-    case "consent_pending":
-      return make(`Parent to call: ${str(p.guardian_name)} (${str(p.student_name)})`, {
-        heading: "A parent is waiting for a verification call",
-        paragraphs: [
-          `<strong>${esc(p.guardian_name)}</strong> (${esc(p.relationship)}) signed consent for <strong>${esc(p.student_name)}</strong>${p.student_grade ? `, grade ${esc(p.student_grade)}` : ""}.`,
-          "Lessons and messaging stay locked until someone calls the number on the form and confirms they’re the parent or guardian. Aim to call within two days.",
-        ],
-        cta: { label: "Open the call list", href: link("/admin/consents") },
-        note: "Phone numbers are only shown in the admin console.",
-      });
-
-    case "consent_verified":
-      return make(`${str(p.student_name)} is all set for lessons`, {
-        heading: "Thanks — you’re verified",
-        paragraphs: [
-          hi(p),
-          p.student_account
-            ? `Thanks for taking our call. ${esc(p.student_name)} can now message tutors and request lessons. You can see every lesson and message from your parent page.`
-            : `Thanks for taking our call. ${esc(p.student_name)} can now be matched with tutors, and you can request lessons and message tutors from your dashboard.`,
-        ],
-        cta: p.student_account ? { label: "Open your parent page", href: link("/guardian") } : { label: "See tutor matches", href: link("/dashboard/tutors") },
-      });
-
-    case "consent_not_verified":
-      return make(`We couldn’t confirm consent for ${str(p.student_name)}`, {
-        heading: "We couldn’t confirm your consent",
-        paragraphs: [
-          hi(p),
-          `We weren’t able to confirm by phone that the consent for ${esc(p.student_name)} came from their parent or guardian, so it has been withdrawn and lessons stay locked.`,
-          `If this is a mistake, reply to this email${SITE.contactEmail ? ` or write to ${esc(SITE.contactEmail)}` : ""} with a good time to call, and sign the consent form again from your dashboard.`,
-        ],
-      });
 
     case "tutor_guardian_request": {
       const url = link(`/guardian/tutor/${encodeURIComponent(str(p.token))}`);

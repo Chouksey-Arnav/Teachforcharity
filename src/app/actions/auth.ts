@@ -24,6 +24,7 @@ import { recordSignInDevice } from "@/lib/auth/sign-in-device";
 import { logAppEvent } from "@/lib/audit";
 import { cookies } from "next/headers";
 import { PUSH_COOKIE } from "@/lib/push/cookie";
+import { INVITE_NOTE_MAX, inviteNoteProblem } from "@/lib/safety/invite-note";
 
 const signUpSchema = z.object({
   // Students can't create accounts (a parent signs them up); see requestParentInvite.
@@ -139,12 +140,23 @@ const parentInviteSchema = z.object({
     .max(40, "Just your first name, please.")
     .refine((v) => !/[0-9@/:]/.test(v), "Just your first name, please."),
   parentEmail: z.string().trim().toLowerCase().email("Enter your parent or guardian’s email address."),
+  // Optional. Screened here (message filter + safety analyzer) and again by the database.
+  note: z
+    .string()
+    .trim()
+    .max(INVITE_NOTE_MAX, `Keep your note to ${INVITE_NOTE_MAX} characters.`)
+    .optional()
+    .superRefine((v, ctx) => {
+      const why = v ? inviteNoteProblem(v) : null;
+      if (why) ctx.addIssue({ code: "custom", message: why });
+    }),
 });
 
 /**
  * "I'm a student": the only thing a middle schooler can do on the sign-up page.
- * We email their parent an invitation to sign up; we keep just the parent's
- * email and the child's first name, and delete them after 14 days.
+ * We email their parent an invitation (with the student's optional note) that
+ * links to a page about the request; we keep just the parent's email, the
+ * child's first name and the note, and delete them after 14 days.
  */
 export async function requestParentInvite(
   _: ActionState<{ parentEmail: string; childFirst: string }>,
@@ -161,10 +173,12 @@ export async function requestParentInvite(
     p_child_first: parsed.data.childFirst,
     p_parent_email: parsed.data.parentEmail,
     p_ip_hash: ip ? createHash("sha256").update(`tfac-invite:${ip}`).digest("hex") : undefined,
+    p_note: parsed.data.note || undefined,
   });
   if (error) {
     if (error.hint === "BAD_NAME") return { ok: false, error: { message: error.message }, fieldErrors: { childFirst: error.message } };
     if (error.hint === "BAD_EMAIL") return { ok: false, error: { message: error.message }, fieldErrors: { parentEmail: error.message } };
+    if (error.hint === "BAD_NOTE") return { ok: false, error: { message: error.message }, fieldErrors: { note: error.message } };
     // Log the real cause (e.g. a missing database function after a skipped migration) so it shows up in server logs.
     console.error("[auth] request_parent_invite failed:", error.code, error.message);
     return { ok: false, error: toActionError(error, "We couldn’t send that right now. Please try again.") };

@@ -33,12 +33,11 @@ type Overview = {
 
 export default async function AdminOverview() {
   const db = await adminDb();
-  const [{ data: o }, { data: flags }, { data: activity }, { data: health }, { count: calls }] = await Promise.all([
+  const [{ data: o }, { data: flags }, { data: activity }, { data: health }] = await Promise.all([
     db.rpc("admin_overview"),
     db.rpc("admin_list_flags", { p_status: "open", p_limit: 5 }),
     db.rpc("admin_activity", { p_limit: 12 }),
     db.rpc("admin_health"),
-    db.from("consents").select("id", { count: "exact", head: true }).eq("verification_status", "pending").is("revoked_at", null),
   ]);
   const ov = o as unknown as Overview;
   const h = health as unknown as { jobs: { name: string; active: boolean }[]; unscanned_messages: number; last_moderation: { started_at: string } | null };
@@ -50,7 +49,6 @@ export default async function AdminOverview() {
   const attention: { text: string; href: string; tone: "danger" | "warn" }[] = [];
   if (ov.alert_recipients === 0) attention.push({ text: "Nobody receives safety alerts — add alert emails", href: "/admin/settings", tone: "danger" });
   if (urgent) attention.push({ text: `${urgent} high/critical safety flag${urgent === 1 ? "" : "s"} to review`, href: "/admin/safety", tone: "danger" });
-  if (calls) attention.push({ text: `${calls} parent${calls === 1 ? "" : "s"} waiting for a verification call`, href: "/admin/consents", tone: "danger" });
   if (ov.open_incidents) attention.push({ text: `${ov.open_incidents} open report${ov.open_incidents === 1 ? "" : "s"}`, href: "/admin/reports", tone: "danger" });
   if (ov.disputed) attention.push({ text: `${ov.disputed} disputed lesson${ov.disputed === 1 ? "" : "s"}`, href: "/admin/lessons?status=disputed", tone: "warn" });
   if (ov.awaiting_verification) attention.push({ text: `${ov.awaiting_verification} confirmed lesson${ov.awaiting_verification === 1 ? "" : "s"} waiting for hour verification`, href: "/admin/lessons?status=confirmed", tone: "warn" });

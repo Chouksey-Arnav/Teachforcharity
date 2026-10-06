@@ -15,8 +15,8 @@ const TEMPLATES = [
   "session_requested", "session_countered", "session_booked", "session_reminder", "session_declined", "session_cancelled",
   "session_confirm_request", "confirm_reminder", "log_reminder", "new_message", "consent_receipt", "tutor_guardian_notice",
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
-  "incident_reported", "incident_received", "new_sign_in", "consent_pending", "consent_verified",
-  "consent_not_verified", "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew", "waitlist_match", "weekly_digest",
+  "incident_reported", "incident_received", "new_sign_in",
+  "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew", "waitlist_match", "weekly_digest",
 ];
 
 describe("renderEmail", () => {
@@ -37,19 +37,24 @@ describe("renderEmail", () => {
     expect(r.html).not.toContain("forgot-password");
   });
 
-  it("parent invites escape the child's name, link to parent sign-up and keep the child's details out of the footer", () => {
-    const r = renderEmail("parent_invite", { child_first: evil, parent_email: "mom@example.test", has_account: false })!;
+  it("parent invites escape the child's name and note, link to the invitation page and keep the child's details out of the footer", () => {
+    const r = renderEmail("parent_invite", { child_first: evil, parent_email: "mom@example.test", has_account: false, note: evil, token: "ab".repeat(32) })!;
     expect(r.html).not.toContain("<script>");
-    expect(r.html).toContain("/signup?role=family&amp;email=mom%40example.test");
+    expect(r.html).toContain(`/invite/${"ab".repeat(32)}`);
+    expect(r.text).toContain("wrote you a note");
+    const plain = renderEmail("parent_invite", { child_first: "Leo", parent_email: "mom@example.test", has_account: false, note: null, token: "cd".repeat(32) })!;
+    expect(plain.text).not.toContain("wrote you a note");
+    // Emails queued before invitation pages existed still work.
+    const legacy = renderEmail("parent_invite", { child_first: "Leo", parent_email: "mom@example.test", has_account: false })!;
+    expect(legacy.html).toContain("/signup?role=family&amp;email=mom%40example.test");
     const existing = renderEmail("parent_invite", { child_first: "Leo", parent_email: "mom@example.test", has_account: true })!;
     expect(existing.html).toContain("/dashboard/students/new");
   });
 
-  it("consent receipts mention the phone call only when verification is on", () => {
-    const on = renderEmail("consent_receipt", { ...base, verification: true })!;
-    const off = renderEmail("consent_receipt", { ...base, verification: false })!;
-    expect(on.text).toContain("will call you at 919-555-0100");
-    expect(off.text).not.toContain("will call you");
+  it("consent receipts never promise a phone call", () => {
+    const r = renderEmail("consent_receipt", { ...base, verification: true })!;
+    expect(r.text).not.toMatch(/will call you|phone check/i);
+    expect(r.text).toContain("unlocked");
   });
 
   it("account_exists points to sign-in and contains no code", () => {
@@ -138,7 +143,9 @@ describe("every template the database queues has a renderer", () => {
       if (lit && lit[1] !== "recipient_first") queued.add(lit[1]);
     }
     expect(queued.size).toBeGreaterThan(20);
-    const missing = [...queued].filter((t) => renderEmail(t, {}) === null);
+    // Phone checks were retired (20261007000100_email_verified_consent.sql); queued copies were marked failed there.
+    const retired = new Set(["consent_pending", "consent_verified", "consent_not_verified"]);
+    const missing = [...queued].filter((t) => !retired.has(t) && renderEmail(t, {}) === null);
     expect(missing).toEqual([]);
   });
 });

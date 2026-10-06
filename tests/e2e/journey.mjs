@@ -1,6 +1,6 @@
 // The whole program in one run, against the local stack (npx supabase start + next dev/start):
 // tutor sign-up → parent approval → automated account check puts them live (no admin); a student asks a
-// parent → parent onboards → phone check; weekly lessons from open times → tutor suggests a new time → family
+// parent → parent onboards; weekly lessons from open times → tutor suggests a new time → family
 // accepts; joining only in the window; truthful log with a practice plan → on-site check-in ("was your tutor
 // there?", no email) → tutor sees "you're good to go" → partner certifies → public verification page.
 import { BASE, PW, adminLogin, browser, clearInbox, codeIn, forgetAdminSecret, login, shot, sql, step, waitForEmail } from "./common.mjs";
@@ -31,7 +31,7 @@ try {
   const { ctx: actx, page: admin } = await adminLogin(b);
   step("tutor Maya live (parent approved, automated account check verified; no admin)");
 
-  // ---------- Family: student asks, parent signs up, onboards, phone check ----------
+  // ---------- Family: student asks, parent signs up from the invitation page, onboards ----------
   {
     const kid = await (await b.newContext()).newPage();
     await kid.goto(`${BASE}/signup?role=student`);
@@ -41,12 +41,14 @@ try {
     await kid.getByText("We emailed your parent!").waitFor();
     await kid.context().close();
   }
-  const invite = await waitForEmail(mom, /asked you to sign them up/);
-  const href = invite.html.match(/href="([^"]*\/signup\?role=family[^"]*)"/)?.[1]?.replace(/&amp;/g, "&");
+  const invite = await waitForEmail(mom, /asking you to approve/);
+  const href = invite.html.match(/href="([^"]*\/invite\/[0-9a-f]{64})"/)?.[1];
   const fctx = await b.newContext({ viewport: { width: 1360, height: 900 } });
   const fam = await fctx.newPage();
   fam.on("pageerror", (e) => console.log("  [pageerror]", e.message));
   await fam.goto(href);
+  await fam.getByRole("link", { name: "Approve Leo" }).first().click();
+  await fam.waitForURL("**/signup?**");
   await fam.getByLabel(/Your name/).fill("Dana Parent");
   await fam.getByLabel("Password", { exact: true }).fill(PW);
   await fam.getByRole("checkbox").check();
@@ -79,12 +81,7 @@ try {
   await fam.getByLabel("Signature").fill("Dana Parent");
   await fam.getByRole("button", { name: /Sign & find tutors/ }).click();
   await fam.waitForURL("**/dashboard/**", { timeout: 20000 });
-  await admin.goto(`${BASE}/admin/consents`);
-  const card = admin.locator("article", { hasText: "Dana Parent" });
-  await card.getByLabel("Call notes").fill("Spoke with Dana, confirmed.");
-  await card.getByRole("button", { name: "Verified — it was the parent" }).click();
-  await admin.getByText("Verified — the family has been emailed").waitFor();
-  step("family onboarded (invited by the student) and verified by phone");
+  step("family onboarded (invited by the student); consent active at once");
 
   // ---------- Weekly lessons from open times ----------
   await fam.goto(`${BASE}/dashboard/tutors`);

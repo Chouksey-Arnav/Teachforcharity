@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Safety & consent", description: "How
 const DETAILS: [string, React.ReactNode][] = [
   [
     "Parent consent is a hard gate",
-    "A parent creates the account and adds their child — a middle schooler who tries to sign up can only send their parent an invitation. The parent signs the consent form, and then someone from the program calls them at the number on the form to confirm they really are the parent. Until that call, the student can’t message anyone, request a lesson, or be seen by tutors. The database itself refuses. The consent covers the online-only format, the no-recording policy, having a parent nearby during lessons, and how concerns are handled.",
+    "A parent creates the account and adds their child — a middle schooler who tries to sign up can only send their parent an invitation. The parent’s account is created from a code we email them, so we know the address is theirs, and then they sign the consent form. Until they sign, the student can’t message anyone, request a lesson, or be seen by tutors. The database itself refuses. The consent covers the online-only format, the no-recording policy, having a parent nearby during lessons, and how concerns are handled.",
   ],
   [
     "Tutors are accountable from day one",
@@ -98,7 +98,7 @@ export default function SafetyPage() {
             A parent says yes <em>before anything happens.</em>
           </>
         }
-        lead="Create the account, add your student, sign consent, and take a two-minute call from us."
+        lead="Create the account, add your student, and sign consent. It takes about five minutes."
         micro="Free · Online · Never recorded"
       >
         <Link href="/signup?role=family" className="lm-btn lm-btn-ink">

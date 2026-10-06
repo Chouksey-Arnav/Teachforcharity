@@ -1,5 +1,5 @@
--- v3 database test: two-factor admins, parent-first sign-up and phone-verified
--- consent, tutor guardian approval, Meet-link gating, weekly lessons, practice
+-- v3 database test: two-factor admins, parent-first sign-up (with the
+-- student's note and the parent's invitation page), email-verified consent, tutor guardian approval, Meet-link gating, weekly lessons, practice
 -- notes, one-tap confirmations, the instrument waitlist, hour verification
 -- codes, the parent digest and push subscriptions.
 -- Runs as real roles, then ROLLS BACK by raising.
@@ -175,6 +175,49 @@ begin
   if public.request_parent_invite('Kid', 'v3-family@example.test', null) <> 'sent'
      or pg_temp.mail('parent_invite', 'v3-family@example.test') ->> 'has_account' is distinct from 'true' then
     raise exception 'FAIL invite to an existing parent not flagged'; end if;
+  -- The student can add a short note; it's screened like a message.
+  if pg_temp.hint_of('select public.request_parent_invite(''Ava'', ''v3-note@example.test'', null, ''text me at 919-555-0101'')') <> 'BAD_NOTE' then
+    raise exception 'FAIL note with a phone number accepted'; end if;
+  if pg_temp.hint_of('select public.request_parent_invite(''Ava'', ''v3-note@example.test'', null, ''add me on snapchat'')') <> 'BAD_NOTE' then
+    raise exception 'FAIL note moving contact off the site accepted'; end if;
+  if pg_temp.hint_of(format('select public.request_parent_invite(''Ava'', ''v3-note@example.test'', null, %L)', repeat('a', 201))) <> 'BAD_NOTE' then
+    raise exception 'FAIL 201-character note accepted'; end if;
+  if public.request_parent_invite('Ava', 'v3-note@example.test', null, '  Please   say yes!
+I really want to learn trumpet. ') <> 'sent' then raise exception 'FAIL invite with a note not sent'; end if;
+  j := pg_temp.mail('parent_invite', 'v3-note@example.test');
+  if j ->> 'note' is distinct from 'Please say yes! I really want to learn trumpet.' then
+    raise exception 'FAIL note not tidied into the email: %', j ->> 'note'; end if;
+  tok := j ->> 'token';
+  if tok !~ '^[0-9a-f]{64}$' then raise exception 'FAIL invite email has no page link'; end if;
+  if pg_temp.mail('parent_invite', 'v3-mom@example.test') ->> 'note' is not null then raise exception 'FAIL invite without a note got one'; end if;
+  -- The parent's page opens from the emailed link alone, without an account.
+  perform pg_temp.act_as_anon();
+  j := public.parent_invite_view(tok);
+  if j ->> 'child_first' is distinct from 'Ava' or j ->> 'note' is distinct from 'Please say yes! I really want to learn trumpet.'
+     or j ->> 'parent_email' is distinct from 'v3-note@example.test' or (j ->> 'has_account')::boolean then
+    raise exception 'FAIL invitation page shows the wrong thing: %', j; end if;
+  if public.parent_invite_view(repeat('0', 64)) is not null or public.parent_invite_view('not-a-token') is not null then
+    raise exception 'FAIL invitation page opened with a bad link'; end if;
+  begin
+    perform 1 from public.parent_invites limit 1;
+    raise exception 'FAIL anon read the invitations table';
+  exception when insufficient_privilege then null;
+  end;
+  execute 'reset role';
+  if exists (select 1 from public.parent_invites where token_hash = tok) then raise exception 'FAIL raw link token stored'; end if;
+  -- A resend replaces the link (and the note); the old link stops working.
+  update public.parent_invites set last_sent_at = now() - interval '11 minutes' where parent_email = 'v3-note@example.test';
+  perform pg_temp.act_as_service();
+  if public.request_parent_invite('Ava', 'v3-note@example.test', null, null) <> 'sent' then raise exception 'FAIL resend refused'; end if;
+  if public.parent_invite_view(tok) is not null then raise exception 'FAIL old invitation link works after a resend'; end if;
+  j := public.parent_invite_view(pg_temp.mail('parent_invite', 'v3-note@example.test') ->> 'token');
+  if j is null or j ->> 'note' is not null then raise exception 'FAIL resend without a note: %', j; end if;
+  execute 'reset role';
+  -- Links die with the invitation's 14 days even before the cleanup job runs.
+  tok := pg_temp.mail('parent_invite', 'v3-note@example.test') ->> 'token';
+  update public.parent_invites set created_at = now() - interval '15 days' where parent_email = 'v3-note@example.test';
+  if public.parent_invite_view(tok) is not null then raise exception 'FAIL invitation page open after 14 days'; end if;
+  perform pg_temp.act_as_service();
   execute 'reset role';
   -- The invitation disappears when the parent signs up …
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
@@ -186,76 +229,55 @@ begin
   perform private.run_program_jobs();
   if exists (select 1 from public.parent_invites where parent_email = 'v3-p1@example.test') then
     raise exception 'FAIL invite kept past 14 days'; end if;
-  log := log || 'parent-first sign-up ok; ';
+  log := log || 'parent-first sign-up + invite page ok; ';
 
-  -- ===== 4. Consent waits for a phone check =====
+  -- ===== 4. Consent counts as soon as an email-verified parent signs =====
   update public.app_settings set admin_emails = '{alerts@example.test}';
   perform pg_temp.act_as(mom);
   perform public.attest_guardian();
   insert into public.students (family_id, first_name, grade, availability) values (mom, 'Leo', 6, '{thu_evening}') returning id into stu;
   consent_id := public.sign_consent(stu, 'Dana Parent', 'Mother', '919-555-0100', 'Dana Parent', true, true, true, true, true, true, 'test');
-  if (select verification_status from public.consents where id = consent_id) <> 'pending' then raise exception 'FAIL new consent not pending'; end if;
-  if pg_temp.consent_ok(stu) then raise exception 'FAIL unverified consent unlocked lessons'; end if;
+  if (select verification_status from public.consents where id = consent_id) <> 'verified' then raise exception 'FAIL signed consent not verified'; end if;
+  if not pg_temp.consent_ok(stu) then raise exception 'FAIL signed consent didn''t unlock lessons'; end if;
   execute 'reset role';
-  if not private.has_signed_consent(stu) then raise exception 'FAIL pending consent doesn''t count as signed (onboarding would block)'; end if;
   if pg_get_functiondef('public.complete_onboarding()'::regprocedure) !~ 'has_signed_consent' then
-    raise exception 'FAIL onboarding still waits for the phone call'; end if;
+    raise exception 'FAIL onboarding no longer checks consent'; end if;
+  if pg_temp.mail('consent_receipt', 'v3-mom@example.test') is null then raise exception 'FAIL no consent receipt'; end if;
+  if pg_temp.mail('consent_receipt', 'v3-mom@example.test') ? 'verification' then raise exception 'FAIL receipt still mentions a call'; end if;
+  if pg_temp.mail('consent_pending', 'alerts@example.test') is not null then raise exception 'FAIL admins still asked to call'; end if;
+  if to_regprocedure('public.admin_verify_consent(uuid,boolean,text)') is not null
+     or to_regprocedure('public.admin_list_consent_checks(text)') is not null then
+    raise exception 'FAIL phone-check functions still exist'; end if;
+  -- families can't change the status themselves
   perform pg_temp.act_as(mom);
+  begin update public.consents set verification_status = 'rejected' where id = consent_id; exception when insufficient_privilege then null; end;
+  if (select verification_status from public.consents where id = consent_id) <> 'verified' then raise exception 'FAIL family edited verification'; end if;
+  -- Withdrawing locks lessons again; signing again (even with a new phone) unlocks them.
+  perform public.revoke_consent(stu);
+  if pg_temp.consent_ok(stu) then raise exception 'FAIL withdrawn consent still unlocks lessons'; end if;
   if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, now() + interval ''3 days'', 45)', stu, adm, (select id from public.subjects limit 1)))
-     <> 'CONSENT_REQUIRED' then raise exception 'FAIL lesson request allowed before the phone check'; end if;
-  if pg_temp.mail('consent_receipt', 'v3-mom@example.test') ->> 'verification' is distinct from 'true' then
-    raise exception 'FAIL receipt doesn''t mention the call'; end if;
-  if pg_temp.mail('consent_pending', 'alerts@example.test') is null then
-    raise exception 'FAIL admins not told to call'; end if;
-  -- families can't verify themselves
-  if pg_temp.hint_of(format('select public.admin_verify_consent(%L, true, ''trust me'')', consent_id)) <> 'FORBIDDEN' then
-    raise exception 'FAIL family verified own consent'; end if;
-  begin update public.consents set verification_status = 'verified' where id = consent_id; exception when insufficient_privilege then null; end;
-  if (select verification_status from public.consents where id = consent_id) <> 'pending' then raise exception 'FAIL family edited verification'; end if;
-
-  perform pg_temp.act_as(adm, 'aal2', 60);
-  if (select count(*) from public.admin_list_consent_checks('pending') where id = consent_id) <> 1 then raise exception 'FAIL not on the call list'; end if;
-  if pg_temp.hint_of(format('select public.admin_verify_consent(%L, true, '''')', consent_id)) <> 'BAD_INPUT' then
-    raise exception 'FAIL verified without a note'; end if;
-  perform public.admin_verify_consent(consent_id, true, 'Spoke with Dana, confirmed.');
-  if not pg_temp.consent_ok(stu) then raise exception 'FAIL verified consent didn''t unlock lessons'; end if;
-  if not exists (select 1 from public.audit_log where action = 'consent.verified' and actor_id = adm) then raise exception 'FAIL verification not audited'; end if;
-  if pg_temp.mail('consent_verified', 'v3-mom@example.test') is null then
-    raise exception 'FAIL family not told they''re verified'; end if;
-
-  -- Re-signing with the same phone keeps the check; a new phone needs a new call.
-  perform pg_temp.act_as(mom);
-  perform public.sign_consent(stu, 'Dana Parent', 'Mother', '(919) 555-0100', 'Dana Parent', true, true, true, true, true, true, 'test');
-  if not pg_temp.consent_ok(stu) then raise exception 'FAIL same-phone re-sign lost verification'; end if;
+     <> 'CONSENT_REQUIRED' then raise exception 'FAIL lesson request allowed without consent'; end if;
   perform public.sign_consent(stu, 'Dana Parent', 'Mother', '919-555-0199', 'Dana Parent', true, true, true, true, true, true, 'test');
-  if pg_temp.consent_ok(stu) then raise exception 'FAIL new phone kept the old verification'; end if;
-
-  -- "Couldn't verify" withdraws the consent and tells the family.
-  perform pg_temp.act_as(adm, 'aal2', 60);
-  perform public.admin_verify_consent(consent_id, false, 'Number belongs to someone else.');
-  if (select revoked_at from public.consents where id = consent_id) is null then raise exception 'FAIL rejected consent not withdrawn'; end if;
-  if pg_temp.mail('consent_not_verified', 'v3-mom@example.test') is null then
-    raise exception 'FAIL family not told about the failed check'; end if;
-
-  -- With the phone check switched off, a signed consent counts straight away.
+  if not pg_temp.consent_ok(stu) then raise exception 'FAIL re-signed consent didn''t unlock lessons'; end if;
   execute 'reset role';
-  update public.app_settings set require_consent_verification = false;
+  -- A consent an old phone check rejected (and withdrew) unlocks again once re-signed.
+  update public.consents set verification_status = 'rejected', revoked_at = now() where id = consent_id;
+  if private.has_consent(stu) then raise exception 'FAIL rejected consent unlocks lessons'; end if;
   perform pg_temp.act_as(mom);
   perform public.sign_consent(stu, 'Dana Parent', 'Mother', '919-555-0100', 'Dana Parent', true, true, true, true, true, true, 'test');
-  if not pg_temp.consent_ok(stu) then raise exception 'FAIL consent ignored with checks off'; end if;
+  if not pg_temp.consent_ok(stu) then raise exception 'FAIL re-signing after a rejection didn''t unlock'; end if;
   execute 'reset role';
-  update public.app_settings set require_consent_verification = true;
   if pg_get_functiondef('public.list_students_for_tutor(uuid[],text,int,int,uuid)'::regprocedure) !~ 'has_consent' then
     raise exception 'FAIL tutor search no longer gated on consent'; end if;
 
   -- The public config shows tutor counts per instrument, never names.
   perform pg_temp.act_as_anon();
   j := public.get_public_config();
-  if j -> 'stats' -> 'open_by_instrument' is null or j ->> 'require_consent_verification' is null then
-    raise exception 'FAIL public config missing new fields'; end if;
+  if j -> 'stats' -> 'open_by_instrument' is null then raise exception 'FAIL public config missing tutor counts'; end if;
+  if j ? 'require_consent_verification' then raise exception 'FAIL public config still has the phone-check setting'; end if;
   if j::text ~* 'maya|rodriguez|@' then raise exception 'FAIL public config leaks people'; end if;
   execute 'reset role';
-  log := log || 'phone-verified consent ok; ';
+  log := log || 'email-verified consent ok; ';
 
   -- ===== 5. Tutors need their parent's approval =====
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
