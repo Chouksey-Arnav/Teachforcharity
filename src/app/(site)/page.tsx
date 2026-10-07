@@ -1,16 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, GraduationCap, Music2, Users } from "lucide-react";
 import { FAQ_ITEMS } from "@/components/site/sections";
 import { getPublicConfig, getViewer } from "@/lib/viewer";
 import { cn } from "@/lib/cn";
+import { SITE } from "@/lib/site";
 import { HeroDemo } from "@/components/landing/hero-demo";
 import { HeroDoors } from "@/components/landing/hero-doors";
 import { WelcomeHero } from "@/components/landing/welcome-hero";
 import { RoleSwitcher } from "@/components/landing/role-switcher";
 import { SafetyDemo } from "@/components/landing/safety-demo";
+import { JsonLd, faqJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 import { StatTiles, type StatTile } from "@/components/landing/stat-tiles";
 import { Cause, FaqList, HoursChain, HowSteps, InstrumentMarquee, SafetyPoints } from "@/components/landing/sections";
 import s from "@/components/landing/landing.module.css";
+
+// The root layout deliberately sets no canonical, so a page that forgets its own can never claim to be the home page.
+export const metadata: Metadata = { alternates: { canonical: "/" }, openGraph: { url: "/", title: `${SITE.name} — free music lessons across North Carolina`, description: SITE.tagline, type: "website", siteName: SITE.name, locale: "en_US", images: [{ url: "/opengraph-image", width: 1200, height: 630 }] } };
 
 export default async function HomePage() {
   const [config, viewer] = await Promise.all([getPublicConfig(), getViewer()]);
@@ -31,6 +37,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd data={[webPageJsonLd({ path: "/", name: "Free music lessons across North Carolina", description: SITE.description }), faqJsonLd(FAQ_ITEMS)]} />
       {/* Hero: what this is, who it's for, and a way in for each of them — or, signed in, the way back to your account. */}
       {viewer ? (
         <WelcomeHero viewer={viewer} />

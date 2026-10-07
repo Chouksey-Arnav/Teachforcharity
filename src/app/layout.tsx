@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Source_Serif_4 } from "next/font/google";
 import { SITE } from "@/lib/site";
+import { JsonLd, siteGraph } from "@/lib/seo/json-ld";
 import "./globals.css";
 
 // The landing page's type everywhere: Inter for text, Source Serif 4 for headlines, Geist Mono for labels.
@@ -11,15 +12,28 @@ const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", dis
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: { default: `${SITE.name} — free music lessons across North Carolina`, template: `%s · ${SITE.name}` },
-  description:
-    "Free one-on-one band and orchestra lessons for North Carolina middle schoolers, taught over Google Meet by high school musicians earning verified volunteer hours.",
+  description: SITE.description,
+  applicationName: SITE.name,
+  keywords: [...SITE.keywords],
+  category: "education",
   openGraph: {
-    title: SITE.name,
+    title: `${SITE.name} — free music lessons across North Carolina`,
     description: SITE.tagline,
     type: "website",
     siteName: SITE.name,
+    locale: "en_US",
   },
-  robots: { index: true, follow: true },
+  twitter: { card: "summary_large_image", title: SITE.name, description: SITE.tagline },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
+  },
+  // Search Console and Bing Webmaster Tools ownership tags; set the env vars once the owner has the codes (docs/SEO.md).
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION } : undefined,
+  },
   appleWebApp: { capable: true, title: SITE.name, statusBarStyle: "default" },
 };
 
@@ -32,7 +46,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
-      <body className="min-h-dvh">{children}</body>
+      <body className="min-h-dvh">
+        <JsonLd data={siteGraph()} />
+        {children}
+      </body>
     </html>
   );
 }

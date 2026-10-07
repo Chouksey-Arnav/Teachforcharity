@@ -52,4 +52,5 @@ The full local stack (database, auth, a local mail inbox) runs with `npx supabas
 
 1. **[docs/SETUP.md](docs/SETUP.md)** — Supabase auth settings, email, Vercel env vars, making yourself admin (with two-factor), scheduled jobs. Do this first.
 2. **[docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md)** — what must be true before real families use it.
-3. **[docs/DOMAIN.md](docs/DOMAIN.md)** — connecting a custom domain through Cloudflare later.
+3. **[docs/SEO.md](docs/SEO.md)** — search and AI-crawler setup: what the code already does, and the few steps only the site owner can do (Search Console, Bing, IndexNow).
+4. **[docs/DOMAIN.md](docs/DOMAIN.md)** — connecting a custom domain through Cloudflare later.

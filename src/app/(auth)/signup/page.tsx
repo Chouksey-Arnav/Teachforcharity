@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
+import { pageSeo } from "@/lib/seo/meta";
 import Link from "next/link";
 import { SignupForm } from "./form";
 
-export const metadata: Metadata = { title: "Create an account" };
+export const metadata: Metadata = pageSeo(
+  "/signup",
+  "Create an account",
+  "Sign up for free band and orchestra lessons: parents create the account and sign consent, and high school musicians can apply to tutor.",
+);
 
 export default async function SignupPage({ searchParams }: PageProps<"/signup">) {
   const sp = await searchParams;

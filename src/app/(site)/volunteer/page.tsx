@@ -3,8 +3,11 @@ import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { HoursTimeline } from "@/components/site/sections";
 import { PageHero, SectionHead } from "@/components/site/page-hero";
+import { pageSeo } from "@/lib/seo/meta";
+import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 
-export const metadata: Metadata = { title: "Become a tutor", description: "High school musicians: teach middle schoolers for free and earn verified volunteer hours." };
+const DESCRIPTION = "High school musicians: teach middle schoolers band and orchestra for free, on your own schedule, and earn volunteer hours verified by a partner nonprofit.";
+export const metadata: Metadata = pageSeo("/volunteer", "Become a tutor", DESCRIPTION);
 
 const NEED = [
   "You’re in 9th–12th grade and play a band or orchestra instrument.",
@@ -31,6 +34,7 @@ const RULES = [
 export default function VolunteerPage() {
   return (
     <>
+      <JsonLd data={[webPageJsonLd({ path: "/volunteer", name: "Become a tutor", description: DESCRIPTION }), breadcrumbJsonLd([{ name: "Become a tutor", path: "/volunteer" }])]} />
       <PageHero
         eyebrow="For high school musicians"
         title={
