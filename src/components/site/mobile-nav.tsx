@@ -5,10 +5,10 @@ import { usePathname } from "next/navigation";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { signOut } from "@/app/actions/auth";
-import { SITE_NAV } from "./nav-links";
+import type { NavLink } from "./nav-links";
 import type { SiteAccount } from "./account";
 
-export function MobileNav({ account }: { account: SiteAccount | null }) {
+export function MobileNav({ account, nav }: { account: SiteAccount | null; nav: NavLink[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   useEffect(() => setOpen(false), [pathname]);
@@ -58,7 +58,7 @@ export function MobileNav({ account }: { account: SiteAccount | null }) {
             </Link>
           )}
           <nav className="flex flex-col" aria-label="Mobile">
-            {SITE_NAV.map((l) => (
+            {nav.map((l) => (
               <Link key={l.href} href={l.href} className="border-b border-ink/10 py-4 font-serif text-3xl text-ink">
                 {l.label}
               </Link>

@@ -50,14 +50,32 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
   ).size;
   const first = viewer.profile.full_name.split(" ")[0] || "there";
   const has = (st: string[]) => all.some((s) => st.includes(s.status));
+  const profileDone = Boolean(viewer.profile.avatar_path && t.bio);
+  const profileNudge = profileDone ? {} : { href: "/dashboard/profile", cta: "Add a photo & intro" };
+  // Where a new tutor stands, in the order it happens. Each step says who it's waiting on.
   const steps: SetupStep[] = [
-    { label: "Add a photo & intro", detail: "Families are far more likely to pick a tutor with a photo and a short intro.", done: Boolean(viewer.profile.avatar_path && t.bio), href: "/dashboard/profile", cta: "Edit profile" },
-    { label: "Parent approves", detail: "Your parent or guardian approves from the email we sent them.", done: Boolean(t.guardian_approved_at) },
-    { label: "Profile goes live", detail: "Our automated account check reviews your profile right after your parent approves — we’ll email you when families can see you.", done: t.status === "active" },
-    { label: "Book a first lesson", detail: "Offer to teach a matched student, or accept a request under Lessons.", done: has(["scheduled", "completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/find-students", cta: "Find students" },
-    { label: "Log it afterward", detail: "After a lesson ends, log it truthfully under Lessons. Your student confirms you were there next time they open the site.", done: has(["completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/lessons", cta: "Open lessons" },
-    { label: "Hours verified", detail: "Your student verifies you were there, then the partner nonprofit certifies the hours each week.", done: has(["confirmed", "verified"]), href: "/dashboard/hours", cta: "See hours" },
+    { label: "Account made", detail: "", done: true },
+    {
+      label: "Parent approves",
+      detail: `Your parent approves from the email we sent them.${profileDone ? "" : " While you wait, add a photo and a short intro: families pick tutors with both far more often."}`,
+      done: Boolean(t.guardian_approved_at),
+      ...profileNudge,
+    },
+    {
+      label: "Account check",
+      detail: "Our automated account check reviews your profile, usually within minutes of your parent’s OK. Anything it can’t clear goes to a person on the team.",
+      done: t.status === "active" || check?.status === "verified",
+      ...profileNudge,
+    },
+    {
+      label: "Visible to families",
+      detail: t.status === "active" ? "You’ve paused new students. Turn “Taking new students” back on so matched families can find you." : "We’ll email you the moment families matched to your instruments can see you.",
+      done: t.status === "active" && t.accepting_students,
+    },
+    { label: "First lesson", detail: "Offer to teach a matched student, or accept a request under Lessons. Log it truthfully once it’s over.", done: has(["completed", "confirmed", "verified", "disputed", "rejected"]), href: "/dashboard/find-students", cta: "Find students" },
+    { label: "Hours verified", detail: "Your student confirms you were there, then the partner nonprofit reviews the hours each week.", done: has(["confirmed", "verified"]), href: "/dashboard/hours", cta: "See hours" },
   ];
+
 
   return (
     <>
@@ -94,7 +112,7 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
         </Notice>
       )}
 
-      {(t.status === "active" || t.status === "pending") && <SetupSteps title="Getting started as a tutor" steps={steps} />}
+      {(t.status === "active" || t.status === "pending") && <SetupSteps title="Where you are" steps={steps} />}
 
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat href="/dashboard/hours" icon={Clock3} label="Student-verified hours" value={hrs(studentVerified)} hint={`${hrs(certified)} certified by the partner`} />

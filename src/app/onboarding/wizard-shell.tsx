@@ -17,6 +17,7 @@ export function WizardShell({
   onNext,
   nextLabel = "Continue",
   intro,
+  phase,
 }: {
   steps: string[];
   step: number;
@@ -29,6 +30,8 @@ export function WizardShell({
   onNext: () => void;
   nextLabel?: string;
   intro?: ReactNode;
+  /** Show these grouped steps in the bar instead of `steps` (the parent journey). */
+  phase?: { labels: string[]; current: number; progress: number };
 }) {
   // When the step changes, move focus to the new step's heading so keyboard and
   // screen-reader users start at the top of it (the button they pressed is gone).
@@ -49,7 +52,7 @@ export function WizardShell({
   return (
     <div>
       {intro}
-      <Stepper steps={steps} current={step} />
+      {phase ? <Stepper steps={phase.labels} current={phase.current} progress={phase.progress} /> : <Stepper steps={steps} current={step} />}
       <form
         className="mt-8"
         onSubmit={(e) => {

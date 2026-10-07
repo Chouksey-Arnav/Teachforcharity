@@ -342,3 +342,24 @@ export async function sendTestEmail(to: string): Promise<ActionState> {
     return { ok: false, error: { message: `Sending failed via ${provider.name}: ${e instanceof Error ? e.message : String(e)}` } };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Public contact form and waitlist
+// ---------------------------------------------------------------------------
+export async function setContactStatus(input: { id: string; status: "new" | "handled" }): Promise<ActionState> {
+  if (!uuid.safeParse(input.id).success || !["new", "handled"].includes(input.status)) return { ok: false, error: { message: "Invalid request." } };
+  const db = await adminDb();
+  const { error } = await db.rpc("admin_set_contact_status", { p_id: input.id, p_status: input.status });
+  if (error) return { ok: false, error: toActionError(error) };
+  return ok(input.status === "handled" ? "Marked handled." : "Moved back to new.");
+}
+
+export async function removeWaitlistEntry(id: string): Promise<ActionState> {
+  if (!uuid.safeParse(id).success) return { ok: false, error: { message: "Invalid request." } };
+  const db = await adminDb();
+  const { error } = await db.from("interest_signups").delete().eq("id", id);
+  if (error) return { ok: false, error: toActionError(error) };
+  const { data: me } = await db.auth.getUser();
+  await logAppEvent(me.user?.id ?? null, "admin.waitlist_remove", "interest_signup", id);
+  return ok("Removed.");
+}

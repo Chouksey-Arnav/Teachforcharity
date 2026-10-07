@@ -6,8 +6,7 @@ import { SignupForm } from "./form";
 export const metadata: Metadata = pageSeo(
   "/signup",
   "Create an account",
-  "Sign up for free band and orchestra lessons: parents create the account and sign consent, and high school musicians can apply to tutor.",
-);
+  "Sign up for free band and orchestra lessons: parents create the account and sign consent, and high school musicians can apply to tutor.", { ownImage: true });
 
 export default async function SignupPage({ searchParams }: PageProps<"/signup">) {
   const sp = await searchParams;
@@ -21,7 +20,11 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
         {role === "tutor" ? "Join as a tutor" : role === "family" ? "Join as a parent" : role === "student" ? "Get free lessons" : "Join the program"}
       </h1>
       <p className="mt-3 text-muted">
-        {role === "student" ? "A parent or guardian signs you up — we’ll email them for you." : "Free for everyone. It takes a couple of minutes."}
+        {role === "student"
+          ? "A parent or guardian signs you up. We’ll email them, or give you a link to send them."
+          : role === "tutor"
+            ? "Free. About five minutes, plus a quick OK from your parent."
+            : "Free for everyone. About five minutes, start to finish."}
       </p>
       <SignupForm initialRole={role} invitedEmail={invitedEmail} invitedChild={invitedChild} />
       <p className="mt-8 text-center text-sm text-muted">

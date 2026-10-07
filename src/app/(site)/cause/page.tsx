@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { causeReady } from "@/lib/cause";
 import { CauseCard } from "@/components/site/sections";
 import { PageHero } from "@/components/site/page-hero";
 import { getPublicConfig } from "@/lib/viewer";
@@ -10,6 +12,8 @@ export const metadata: Metadata = pageSeo("/cause", "The cause", DESCRIPTION);
 
 export default async function CausePage() {
   const config = await getPublicConfig();
+  // No placeholder trust page: until a confirmed partner has a real cause and a donation page, this page doesn't exist.
+  if (!causeReady(config)) notFound();
   return (
     <>
       <JsonLd data={[webPageJsonLd({ path: "/cause", name: "The cause", description: DESCRIPTION }), breadcrumbJsonLd([{ name: "The cause", path: "/cause" }])]} />

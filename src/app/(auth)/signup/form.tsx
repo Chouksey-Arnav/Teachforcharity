@@ -1,8 +1,11 @@
 "use client";
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
-import { GraduationCap, Music2, Users } from "lucide-react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { ArrowLeft, Check, Copy, GraduationCap, Link2, Mail, Music2, PencilLine, RotateCw, Share2, Users } from "lucide-react";
 import { requestParentInvite, signUp, verifySignup } from "@/app/actions/auth";
+import { createParentInviteLink } from "@/app/actions/public";
+import { Button } from "@/components/ui/button";
+import { ParentJourney } from "@/components/forms/parent-journey";
 import { CodeStep } from "@/components/auth/code-step";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/field";
 import { PasswordInput } from "@/components/ui/secret-inputs";
@@ -28,6 +31,7 @@ export function SignupForm({ initialRole, invitedEmail, invitedChild }: { initia
   if (step === "code") {
     return (
       <form action={verifyAction} className="mt-8" noValidate>
+        {details.role === "family" && <ParentJourney screen={1} className="mb-8" />}
         {Object.entries(details).map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />
         ))}
@@ -70,8 +74,8 @@ export function SignupForm({ initialRole, invitedEmail, invitedChild }: { initia
         <div className="grid gap-3 sm:grid-cols-3">
           {(
             [
-              { key: "student", icon: Music2, title: "A student", body: "Grades 6–8, ask a parent" },
               { key: "family", icon: Users, title: "A parent", body: "Signing up my middle schooler" },
+              { key: "student", icon: Music2, title: "A student", body: "Grades 6–8, ask a parent" },
               { key: "tutor", icon: GraduationCap, title: "A tutor", body: "Grades 9–12, I want to teach" },
             ] as const
           ).map(({ key, icon: Icon, title, body }) => (
@@ -96,6 +100,22 @@ export function SignupForm({ initialRole, invitedEmail, invitedChild }: { initia
 
       {role && role !== "student" && (
         <div className="animate-rise space-y-5">
+          {role === "family" && (
+            <>
+              <ParentJourney screen={0} />
+              <p className="rounded-2xl bg-white/60 px-4 py-3 text-[13.5px] leading-relaxed text-muted ring-1 ring-ink/10">
+                For North Carolina middle schoolers in grades 6–8. Outside NC, or not in 6th grade yet?{" "}
+                <Link href="/waitlist" className="font-semibold text-ink underline underline-offset-4">
+                  Join the waitlist
+                </Link>
+                . Want to look first?{" "}
+                <Link href="/#preview" className="font-semibold text-ink underline underline-offset-4">
+                  See a sample tutor profile
+                </Link>
+                .
+              </p>
+            </>
+          )}
           {role === "family" && invitedChild && (
             <Notice tone="info" title={`${invitedChild} asked you to sign them up`}>
               Create your parent account, then add {invitedChild} and sign the consent form. It takes about five minutes.
@@ -178,33 +198,88 @@ export function SignupForm({ initialRole, invitedEmail, invitedChild }: { initia
 }
 
 /**
- * What a middle schooler sees: no account, no password — just their first
- * name, a parent's email and an optional note, so we can invite the parent.
+ * What a middle schooler sees: no account, no password. Their first name and an optional note, then either we email
+ * their parent, or they copy a link and text it (lots of 12-year-olds don't know a parent's email, and would rather
+ * text anyway). We keep only the name, the note and the parent's email, and delete them after 14 days.
  */
 function StudentAskParent() {
   const [state, action] = useActionState(requestParentInvite, null);
+  const [sending, startSend] = useTransition();
   // Controlled so a rejected note doesn't wipe what the student typed (React resets forms after an action).
   const [v, setV] = useState({ childFirst: "", parentEmail: "" });
   const [note, setNote] = useState("");
+  const [view, setView] = useState<"form" | "sent">("form");
+  const [resent, setResent] = useState(false);
+  const [link, setLink] = useState<{ url: string } | { error: string; fe?: Record<string, string> } | null>(null);
+  const [linking, startLink] = useTransition();
   const fe = state && !state.ok ? state.fieldErrors ?? {} : {};
-  if (state?.ok && state.data) {
+  const linkFe = link && "error" in link ? link.fe ?? {} : {};
+
+  useEffect(() => {
+    if (state?.ok) setView("sent");
+  }, [state]);
+
+  const resend = () =>
+    startSend(() => {
+      const fd = new FormData();
+      fd.set("childFirst", v.childFirst);
+      fd.set("parentEmail", v.parentEmail);
+      if (note.trim()) fd.set("note", note);
+      setResent(true);
+      action(fd);
+    });
+  const makeLink = () =>
+    startLink(async () => {
+      const r = await createParentInviteLink({ childFirst: v.childFirst, note });
+      setLink(r?.ok && r.data ? { url: r.data.url } : { error: r && !r.ok ? r.error.message : "Something went wrong.", fe: r && !r.ok ? r.fieldErrors : undefined });
+    });
+
+  if (link && "url" in link) return <InviteLink url={link.url} name={v.childFirst} onBack={() => setLink(null)} />;
+
+  if (view === "sent" && state?.ok && state.data) {
+    const again = state.data.status === "already_sent";
     return (
-      <div className="animate-rise rounded-2xl border border-pine-200 bg-pine-50 p-5" role="status">
-        <p className="display text-2xl">We emailed your parent!</p>
-        <p className="mt-2 text-sm leading-relaxed text-ink-2">
-          Ask them to check <strong>{state.data.parentEmail}</strong> (and the spam folder). The email has a link where they can see what the program
-          is{note.trim() ? ", read your note," : ""} and approve you. Then you’ll pick a tutor together. There’s nothing else you need to do here.
-        </p>
+      <div className="animate-rise space-y-4">
+        <div className="rounded-2xl border border-pine-200 bg-pine-50 p-5" role="status">
+          <p className="display text-2xl">{again && resent ? "We just sent one!" : "We emailed your parent!"}</p>
+          <p className="mt-2 text-sm leading-relaxed text-ink-2">
+            {again && resent ? (
+              <>
+                An email went to <strong>{state.data.parentEmail}</strong> a few minutes ago, so we didn’t send another yet. You can send it again in about 10
+                minutes.
+              </>
+            ) : (
+              <>
+                Ask them to check <strong>{state.data.parentEmail}</strong>, and the spam or promotions folder. The email has a link where they can see what
+                the program is{note.trim() ? ", read your note," : ""} and approve you. Then you’ll pick a tutor together.
+              </>
+            )}
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Button type="button" variant="secondary" size="sm" pending={sending} onClick={resend}>
+            <RotateCw className="size-4" /> Send it again
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setView("form")}>
+            <PencilLine className="size-4" /> Fix the email
+          </Button>
+          <Button type="button" variant="secondary" size="sm" pending={linking} onClick={makeLink}>
+            <Link2 className="size-4" /> Copy a link
+          </Button>
+        </div>
+        {link && "error" in link && <Notice tone="danger">{link.error}</Notice>}
+        <p className="text-center text-[13px] text-muted">Nothing else to do here. We don’t save anything else about you.</p>
       </div>
     );
   }
+
   return (
     <div className="animate-rise space-y-5">
       <Notice tone="info" title="A parent signs you up">
-        Middle schoolers don’t make their own accounts. Tell us your first name and your parent or guardian’s email, and we’ll send them a link to
-        approve you. We don’t save anything else about you.
+        Middle schoolers don’t make their own accounts. Tell us your first name, and we’ll email your parent or guardian, or give you a link to text them.
+        We don’t save anything else about you.
       </Notice>
-      <Field label="Your first name" htmlFor="childFirst" error={fe.childFirst}>
+      <Field label="Your first name" htmlFor="childFirst" error={fe.childFirst ?? linkFe.childFirst}>
         <Input
           id="childFirst"
           name="childFirst"
@@ -213,27 +288,15 @@ function StudentAskParent() {
           required
           value={v.childFirst}
           onChange={(e) => setV({ ...v, childFirst: e.target.value })}
-          aria-invalid={Boolean(fe.childFirst)}
-        />
-      </Field>
-      <Field label="Your parent or guardian’s email" htmlFor="parentEmail" error={fe.parentEmail} hint="Not your own email — theirs.">
-        <Input
-          id="parentEmail"
-          name="parentEmail"
-          type="email"
-          autoComplete="off"
-          required
-          value={v.parentEmail}
-          onChange={(e) => setV({ ...v, parentEmail: e.target.value })}
-          aria-invalid={Boolean(fe.parentEmail)}
+          aria-invalid={Boolean(fe.childFirst ?? linkFe.childFirst)}
         />
       </Field>
       <Field
         label="A note to your parent"
         htmlFor="note"
         optional
-        error={fe.note}
-        hint={`Why you want lessons, in your own words. It goes in the email. ${note.length}/${INVITE_NOTE_MAX}`}
+        error={fe.note ?? linkFe.note}
+        hint={`Why you want lessons, in your own words. ${note.length}/${INVITE_NOTE_MAX}`}
       >
         <Textarea
           id="note"
@@ -244,13 +307,80 @@ function StudentAskParent() {
           onChange={(e) => setNote(e.target.value)}
           placeholder="I really want to get better at trumpet before the spring concert!"
           className="min-h-20"
-          aria-invalid={Boolean(fe.note)}
+          aria-invalid={Boolean(fe.note ?? linkFe.note)}
+        />
+      </Field>
+      <Field label="Your parent or guardian’s email" htmlFor="parentEmail" error={fe.parentEmail} hint="Not your own email, theirs. Don’t know it? Copy a link instead.">
+        <Input
+          id="parentEmail"
+          name="parentEmail"
+          type="email"
+          autoComplete="off"
+          value={v.parentEmail}
+          onChange={(e) => setV({ ...v, parentEmail: e.target.value })}
+          aria-invalid={Boolean(fe.parentEmail)}
         />
       </Field>
       {state && !state.ok && !Object.keys(fe).length && <Notice tone="danger">{state.error.message}</Notice>}
-      <Submit className="w-full" size="lg" pendingText="Sending…" formAction={action}>
-        Email my parent
-      </Submit>
+      {link && "error" in link && !Object.keys(linkFe).length && <Notice tone="danger">{link.error}</Notice>}
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        <Submit className="w-full" size="lg" pendingText="Sending…" formAction={action}>
+          <Mail className="size-4" /> Email my parent
+        </Submit>
+        <Button type="button" variant="secondary" size="lg" className="w-full" pending={linking} onClick={makeLink}>
+          <Link2 className="size-4" /> Copy a link instead
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The link a student texts their parent. Opens the same page as the emailed invitation, for 14 days. */
+function InviteLink({ url, name, onBack }: { url: string; name: string; onBack: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+  useEffect(() => setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function"), []);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <div className="animate-rise space-y-4">
+      <div className="rounded-2xl border border-pine-200 bg-pine-50 p-5" role="status">
+        <p className="display text-2xl">Here’s your link!</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">
+          Text it to your parent or guardian. It opens a page that explains the program and lets them approve {name.trim() || "you"}. It works for 14 days.
+          Only send it to your parent.
+        </p>
+      </div>
+      <label htmlFor="invite-link" className="sr-only">
+        Your invitation link
+      </label>
+      <Input id="invite-link" readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="font-mono text-[13px]" />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button type="button" size="lg" className="w-full" onClick={copy}>
+          {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Copied!" : "Copy link"}
+        </Button>
+        {canShare ? (
+          <Button type="button" variant="secondary" size="lg" className="w-full" onClick={() => navigator.share({ title: "Free music lessons", text: `Can you approve my free music lessons?`, url }).catch(() => {})}>
+            <Share2 className="size-4" /> Share
+          </Button>
+        ) : (
+          <Button type="button" variant="secondary" size="lg" className="w-full" onClick={onBack}>
+            <ArrowLeft className="size-4" /> Back
+          </Button>
+        )}
+      </div>
+      {canShare && (
+        <button type="button" onClick={onBack} className="block w-full text-center text-sm text-muted underline-offset-4 hover:text-ink hover:underline">
+          ← Back
+        </button>
+      )}
     </div>
   );
 }

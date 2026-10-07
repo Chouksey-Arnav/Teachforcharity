@@ -42,4 +42,16 @@ describe("seo", () => {
     const html = renderToStaticMarkup(JsonLd({ data: faqJsonLd([{ q: "</script><b>x", a: "y" }]) }));
     expect(html.match(/<\/script>/g)).toHaveLength(1);
   });
+
+  it("every page with its own share card lets it through (pageSeo ownImage), and only those", async () => {
+    const { readFileSync, readdirSync, existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const walk = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+    for (const page of walk(join(process.cwd(), "src/app")).filter((f) => f.endsWith("page.tsx"))) {
+      const src = readFileSync(page, "utf8");
+      if (!src.includes("pageSeo(")) continue;
+      const hasCard = existsSync(join(page, "..", "opengraph-image.tsx"));
+      expect(src.includes("ownImage: true"), page).toBe(hasCard);
+    }
+  });
 });

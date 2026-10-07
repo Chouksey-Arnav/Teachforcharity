@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Check, Video } from "lucide-react";
@@ -7,76 +6,6 @@ import { SAFETY_POINTS } from "@/components/site/sections";
 import type { PublicConfig } from "@/lib/viewer";
 import { cn } from "@/lib/cn";
 import s from "./landing.module.css";
-
-/** Every instrument the program lists (supabase seed), grouped by section colour. */
-const INSTRUMENTS: [string, string][] = [
-  ["Flute", "woodwind"],
-  ["Violin", "strings"],
-  ["Trumpet", "brass"],
-  ["Clarinet", "woodwind"],
-  ["Cello", "strings"],
-  ["Concert percussion", "percussion"],
-  ["Alto sax", "woodwind"],
-  ["Trombone", "brass"],
-  ["Viola", "strings"],
-  ["Piano", "keyboard"],
-  ["Oboe", "woodwind"],
-  ["French horn", "brass"],
-  ["Double bass", "strings"],
-  ["Mallets", "percussion"],
-  ["Bassoon", "woodwind"],
-  ["Euphonium", "brass"],
-  ["Tenor sax", "woodwind"],
-  ["Harp", "strings"],
-  ["Tuba", "brass"],
-  ["Drum set", "percussion"],
-  ["Bass clarinet", "woodwind"],
-  ["Guitar", "strings"],
-  ["Timpani", "percussion"],
-  ["Piccolo", "woodwind"],
-  ["Bari sax", "woodwind"],
-  ["Bass trombone", "brass"],
-  ["English horn", "woodwind"],
-  ["Bass guitar", "strings"],
-];
-
-export function InstrumentMarquee({ open }: { open: { name: string; tutors: number }[] }) {
-  const half = Math.ceil(INSTRUMENTS.length / 2);
-  const rows = [INSTRUMENTS.slice(0, half), INSTRUMENTS.slice(half)];
-  return (
-    <section className={s.marqueeSec} aria-labelledby="instruments-h">
-      <h2 id="instruments-h" className="lm-eyebrow rv">
-        Every band &amp; orchestra instrument
-      </h2>
-      <p className="sr-only">{INSTRUMENTS.map(([n]) => n).join(", ")}.</p>
-      <div className={cn(s.marquee, "rv rv-d1")} aria-hidden>
-        {rows.map((row, r) => (
-          <div key={r} className={cn(s.track, r === 1 && s.trackRev)}>
-            {[...row, ...row].map(([name, fam], n) => (
-              <span key={`${name}-${n}`} className={cn(s.instChip, n >= row.length && s.trackDup)}>
-                <i className={s[`fam-${fam}`]} />
-                {name}
-              </span>
-            ))}
-          </div>
-        ))}
-      </div>
-      {open.length > 0 && (
-        <div className={cn(s.openNow, "lm-wrap rv")}>
-          <h3 className="lm-micro">Taking new students right now</h3>
-          <ul>
-            {open.slice(0, 12).map((o) => (
-              <li key={o.name}>
-                {o.name} · {o.tutors} {o.tutors === 1 ? "tutor" : "tutors"}
-              </li>
-            ))}
-            {open.length > 12 && <li>+{open.length - 12} more</li>}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
 
 export function HowSteps() {
   return (
@@ -179,13 +108,7 @@ export function SafetyPoints() {
   );
 }
 
-const CHAIN = [
-  { t: "Booked", who: "Tutor + family", d: "You agree on a time. Everyone gets an email and a calendar invite." },
-  { t: "Logged", who: "Tutor", d: "After the lesson, you log that it happened." },
-  { t: "Confirmed", who: "Family", d: "The family confirms it too. Unconfirmed lessons never count." },
-  { t: "Verified", who: "Nonprofit partner", d: "Each week our partner reviews and verifies the hours. Then they’re on your record." },
-];
-
+/** The tutor pitch, short. The full account of how an hour gets verified lives on /volunteer (#hours). */
 export function HoursChain() {
   return (
     <div className={s.hoursGrid}>
@@ -208,23 +131,9 @@ export function HoursChain() {
           Volunteer hours that <em>actually</em> count.
         </h2>
         <p className="lm-sub rv rv-d2 mt-5">
-          An hour only counts after three different people agree it happened. That’s what makes the record credible — it’s verified by our nonprofit
-          partner, not just by us.
+          Teach the instrument you love on your own schedule. Every hour is logged by you, confirmed by the family and reviewed by our nonprofit partner,
+          so your record holds up.
         </p>
-        <ol className={cn(s.chain, "rv rv-d2")}>
-          {CHAIN.map((c, n) => (
-            <li key={c.t} className={s.link}>
-              <span className={s.node}>{n === 3 ? <Check className="size-4" strokeWidth={2.5} /> : n + 1}</span>
-              <div>
-                <p className={s.linkTitle}>
-                  {c.t}
-                  <span className={s.linkWho}>{c.who}</span>
-                </p>
-                <p className={s.linkBody}>{c.d}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
         <div className="rv mt-9 flex flex-wrap items-center gap-x-6 gap-y-3">
           <Link href="/signup?role=tutor" className="lm-btn lm-btn-ink">
             Volunteer as a tutor <ArrowRight className="size-4" />
@@ -233,9 +142,6 @@ export function HoursChain() {
             What tutoring involves
           </Link>
         </div>
-        <p className="mt-6 text-[13px] leading-relaxed text-[#6b736e]">
-          Whether verified hours count toward NHS, Tri-M or a school requirement is up to each school or organization — check with your advisor.
-        </p>
       </div>
     </div>
   );
@@ -288,22 +194,6 @@ export function Cause({ config }: { config: PublicConfig | null }) {
           ))}
         </ul>
       </div>
-    </div>
-  );
-}
-
-export function FaqList({ items }: { items: { q: string; a: ReactNode }[] }) {
-  return (
-    <div className={s.faq}>
-      {items.map((i) => (
-        <details key={i.q} className="rv">
-          <summary>
-            {i.q}
-            <span className={s.plus} aria-hidden />
-          </summary>
-          <div className={s.faqA}>{i.a}</div>
-        </details>
-      ))}
     </div>
   );
 }

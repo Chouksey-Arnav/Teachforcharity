@@ -399,6 +399,49 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         cta: { label: "See tutor matches", href: link(`/dashboard/tutors${p.student_id ? `?student=${encodeURIComponent(str(p.student_id))}` : ""}`) },
       });
 
+    // The public waitlist (no account): one email, sent when a tutor for the instrument goes live.
+    case "interest_match": {
+      const leave = link(`/waitlist/leave/${encodeURIComponent(str(p.leave_token))}`);
+      const subject = str(p.subject) || "your instrument";
+      return make(`A ${subject.toLowerCase()} tutor just joined ${SITE.name}`, {
+        heading: `A ${subject.toLowerCase()} tutor is here`,
+        paragraphs: [
+          "Hello,",
+          p.exact === false
+            ? `You asked us to tell you when someone could teach <strong>${esc(subject)}</strong>. A volunteer tutor who plays a closely related instrument just started taking students.`
+            : `You asked us to tell you when a <strong>${esc(subject)}</strong> tutor joined. One just started taking students.`,
+          "Lessons are free, one-on-one over Google Meet, for North Carolina middle schoolers. A parent creates the account and signs consent (about five minutes), then your best matches appear right away. Tutors fill up, so it’s worth looking soon.",
+        ],
+        cta: { label: "Sign up as a parent", href: link("/signup?role=family") },
+        note: "This is the only email we’ll send about it. We delete your address from the waitlist within 30 days.",
+        footer: `You’re getting this because this address joined the ${esc(subject)} waitlist on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. <a href="${esc(leave)}" style="color:#1F5446">Remove me from every waitlist</a>.`,
+        textLines: [
+          "Hello,",
+          p.exact === false
+            ? `You asked us to tell you when someone could teach ${subject}. A volunteer tutor who plays a closely related instrument just started taking students.`
+            : `You asked us to tell you when a ${subject} tutor joined. One just started taking students.`,
+          "Lessons are free, one-on-one over Google Meet, for North Carolina middle schoolers. A parent creates the account and signs consent (about five minutes), then your best matches appear right away.",
+          "",
+          `Remove me from every waitlist: ${leave}`,
+        ],
+      });
+    }
+
+    // Admin alert for the public contact form. The message itself stays on the site.
+    case "contact_message": {
+      const concern = p.topic === "concern";
+      return make(concern ? "URGENT: a concern was reported on the contact form" : "New message on the contact form", {
+        heading: concern ? "A concern was reported — review now" : "Someone sent a message",
+        paragraphs: [
+          concern
+            ? "Someone used the public form to <strong>report a concern</strong>. It may come from a person without an account, so nothing was paused automatically."
+            : `A new <strong>${esc(p.topic) || "message"}</strong> arrived through the contact form.`,
+        ],
+        cta: { label: "Open the inbox", href: link("/admin/inbox") },
+        note: "Message details are only shown on the site.",
+      });
+    }
+
     case "weekly_digest": {
       type Past = { when: string; subject: string; tutor: string; status: string; practice?: string | null };
       type Next = { when: string; subject: string; tutor: string };

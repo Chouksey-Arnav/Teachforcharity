@@ -2,8 +2,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Clock, ShieldCheck } from "lucide-react";
+import { ArrowRight, Clock, ShieldCheck } from "lucide-react";
+import { LinkButton } from "@/components/ui/button";
 import { WizardShell } from "./wizard-shell";
+import { parentPhase } from "@/components/forms/parent-journey";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ChoiceCards } from "@/components/forms/choice-cards";
 import { ChipGroup } from "@/components/forms/chip-group";
@@ -63,6 +65,9 @@ export function FamilyWizard({
   const [step, setStep] = useState(initialStep);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  // "Not eligible yet" answers: shown with a way onto the waitlist instead of a dead end, and never saved.
+  const [tooYoung, setTooYoung] = useState(false);
+  const [outsideNc, setOutsideNc] = useState(false);
 
   const [about, setAbout] = useState({ fullName: profile.fullName, phone: profile.phone, isGuardian: initialStep > 0, acceptTerms: initialStep > 0 });
   const [s, setS] = useState<StudentState>(
@@ -117,6 +122,8 @@ export function FamilyWizard({
           go(1);
         });
       case 1:
+        if (tooYoung) return setError("Lessons are for grades 6–8 for now. Join the waitlist and we’ll email you when that changes.");
+        if (outsideNc) return setError("Lessons are for North Carolina families for now. Join the waitlist and we’ll email you if we open up to your state.");
         if (!s.grade) return setError("Choose a grade.");
         return run(
           async () => {
@@ -182,7 +189,8 @@ export function FamilyWizard({
     }
   };
 
-  const shared = { steps: STEPS, step, error, pending, onNext: next, onBack: step > 0 ? () => go(step - 1) : undefined };
+  // The bar shows the parent's whole journey (sign-up page included) as four steps: "Step 2 of 4 · Your student".
+  const shared = { steps: STEPS, step, phase: parentPhase(step + 2), error, pending, onNext: next, onBack: step > 0 ? () => go(step - 1) : undefined };
 
   if (step === 0)
     return (
@@ -190,7 +198,7 @@ export function FamilyWizard({
         {...shared}
         intro={
           <div className="mb-8 flex items-center gap-2 rounded-full bg-card px-4 py-2 text-sm text-muted ring-1 ring-line sm:w-fit">
-            <Clock className="size-4 text-brass-600" /> About 4 minutes · you can stop and come back anytime
+            <Clock className="size-4 text-brass-600" /> About 4 minutes left · you can stop and come back anytime
           </div>
         }
         title="First, a little about you"
@@ -249,32 +257,67 @@ export function FamilyWizard({
                 <button
                   key={g}
                   type="button"
-                  onClick={() => setS({ ...s, grade: g })}
+                  aria-pressed={!tooYoung && s.grade === g}
+                  onClick={() => {
+                    setTooYoung(false);
+                    setS({ ...s, grade: g });
+                  }}
                   className={cn(
                     "h-14 rounded-xl border text-lg font-medium transition",
-                    s.grade === g ? "border-ink bg-ink text-cream" : "border-line bg-card hover:border-line-2",
+                    !tooYoung && s.grade === g ? "border-ink bg-ink text-cream" : "border-line bg-card hover:border-line-2",
                   )}
                 >
                   {g}th
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              aria-pressed={tooYoung}
+              onClick={() => setTooYoung(!tooYoung)}
+              className={cn("mt-2 text-[13.5px] underline-offset-4 hover:underline", tooYoung ? "font-semibold text-ink" : "text-muted")}
+            >
+              5th grade or younger?
+            </button>
+            {tooYoung && (
+              <NotYet
+                title="Not quite yet, but soon."
+                body={`Tutors are matched to middle schoolers in grades 6–8. Join the waitlist and we’ll email you once if that changes, or come back when ${s.firstName || "your child"} starts 6th grade.`}
+                href="/waitlist?reason=grade"
+              />
+            )}
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="County" htmlFor="county" optional hint="Helps us understand where families are across NC.">
-              <Select id="county" value={s.county} onChange={(e) => setS({ ...s, county: e.target.value })}>
+              <Select
+                id="county"
+                value={outsideNc ? "__outside" : s.county}
+                onChange={(e) => {
+                  const out = e.target.value === "__outside";
+                  setOutsideNc(out);
+                  setS({ ...s, county: out ? "" : e.target.value });
+                }}
+              >
                 <option value="">Choose a county…</option>
                 {NC_COUNTIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
                 ))}
+                <option value="__outside">I don’t live in North Carolina</option>
               </Select>
             </Field>
             <Field label="School" htmlFor="school" optional hint="Only visible to you and program admins.">
               <Input id="school" value={s.school} onChange={(e) => setS({ ...s, school: e.target.value })} maxLength={120} />
             </Field>
           </div>
+          {outsideNc && (
+            <NotYet
+              title="We’re North Carolina only, for now."
+              body="Tutors and lessons are set up for North Carolina families. Join the waitlist with your state and we’ll email you once if we open up there."
+              href="/waitlist?reason=region"
+            />
+          )}
         </div>
       </WizardShell>
     );
@@ -364,5 +407,18 @@ export function FamilyWizard({
     >
       <ConsentForm studentName={name} value={consent} onChange={setConsent} />
     </WizardShell>
+  );
+}
+
+/** "Not eligible yet": a friendly way onto the waitlist instead of a dead end. */
+function NotYet({ title, body, href }: { title: string; body: string; href: string }) {
+  return (
+    <div className="mt-4 animate-fade rounded-2xl border border-brass-600/30 bg-brass-50 p-4">
+      <p className="font-semibold text-brass-800">{title}</p>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{body}</p>
+      <LinkButton href={href} size="sm" className="mt-3">
+        Join the waitlist <ArrowRight className="size-4" />
+      </LinkButton>
+    </div>
   );
 }

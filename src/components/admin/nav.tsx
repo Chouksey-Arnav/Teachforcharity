@@ -2,13 +2,13 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Activity, BadgeCheck, CalendarDays, Gauge, LogOut, Mail, Menu, MessagesSquare, RotateCw, Search, Settings, ShieldAlert, Siren, Users, X } from "lucide-react";
+import { Activity, BadgeCheck, BellRing, CalendarDays, Gauge, Inbox, LogOut, Mail, Menu, MessagesSquare, RotateCw, Search, Settings, ShieldAlert, Siren, Users, X } from "lucide-react";
 import { Spinner } from "@/components/ui/button";
 import { LogoMark } from "@/components/brand/logo";
 import { adminLogout } from "@/app/actions/admin";
 import { cn } from "@/lib/cn";
 
-type Counts = { reports: number; flags: number };
+type Counts = { reports: number; flags: number; inbox?: number };
 type Item = { href: string; label: string; icon: typeof Gauge; exact?: boolean; badge?: keyof Counts; hint: string };
 
 /** Grouped by the question an admin is asking: what's happening, who/what, is anyone unsafe, is the system OK. */
@@ -19,6 +19,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
       { href: "/admin", label: "Overview", icon: Gauge, exact: true, hint: "What needs attention right now" },
       { href: "/admin/people", label: "People", icon: Users, hint: "Students, parents, tutors, reviewers" },
       { href: "/admin/lessons", label: "Lessons", icon: CalendarDays, hint: "Every lesson, disputes, hour verification" },
+      { href: "/admin/waitlist", label: "Waitlist", icon: BellRing, hint: "Who's waiting on which instrument: the recruiting list" },
     ],
   },
   {
@@ -26,6 +27,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     items: [
       { href: "/admin/checks", label: "Account checks", icon: BadgeCheck, hint: "Automated tutor checks: exceptions only" },
       { href: "/admin/reports", label: "Reports", icon: Siren, badge: "reports", hint: "Concerns people have reported" },
+      { href: "/admin/inbox", label: "Inbox", icon: Inbox, badge: "inbox", hint: "Contact form, including concerns from people without an account" },
       { href: "/admin/safety", label: "Safety scan", icon: ShieldAlert, badge: "flags", hint: "Messages the scanner flagged" },
       { href: "/admin/messages", label: "Messages", icon: MessagesSquare, hint: "Read any conversation" },
     ],
@@ -95,7 +97,7 @@ export function AdminSideNav({ counts }: { counts: Counts }) {
                   >
                     <ItemIcon icon={i.icon} active={active} onInk />
                     <span className="flex-1">{i.label}</span>
-                    <CountPill n={i.badge ? counts[i.badge] : 0} />
+                    <CountPill n={i.badge ? counts[i.badge] ?? 0 : 0} />
                   </Link>
                 </li>
               );
@@ -178,7 +180,7 @@ export function AdminMobileBar({ counts }: { counts: Counts }) {
                           <span className={cn("block text-sm", active ? "font-semibold" : "font-medium")}>{i.label}</span>
                           <span className="block truncate text-xs text-muted">{i.hint}</span>
                         </span>
-                        <CountPill n={i.badge ? counts[i.badge] : 0} />
+                        <CountPill n={i.badge ? counts[i.badge] ?? 0 : 0} />
                       </Link>
                     </li>
                   );

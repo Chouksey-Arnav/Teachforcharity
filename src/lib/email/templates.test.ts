@@ -125,6 +125,21 @@ describe("renderEmail", () => {
     expect(ics).toContain("BEGIN:VEVENT");
   });
 
+  it("waitlist emails carry a removal link and say they're the only one", () => {
+    const r = renderEmail("interest_match", { subject: "Trumpet", exact: true, leave_token: "a".repeat(32) })!;
+    expect(r.html).toContain(`/waitlist/leave/${"a".repeat(32)}`);
+    expect(r.text).toContain(`/waitlist/leave/${"a".repeat(32)}`);
+    expect(r.html).toContain("only email");
+    expect(renderEmail("interest_match", { subject: "Clarinet", exact: false, leave_token: "b".repeat(32) })!.html).toContain("closely related");
+  });
+
+  it("contact alerts never include the message itself", () => {
+    const r = renderEmail("contact_message", { topic: "concern", message: "secret details", message_id: "m-1" })!;
+    expect(r.subject).toMatch(/URGENT/);
+    expect(r.html).not.toContain("secret details");
+    expect(r.html).toContain("/admin/inbox");
+  });
+
   it("returns null for unknown templates so the worker can mark them failed", () => {
     expect(renderEmail("nope", base)).toBeNull();
   });

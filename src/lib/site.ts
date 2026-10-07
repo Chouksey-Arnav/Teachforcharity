@@ -2,15 +2,21 @@
 const PRODUCTION_FALLBACK = "https://teachforacause.vercel.app";
 
 /**
- * The canonical public origin. Canonical tags, the sitemap, Open Graph and structured data all derive from it,
- * so it must never be a preview deployment's URL: NEXT_PUBLIC_SITE_URL wins, then Vercel's production domain,
- * then the live address in production, then localhost for development.
+ * Old addresses that only redirect to the live one. A canonical tag, og:url or og:image on one of these sends
+ * every crawler and link preview through a 307, and many previewers drop an image behind a redirect.
  */
-function siteUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  const url = configured || (vercel ? `https://${vercel}` : process.env.NODE_ENV === "production" ? PRODUCTION_FALLBACK : "http://localhost:3000");
-  return url.replace(/\/+$/, "");
+const REDIRECTING_HOSTS = ["teachforcharity.vercel.app"];
+
+/**
+ * The canonical public origin. Canonical tags, the sitemap, Open Graph and structured data all derive from it,
+ * so it must never be a preview deployment's URL: NEXT_PUBLIC_SITE_URL wins, then the live address in
+ * production, then localhost for development. Vercel's own project domain is not used: for this project it
+ * is the old address that redirects.
+ */
+export function siteUrl(env: Record<string, string | undefined> = process.env): string {
+  const configured = env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+  if (configured && !REDIRECTING_HOSTS.some((h) => configured.replace(/^https?:\/\//, "").toLowerCase() === h)) return configured;
+  return env.NODE_ENV === "production" ? PRODUCTION_FALLBACK : "http://localhost:3000";
 }
 
 /** Program identity. Change the name here and it changes everywhere. */

@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { LessonCard } from "@/components/dashboard/lesson-card";
 import { TutorCard } from "@/components/dashboard/tutor-card";
 import { CauseCard } from "@/components/site/sections";
+import { causeReady } from "@/lib/cause";
 import { Notice } from "@/components/ui/notice";
 import { Empty } from "@/components/ui/empty";
 import { LinkButton } from "@/components/ui/button";
@@ -218,7 +219,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
         </p>
       </section>
 
-      <CauseCard config={config} />
+      {causeReady(config) && <CauseCard config={config} />}
     </>
   );
 }

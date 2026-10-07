@@ -109,8 +109,7 @@ function MatchingScreen() {
         </div>
       </div>
       <div className={cn(s.well, s.item, "text-[12.5px] leading-relaxed text-ink-2")} style={i(5)}>
-        <strong className="text-ink">Compatibility, not seniority.</strong> Nobody is ranked by how long they’ve played — a patient tutor who wants beginners
-        beats a senior who doesn’t.
+        <strong className="text-ink">The best fit, not the oldest player.</strong> A patient tutor who wants beginners beats a senior who doesn’t.
       </div>
     </Win>
   );

@@ -1,4 +1,4 @@
-import { FAQ_ITEMS } from "@/components/site/sections";
+import { FAQ_GROUPS } from "@/content/faq";
 import { PUBLIC_PAGES } from "@/lib/seo/pages";
 import { SITE } from "@/lib/site";
 
@@ -7,11 +7,13 @@ const link = (path: string) => (path === "/" ? SITE.url : `${SITE.url}${path}`);
 const FACTS = [
   "Lessons are free for families, always. There is no fee and no payment information anywhere on the site.",
   "Tutors are high school students (grades 9–12) who play band or orchestra instruments. They are volunteers, not certified teachers.",
-  "Students are middle schoolers in North Carolina. A parent or guardian creates the account, adds the child and signs consent before any lesson.",
+  "Students are middle schoolers (grades 6–8) in North Carolina. A parent or guardian creates the account, adds the child and signs consent before any lesson. Families who aren't eligible yet, or whose instrument has no tutor yet, can join a waitlist without an account.",
+  "Lessons are 30, 45 or 60 minutes, one at a time or weekly, between 8 AM and 10 PM Eastern. No Google account is needed to join a lesson.",
   "Lessons are one-on-one over Google Meet, never recorded, with a parent home or nearby.",
   "Messages inside the site are filtered and scanned; phone numbers, emails, links and social media are blocked, and parents can read every message.",
   "Tutors earn volunteer hours that are logged by the tutor, confirmed by the family and certified weekly by a partner nonprofit.",
-  "Donating to the partner nonprofit's cause is optional and happens on the nonprofit's own site.",
+  "Donating to the partner nonprofit's cause, when one is posted, is optional and happens on the nonprofit's own site.",
+  "Families can reach the program team, or report a concern, from the contact page without an account.",
 ];
 
 /** /llms.txt: a short, curated map for language-model crawlers (https://llmstxt.org). */
@@ -49,7 +51,7 @@ export function llmsFullTxt(): string {
     "",
     "## Frequently asked questions",
     "",
-    ...FAQ_ITEMS.flatMap((i) => [`### ${i.q}`, "", i.a, ""]),
+    ...FAQ_GROUPS.flatMap((g) => [`### ${g.title}`, "", ...g.items.flatMap((i) => [`#### ${i.q}`, "", i.a, ""])]),
     "## Pages",
     ...PUBLIC_PAGES.map((p) => `- [${p.title}](${link(p.path)}): ${p.summary}`),
     "",
