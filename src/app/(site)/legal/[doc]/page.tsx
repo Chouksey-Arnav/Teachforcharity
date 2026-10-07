@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LEGAL_DOCS, getLegalDoc } from "@/content/legal";
 import { cn } from "@/lib/cn";
+import { pageSeo } from "@/lib/seo/meta";
+import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 import { PageHero } from "@/components/site/page-hero";
 
 export function generateStaticParams() {
@@ -12,7 +14,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/legal/[doc]">): Promise<Metadata> {
   const { doc } = await params;
   const d = getLegalDoc(doc);
-  return d ? { title: d.title, description: d.summary } : {};
+  return d ? pageSeo(`/legal/${d.slug}`, d.title, d.summary) : {};
 }
 
 export default async function LegalPage({ params }: PageProps<"/legal/[doc]">) {
@@ -21,6 +23,7 @@ export default async function LegalPage({ params }: PageProps<"/legal/[doc]">) {
   if (!d) notFound();
   return (
     <>
+      <JsonLd data={[webPageJsonLd({ path: `/legal/${d.slug}`, name: d.title, description: d.summary }), breadcrumbJsonLd([{ name: d.title, path: `/legal/${d.slug}` }])]} />
       <PageHero eyebrow="Policies" title={d.title} lead={d.summary}>
         <p className="lm-micro mt-6">
           Version {d.version} · Effective {d.effective}

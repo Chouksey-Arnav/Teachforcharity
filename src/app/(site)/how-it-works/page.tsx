@@ -36,11 +36,11 @@ import { Win } from "@/components/how/win";
 import { cn } from "@/lib/cn";
 import { SITE } from "@/lib/site";
 import s from "@/components/how/how.module.css";
+import { pageSeo } from "@/lib/seo/meta";
+import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 
-export const metadata: Metadata = {
-  title: "How it works",
-  description: "How students and tutors are matched, how lessons are scheduled, and how volunteer hours are verified.",
-};
+const DESCRIPTION = "How students and tutors are matched by instrument and level, how free online lessons are scheduled, and how volunteer hours are verified.";
+export const metadata: Metadata = pageSeo("/how-it-works", "How it works", DESCRIPTION);
 
 const i = (n: number) => ({ "--i": n }) as CSSProperties;
 
@@ -60,6 +60,7 @@ const MATCH_FACTORS: [string, string, boolean][] = [
 export default function HowItWorksPage() {
   return (
     <>
+      <JsonLd data={[webPageJsonLd({ path: "/how-it-works", name: "How it works", description: DESCRIPTION }), breadcrumbJsonLd([{ name: "How it works", path: "/how-it-works" }])]} />
       {/* 1 · Hero: music made of dust, headline on the right, the role bar. */}
       <section className={s.heroOuter}>
         <div className={s.heroPanel}>

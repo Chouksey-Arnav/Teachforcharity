@@ -3,10 +3,13 @@ import Link from "next/link";
 import { ArrowRight, Siren } from "lucide-react";
 import { SafetyGrid } from "@/components/site/sections";
 import { ClosingCta, PageHero, SectionHead } from "@/components/site/page-hero";
+import { pageSeo } from "@/lib/seo/meta";
+import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 
 const LINK = "font-semibold text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink";
 
-export const metadata: Metadata = { title: "Safety & consent", description: "How Teach for a Cause keeps students and tutors safe." };
+const DESCRIPTION = "How Teach for a Cause keeps students and tutors safe: parent consent before any lesson, filtered messages, no recordings, and hours verified by a nonprofit partner.";
+export const metadata: Metadata = pageSeo("/safety", "Safety & consent", DESCRIPTION);
 
 const DETAILS: [string, React.ReactNode][] = [
   [
@@ -42,6 +45,7 @@ const DETAILS: [string, React.ReactNode][] = [
 export default function SafetyPage() {
   return (
     <>
+      <JsonLd data={[webPageJsonLd({ path: "/safety", name: "Safety & consent", description: DESCRIPTION }), breadcrumbJsonLd([{ name: "Safety & consent", path: "/safety" }])]} />
       <PageHero
         sky="dusk"
         eyebrow="Safety & consent"

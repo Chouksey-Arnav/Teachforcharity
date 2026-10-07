@@ -2,13 +2,17 @@ import type { Metadata } from "next";
 import { CauseCard } from "@/components/site/sections";
 import { PageHero } from "@/components/site/page-hero";
 import { getPublicConfig } from "@/lib/viewer";
+import { pageSeo } from "@/lib/seo/meta";
+import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 
-export const metadata: Metadata = { title: "The cause", description: "How families can optionally give back to our nonprofit partner's current cause." };
+const DESCRIPTION = "How families can optionally give back to our nonprofit partner's current cause. Lessons are always free; giving is never required.";
+export const metadata: Metadata = pageSeo("/cause", "The cause", DESCRIPTION);
 
 export default async function CausePage() {
   const config = await getPublicConfig();
   return (
     <>
+      <JsonLd data={[webPageJsonLd({ path: "/cause", name: "The cause", description: DESCRIPTION }), breadcrumbJsonLd([{ name: "The cause", path: "/cause" }])]} />
       <PageHero
         sky="gold"
         eyebrow="The cause"

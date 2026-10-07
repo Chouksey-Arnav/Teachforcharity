@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExternalLink, LogOut } from "lucide-react";
@@ -14,6 +15,8 @@ import { collapsePendingSeries, type MySession } from "@/lib/data";
 import { TermsBanner } from "@/components/dashboard/terms-banner";
 import { roleLabel } from "@/components/site/account";
 import { AttendanceCheckIn, AttendanceVerdicts, type AttendancePrompt, type AttendanceVerdict } from "@/components/dashboard/check-ins";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const viewer = await requireViewer();

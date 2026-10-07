@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LoginForm } from "./form";
 import { Notice } from "@/components/ui/notice";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Sign in", robots: { index: false, follow: true } };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;
