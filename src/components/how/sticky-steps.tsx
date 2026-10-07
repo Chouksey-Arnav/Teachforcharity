@@ -5,6 +5,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { Win } from "./win";
+import { MusicDust } from "./music-dust";
+import { Tilt } from "./tilt";
+import { useActive, useReducedMotion } from "@/components/landing/use-demo";
 import s from "./how.module.css";
 
 const HEADER = 72;
@@ -220,6 +223,18 @@ export function StickySteps() {
   const track = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [pinned, setPinned] = useState(false);
+  const screens = useRef<HTMLDivElement>(null);
+  const [manual, setManual] = useState(false);
+  const reduced = useReducedMotion();
+  const showing = useActive(screens, 0.4);
+
+  // Phones don't pin, so the steps play through on their own while the
+  // window is on screen — until someone taps a step.
+  useEffect(() => {
+    if (pinned || manual || reduced || !showing) return;
+    const id = window.setInterval(() => setActive((a) => (a + 1) % STEPS.length), 4800);
+    return () => window.clearInterval(id);
+  }, [pinned, manual, reduced, showing]);
 
   useEffect(() => {
     const mq = window.matchMedia(STICKY_MQ);
@@ -240,6 +255,8 @@ export function StickySteps() {
       const travel = r.height - (window.innerHeight - HEADER);
       const p = Math.min(0.999, Math.max(0, (HEADER - r.top) / travel));
       setActive(Math.floor(p * STEPS.length));
+      // How far through the current step, for the ring around its number.
+      el.style.setProperty("--prog", String((p * STEPS.length) % 1));
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(measure);
@@ -256,7 +273,10 @@ export function StickySteps() {
 
   const go = (n: number) => {
     const el = track.current;
-    if (!pinned || !el) return setActive(n);
+    if (!pinned || !el) {
+      setManual(true);
+      return setActive(n);
+    }
     const r = el.getBoundingClientRect();
     const travel = r.height - (window.innerHeight - HEADER);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -297,10 +317,17 @@ export function StickySteps() {
           </div>
           <p className={cn("lm-micro", s.scrollHint)}>{active < STEPS.length - 1 ? "Scroll to continue" : "That’s it. Four steps."}</p>
         </div>
-        <div className={s.screens} aria-hidden>
+        <div ref={screens} className={s.screens} aria-hidden>
+          <MusicDust variant="step" index={active} className={s.stepDust} />
+          <p className={s.stepTag}>
+            <span className="lm-micro">
+              Step <b key={active}>{String(active + 1).padStart(2, "0")}</b> / 04
+            </span>
+            <span key={`t${active}`}>{STEPS[active].title}</span>
+          </p>
           {STEPS.map((st, n) => (
             <div key={st.title} className={s.screen} data-on={n === active || undefined} data-past={n < active || undefined}>
-              {st.screen}
+              <Tilt>{st.screen}</Tilt>
             </div>
           ))}
         </div>

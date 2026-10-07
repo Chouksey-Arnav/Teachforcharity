@@ -26,7 +26,8 @@ import { FaqList } from "@/components/landing/sections";
 import { LogoMark } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { LinkButton } from "@/components/ui/button";
-import { DustField } from "@/components/how/dust-field";
+import { MusicDust } from "@/components/how/music-dust";
+import { Tilt } from "@/components/how/tilt";
 import { RoleBar } from "@/components/how/role-bar";
 import { StickySteps } from "@/components/how/sticky-steps";
 import { MatchStage } from "@/components/how/match-stage";
@@ -43,6 +44,9 @@ export const metadata: Metadata = {
 
 const i = (n: number) => ({ "--i": n }) as CSSProperties;
 
+/** Each card's wire into the hub, in the hub's 0–100 box. */
+const HUB_PATHS = ["M25 14 Q 30 45, 50 50", "M75 22 Q 70 45, 50 50", "M25 84 Q 30 55, 50 50", "M75 88 Q 70 55, 50 50"];
+
 const MATCH_FACTORS: [string, string, boolean][] = [
   ["Instrument", "Clarinet — the exact one", true],
   ["Level", "Wants to teach developing players", true],
@@ -56,11 +60,12 @@ const MATCH_FACTORS: [string, string, boolean][] = [
 export default function HowItWorksPage() {
   return (
     <>
-      {/* 1 · Hero: dust field, headline on the right, the role bar. */}
+      {/* 1 · Hero: music made of dust, headline on the right, the role bar. */}
       <section className={s.heroOuter}>
         <div className={s.heroPanel}>
-          <DustField className={s.dust} />
+          <MusicDust variant="hero" className={s.heroDust} />
           <div className={s.heroGrid}>
+            <div className={s.heroArt} aria-hidden />
             <div>
               <p className={cn(s.tag, "animate-rise")}>How it works</p>
               <h1 className={cn("lm-h1 animate-rise [animation-delay:60ms]", s.heroTitle, s.accent)}>
@@ -84,6 +89,8 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
+      <Ribbon />
+
       {/* 2 · How it works: pinned steps, changing window. */}
       <section id="steps" className="scroll-mt-20 pt-[clamp(72px,9vw,128px)] lg:pt-0">
         <StickySteps />
@@ -94,7 +101,7 @@ export default function HowItWorksPage() {
         <div className="lm-wrap">
           <div className={s.head}>
             <p className="lm-eyebrow rv">The matching</p>
-            <h2 className={cn("lm-h2 rv rv-d1 mt-[18px] text-ink", s.accent)}>
+            <h2 className={cn("lm-h2 rv rv-d1 mt-[18px] text-ink", s.accent, s.blurIn)}>
               Compatibility, <em>not seniority.</em>
             </h2>
             <p className="lm-sub rv rv-d2 mx-auto mt-5 max-w-[660px]">
@@ -140,10 +147,16 @@ export default function HowItWorksPage() {
             </p>
             <div className={s.hubDust} aria-hidden />
             <svg className={s.links} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-              <path d="M25 14 Q 30 45, 50 50" />
-              <path d="M75 22 Q 70 45, 50 50" />
-              <path d="M25 84 Q 30 55, 50 50" />
-              <path d="M75 88 Q 70 55, 50 50" />
+              {HUB_PATHS.map((d) => (
+                <path key={d} d={d} />
+              ))}
+            </svg>
+            <svg className={s.pulses} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+              {HUB_PATHS.map((d, n) => (
+                <circle key={d} r="0.9">
+                  <animateMotion dur="2.6s" begin={`${n * 0.65}s`} repeatCount="indefinite" path={d} />
+                </circle>
+              ))}
             </svg>
             <div className={cn(s.hubCard, s.hubA)} style={i(0)} aria-hidden>
               <div className="flex items-center gap-2">
@@ -189,12 +202,14 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
+      <Ribbon className="mt-[clamp(48px,6vw,80px)] -mb-[clamp(24px,3vw,48px)]" />
+
       {/* 5 · Feature windows. */}
       <section className={s.sec}>
         <div className="lm-wrap">
           <div className={s.head}>
             <p className={cn(s.tag, "rv")}>Under the hood</p>
-            <h2 className={cn("lm-h2 rv rv-d1 mt-[22px] text-ink", s.accent)}>
+            <h2 className={cn("lm-h2 rv rv-d1 mt-[22px] text-ink", s.accent, s.blurIn)}>
               Everything that happens <em>between the steps.</em>
             </h2>
           </div>
@@ -363,11 +378,13 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
+      <Ribbon className="mt-[clamp(48px,6vw,80px)] -mb-[clamp(24px,3vw,48px)]" />
+
       {/* 7 · Why families say yes. */}
       <section className={s.sec}>
         <div className="lm-wrap">
           <div className={s.head}>
-            <h2 className={cn("lm-h2 rv text-ink", s.accent)}>
+            <h2 className={cn("lm-h2 rv text-ink", s.accent, s.blurIn)}>
               Why families <em>say yes.</em>
             </h2>
             <p className="lm-sub rv rv-d1 mx-auto mt-4 max-w-[600px]">Three rules the site enforces itself — not promises in a policy.</p>
@@ -411,7 +428,7 @@ export default function HowItWorksPage() {
       <section className={cn(s.sec, "pt-0!")}>
         <div className="lm-wrap">
           <div className={cn(s.head, "mb-12")}>
-            <h2 className={cn("lm-h2 rv text-ink", s.accent)}>
+            <h2 className={cn("lm-h2 rv text-ink", s.accent, s.blurIn)}>
               What parents <em>ask</em> us.
             </h2>
           </div>
@@ -423,7 +440,7 @@ export default function HowItWorksPage() {
       <section className={cn(s.sec, "pt-0!")}>
         <div className="lm-wrap">
           <div className={s.head}>
-            <h2 className={cn("lm-h2 rv text-ink", s.accent)}>
+            <h2 className={cn("lm-h2 rv text-ink", s.accent, s.blurIn)}>
               Lessons are free. <em>Always.</em>
             </h2>
             <p className="rv rv-d1 mt-4 text-[15px] text-muted">
@@ -477,9 +494,14 @@ export default function HowItWorksPage() {
       <section className={s.wordOuter} aria-hidden>
         <div className={s.wordPanel}>
           <p className="lm-micro">Free lessons · Real hours · Parent-approved</p>
-          <p className={cn(s.word, "mt-6")}>
-            Teach <em>for a</em> Cause
-          </p>
+          <div className={s.wordBox}>
+            <MusicDust variant="word" className={s.wordDust} />
+            <p className={s.word}>
+              Teach <em>for a</em> Cause
+            </p>
+          </div>
+          <p className="lm-micro mt-4 hidden [@media(pointer:fine)]:block">Move through it. Click it.</p>
+          <p className="lm-micro mt-4 [@media(pointer:fine)]:hidden">Tap it.</p>
         </div>
       </section>
     </>
@@ -490,7 +512,9 @@ function Feature({ title, heading, body, children, delay }: { title: string; hea
   return (
     <div className={cn("rv", delay && "rv-d1")}>
       <div className={s.featShot} aria-hidden>
-        <Win title={title}>{children}</Win>
+        <Tilt max={5}>
+          <Win title={title}>{children}</Win>
+        </Tilt>
       </div>
       <h3 className="mt-6 text-[21px] font-semibold tracking-[-0.015em] text-ink">{heading}</h3>
       <p className="mt-2 max-w-[520px] text-[15px] leading-relaxed text-muted">{body}</p>
@@ -562,4 +586,9 @@ function Plan({
       </div>
     </div>
   );
+}
+
+/** A strip of the dotted staff, notes playing as they cross the middle. */
+function Ribbon({ className }: { className?: string }) {
+  return <MusicDust variant="ribbon" className={cn(s.ribbon, className)} />;
 }
