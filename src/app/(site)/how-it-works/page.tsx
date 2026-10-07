@@ -18,11 +18,10 @@ import {
   Printer,
   ScanSearch,
   ShieldCheck,
+  UserRound,
   Users,
   Video,
 } from "lucide-react";
-import { FAQ_ITEMS } from "@/components/site/sections";
-import { FaqList } from "@/components/landing/sections";
 import { LogoMark } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { LinkButton } from "@/components/ui/button";
@@ -40,7 +39,7 @@ import { pageSeo } from "@/lib/seo/meta";
 import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 
 const DESCRIPTION = "How students and tutors are matched by instrument and level, how free online lessons are scheduled, and how volunteer hours are verified.";
-export const metadata: Metadata = pageSeo("/how-it-works", "How it works", DESCRIPTION);
+export const metadata: Metadata = pageSeo("/how-it-works", "How it works", DESCRIPTION, { ownImage: true });
 
 const i = (n: number) => ({ "--i": n }) as CSSProperties;
 
@@ -55,6 +54,25 @@ const MATCH_FACTORS: [string, string, boolean][] = [
   ["Learning style", "Likes a clear plan and demonstrations", true],
   ["Interests", "Also loves film scores", false],
   ["Fair load", "Has open spots this term", true],
+];
+
+const TONES = ["bg-mint", "bg-peach", "bg-lilac", "bg-glow"];
+
+const FIRST_LESSON: { icon: typeof Eye; t: string; d: string }[] = [
+  { icon: Music2, t: "The instrument, ready to play", d: "Plus its small stuff: reeds, rosin, valve oil, sticks or a practice pad. Tuned and warmed up if you can." },
+  { icon: BookOpenCheck, t: "Music and a pencil", d: "Whatever they’re working on at school, and a stand or something to prop the music up at eye level." },
+  { icon: Video, t: "A laptop or tablet with a camera", d: "Set it to the side so the tutor sees hands and posture. A phone works, but a bigger screen helps." },
+  { icon: Clock3, t: "A quiet room, five minutes early", d: "The lesson link opens on the site 15 minutes before. Close other tabs and apps so the sound stays clear." },
+  { icon: UserRound, t: "No Google account needed", d: "Open the link, type the student’s first name, tap “Ask to join,” and the tutor lets you in. Phones and tablets need the free Meet app." },
+  { icon: Users, t: "A parent home or nearby", d: "Reachable for the whole lesson. You don’t have to sit in, and the site asks you to confirm this before the link opens." },
+];
+
+const QUICK: [string, string][] = [
+  ["How long is a lesson?", "30, 45 or 60 minutes, any quarter hour from 8 AM to 10 PM Eastern."],
+  ["Can we try just one?", "Yes. Weekly is optional, and any upcoming lesson can be cancelled from your dashboard."],
+  ["Is there a limit?", "No cap on lessons. A weekly booking covers up to 12 weeks, and you can book again."],
+  ["What if the tutor doesn’t show?", "Report it as a missed lesson. It never counts toward their hours, and the team follows up."],
+  ["Can we switch tutors?", "Any time, no explanation needed. Your other matches stay on your dashboard."],
 ];
 
 export default function HowItWorksPage() {
@@ -103,7 +121,7 @@ export default function HowItWorksPage() {
           <div className={s.head}>
             <p className="lm-eyebrow rv">The matching</p>
             <h2 className={cn("lm-h2 rv rv-d1 mt-[18px] text-ink", s.accent, s.blurIn)}>
-              Compatibility, <em>not seniority.</em>
+              The best fit, <em>not the oldest player.</em>
             </h2>
             <p className="lm-sub rv rv-d2 mx-auto mt-5 max-w-[660px]">
               Your student tells us what they play and when they’re free. We compare every tutor who plays it and show you the best fits — with the reasons, and
@@ -115,7 +133,13 @@ export default function HowItWorksPage() {
           </div>
           <div className="rv mx-auto mt-10 flex max-w-[600px] flex-col items-center">
             <RoleBar className="mt-0 w-full" />
-            <p className="lm-micro mt-5 text-center">No instrument match yet? We show clearly-labelled related instruments and email you when one joins.</p>
+            <p className="lm-micro mt-5 text-center">
+              No tutor for your instrument yet? We show clearly labelled related instruments, and{" "}
+              <Link href="/waitlist" className="underline underline-offset-4">
+                the waitlist
+              </Link>{" "}
+              emails you when one joins.
+            </p>
           </div>
         </div>
       </section>
@@ -381,59 +405,46 @@ export default function HowItWorksPage() {
 
       <Ribbon className="mt-[clamp(48px,6vw,80px)] -mb-[clamp(24px,3vw,48px)]" />
 
-      {/* 7 · Why families say yes. */}
-      <section className={s.sec}>
+      {/* 7 · Before the first lesson: what to have ready, and the questions families ask next. */}
+      <section id="first-lesson" className={cn(s.sec, "scroll-mt-20")}>
         <div className="lm-wrap">
           <div className={s.head}>
-            <h2 className={cn("lm-h2 rv text-ink", s.accent, s.blurIn)}>
-              Why families <em>say yes.</em>
+            <p className={cn(s.tag, "rv")}>Before your first lesson</p>
+            <h2 className={cn("lm-h2 rv rv-d1 mt-[22px] text-ink", s.accent, s.blurIn)}>
+              Six things to have <em>ready.</em>
             </h2>
-            <p className="lm-sub rv rv-d1 mx-auto mt-4 max-w-[600px]">Three rules the site enforces itself — not promises in a policy.</p>
+            <p className="lm-sub rv rv-d2 mx-auto mt-4 max-w-[600px]">Ten minutes of setup the first time, then it’s just open the link and play.</p>
           </div>
-          <div className={s.statGrid}>
-            <Stat n="$0" title="Cost to families, ever." note="No payment information anywhere on the site." d={0}>
-              <div className="w-full max-w-[220px] rounded-xl border border-line bg-card p-3 text-[12px] shadow-card">
-                <div className="flex justify-between">
-                  <span className="text-muted">Lesson</span>
-                  <span className="font-semibold">Free</span>
-                </div>
-                <div className="mt-1.5 flex justify-between">
-                  <span className="text-muted">Card on file</span>
-                  <span className="font-semibold">None</span>
-                </div>
-              </div>
-            </Stat>
-            <Stat n="3" title="People confirm every hour." note="Tutor · family · nonprofit partner." d={1}>
-              <div className="flex items-center gap-1.5">
-                {[GraduationCap, Users, HeartHandshake].map((Icon, n) => (
-                  <span key={n} className="flex items-center gap-1.5">
-                    <span className="flex size-11 items-center justify-center rounded-full border border-line bg-card shadow-card">
-                      <Icon className="size-5 text-pine-700" strokeWidth={1.8} />
+          <div className="mt-12 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-8">
+            <ol className="grid gap-3 sm:grid-cols-2">
+              {FIRST_LESSON.map(({ icon: Icon, t, d }, n) => (
+                <li key={t} className={cn("rv rounded-[22px] border border-ink/10 bg-white p-5 shadow-card", n % 2 === 1 && "rv-d1")}>
+                  <div className="flex items-center gap-3">
+                    <span className={cn("flex size-10 items-center justify-center rounded-[13px] text-ink", TONES[n % TONES.length])} aria-hidden>
+                      <Icon className="size-[18px]" strokeWidth={1.9} />
                     </span>
-                    {n < 2 && <span className="h-px w-5 bg-line-2" />}
-                  </span>
+                    <span className="font-mono text-[11px] tracking-[0.14em] text-pine-700">{String(n + 1).padStart(2, "0")}</span>
+                  </div>
+                  <h3 className="mt-4 text-[16.5px] font-semibold tracking-[-0.01em] text-ink">{t}</h3>
+                  <p className="mt-1.5 text-[14.5px] leading-relaxed text-muted">{d}</p>
+                </li>
+              ))}
+            </ol>
+            <div className="rv rv-d1 self-start rounded-[28px] border border-ink/10 bg-paper-2 p-6 sm:p-7">
+              <p className="eyebrow">Quick answers</p>
+              <dl className="mt-5 divide-y divide-ink/[0.08]">
+                {QUICK.map(([q, a]) => (
+                  <div key={q} className="py-4 first:pt-0 last:pb-0">
+                    <dt className="font-semibold text-ink">{q}</dt>
+                    <dd className="mt-1 text-[14.5px] leading-relaxed text-muted">{a}</dd>
+                  </div>
                 ))}
-              </div>
-            </Stat>
-            <Stat n="100%" title="Of messages a parent can read." note="From their own dashboard, any time." d={2}>
-              <div className="relative w-full max-w-[220px] rounded-2xl rounded-bl-md border border-line bg-card px-3.5 py-2.5 text-[12.5px] shadow-card">
-                “See you Thursday — bring your reed case!”
-                <Eye className="absolute -right-2 -top-2 size-6 rounded-full bg-glow p-1 text-ink" />
-              </div>
-            </Stat>
+              </dl>
+              <Link href="/faq" className="lm-btn lm-btn-glass lm-btn-sm mt-6">
+                Every question, by who’s asking <ArrowRight className="size-4" />
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* 8 · Questions. */}
-      <section className={cn(s.sec, "pt-0!")}>
-        <div className="lm-wrap">
-          <div className={cn(s.head, "mb-12")}>
-            <h2 className={cn("lm-h2 rv text-ink", s.accent, s.blurIn)}>
-              What parents <em>ask</em> us.
-            </h2>
-          </div>
-          <FaqList items={FAQ_ITEMS} />
         </div>
       </section>
 
@@ -444,13 +455,7 @@ export default function HowItWorksPage() {
             <h2 className={cn("lm-h2 rv text-ink", s.accent, s.blurIn)}>
               Lessons are free. <em>Always.</em>
             </h2>
-            <p className="rv rv-d1 mt-4 text-[15px] text-muted">
-              No fee, no subscription, no card.{" "}
-              <Link href="/cause" className="font-medium text-pine-700 underline decoration-pine-700/30 underline-offset-4 hover:decoration-pine-700">
-                Giving to our partner’s cause is optional
-              </Link>
-              .
-            </p>
+            <p className="rv rv-d1 mt-4 text-[15px] text-muted">No fee, no subscription, no card. Nobody in the program ever asks you for money.</p>
           </div>
           <div className={s.planGrid}>
             <Plan
@@ -519,24 +524,6 @@ function Feature({ title, heading, body, children, delay }: { title: string; hea
       </div>
       <h3 className="mt-6 text-[21px] font-semibold tracking-[-0.015em] text-ink">{heading}</h3>
       <p className="mt-2 max-w-[520px] text-[15px] leading-relaxed text-muted">{body}</p>
-    </div>
-  );
-}
-
-function Stat({ n, title, note, d, children }: { n: string; title: string; note: string; d: number; children: React.ReactNode }) {
-  return (
-    <div className={cn(s.stat, "rv", d === 1 && "rv-d1", d === 2 && "rv-d2")}>
-      <div className={s.statTop} aria-hidden>
-        {children}
-      </div>
-      <div className="p-6 sm:p-7">
-        <p className={s.statNum}>{n}</p>
-        <p className="mt-3 text-[17px] text-ink">{title}</p>
-        <p className="mt-5 flex items-center gap-2.5 border-t border-line pt-4 text-[13.5px] text-muted">
-          <span className="size-1.5 rounded-full bg-glow ring-2 ring-brass-100" />
-          {note}
-        </p>
-      </div>
     </div>
   );
 }

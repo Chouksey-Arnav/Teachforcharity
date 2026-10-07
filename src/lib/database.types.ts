@@ -85,6 +85,51 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          ip_hash: string | null
+          message: string
+          name: string
+          role: string | null
+          status: string
+          topic: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          ip_hash?: string | null
+          message: string
+          name: string
+          role?: string | null
+          status?: string
+          topic: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          ip_hash?: string | null
+          message?: string
+          name?: string
+          role?: string | null
+          status?: string
+          topic?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       consents: {
         Row: {
           ack_free_no_payment: boolean
@@ -437,6 +482,45 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      interest_signups: {
+        Row: {
+          created_at: string
+          email: string
+          grade: number | null
+          id: string
+          ip_hash: string | null
+          leave_token: string
+          notified_at: string | null
+          reason: string
+          region: string | null
+          subject_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          grade?: number | null
+          id?: string
+          ip_hash?: string | null
+          leave_token?: string
+          notified_at?: string | null
+          reason: string
+          region?: string | null
+          subject_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          grade?: number | null
+          id?: string
+          ip_hash?: string | null
+          leave_token?: string
+          notified_at?: string | null
+          reason?: string
+          region?: string | null
+          subject_id?: string | null
+        }
+        Relationships: []
       }
       instrument_waitlist: {
         Row: {
@@ -800,7 +884,7 @@ export type Database = {
           ip_hash: string | null
           last_sent_at: string
           note: string | null
-          parent_email: string
+          parent_email: string | null
           send_count: number
           token_hash: string | null
         }
@@ -811,7 +895,7 @@ export type Database = {
           ip_hash?: string | null
           last_sent_at?: string
           note?: string | null
-          parent_email: string
+          parent_email?: string | null
           send_count?: number
           token_hash?: string | null
         }
@@ -822,7 +906,7 @@ export type Database = {
           ip_hash?: string | null
           last_sent_at?: string
           note?: string | null
-          parent_email?: string
+          parent_email?: string | null
           send_count?: number
           token_hash?: string | null
         }
@@ -1936,6 +2020,7 @@ export type Database = {
       }
       admin_person: { Args: { p_id: string }; Returns: Json }
       admin_retry_email: { Args: { p_id: number }; Returns: undefined }
+      admin_set_contact_status: { Args: { p_id: string; p_status: string }; Returns: undefined }
       admin_set_current_partner: {
         Args: { p_partner: string }
         Returns: undefined
@@ -2058,6 +2143,10 @@ export type Database = {
           student_id: string
         }[]
       }
+      create_parent_invite_link: {
+        Args: { p_child_first: string; p_ip_hash?: string; p_note?: string }
+        Returns: string
+      }
       finish_outbox: {
         Args: { p_error?: string; p_id: number; p_ok: boolean }
         Returns: undefined
@@ -2109,7 +2198,19 @@ export type Database = {
         }
         Returns: number
       }
+      join_interest_list: {
+        Args: {
+          p_email: string
+          p_grade?: number
+          p_ip_hash?: string
+          p_reason: string
+          p_region?: string
+          p_subject_slug?: string
+        }
+        Returns: string
+      }
       join_lesson: { Args: { p_session: string }; Returns: string }
+      leave_interest_list: { Args: { p_token: string }; Returns: boolean }
       lesson_for_link: { Args: { p_session: string }; Returns: Json }
       list_students_for_tutor: {
         Args: {
@@ -2345,6 +2446,7 @@ export type Database = {
         Returns: boolean
       }
       parent_invite_view: { Args: { p_token: string }; Returns: Json }
+      public_instrument_supply: { Args: never; Returns: Json }
       report_incident: {
         Args: {
           p_category: string
@@ -2505,6 +2607,18 @@ export type Database = {
       student_set_guardian: {
         Args: { p_email: string; p_name: string }
         Returns: undefined
+      }
+      submit_contact_message: {
+        Args: {
+          p_email: string
+          p_ip_hash?: string
+          p_message: string
+          p_name: string
+          p_role?: string
+          p_topic: string
+          p_user?: string
+        }
+        Returns: string
       }
       tutor_busy_times: {
         Args: { p_from: string; p_to: string; p_tutor: string }

@@ -1,8 +1,9 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-export function Stepper({ steps, current }: { steps: string[]; current: number }) {
-  const pct = Math.round(((current + 1) / steps.length) * 100);
+/** `progress` (0–1) overrides the bar when one step spans several screens, as in the parent's sign-up journey. */
+export function Stepper({ steps, current, progress }: { steps: string[]; current: number; progress?: number }) {
+  const pct = Math.round((progress ?? (current + 1) / steps.length) * 100);
   return (
     <div>
       <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.14em] text-muted">

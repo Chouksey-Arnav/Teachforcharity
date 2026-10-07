@@ -264,38 +264,3 @@ export function Faq({ items }: { items: { q: string; a: ReactNode }[] }) {
     </div>
   );
 }
-
-export const FAQ_ITEMS = [
-  {
-    q: "Does it really cost nothing?",
-    a: "Yes. Lessons are free, always. There's no fee, no subscription, and no payment information anywhere on the site. Families can choose to donate to our partner nonprofit's cause, directly on the partner's own website — but that's never required and has nothing to do with getting lessons.",
-  },
-  {
-    q: "Who are the tutors?",
-    a: "High school students (grades 9–12) who play in their school band or orchestra, many in top ensembles or All-District groups. Each tutor fills out a skill questionnaire and signs a tutor agreement, and their own parent or guardian has to approve before they can teach. Tutors are volunteers, not certified teachers, and skill levels are self-reported — we show you exactly what each tutor told us. Any safety report or safety-scan alert pauses a tutor immediately.",
-  },
-  {
-    q: "Can my middle schooler sign up on their own?",
-    a: "Not quite. A parent or guardian creates the account and adds their child, and a student can't make one alone. If your student starts on the sign-up page, they can send you an invitation email (with a short note, if they like), and you take it from there. Lessons unlock as soon as you sign the consent form.",
-  },
-  {
-    q: "What does a parent need to do?",
-    a: "Create the account (we email you a code to confirm the address), add your child, and sign the consent form. During each lesson, be home or nearby and reachable — you don't need to sit in. From your account you can read every message, see every lesson, get a Sunday summary with what to practice, and report a concern or withdraw consent at any time.",
-  },
-  {
-    q: "How are students and tutors matched?",
-    a: "Instrument comes first. Then we look at your student's level and the levels each tutor wants to teach, when you're both free, what your student wants to work on, and how they like to learn. We deliberately don't favor the most experienced tutor — a patient tutor who loves teaching beginners is usually the better match for a beginner. We also spread students across tutors so nobody gets overloaded.",
-  },
-  {
-    q: "What if there's no tutor for my student's instrument?",
-    a: "You'll see tutors who play a closely related instrument (for example, a saxophone player for a clarinet student) clearly labelled as such. You can also ask us to email you the moment a tutor for your student's instrument joins, and the program team sees which instruments families are waiting on so we can recruit for them.",
-  },
-  {
-    q: "Do the volunteer hours count for NHS, Tri-M, or school requirements?",
-    a: "Hours are logged by the tutor, confirmed by the family, and verified by our nonprofit partner each week, and you can print a record of them. Whether they count toward a specific school or honor society requirement is up to that organization — please check with your advisor.",
-  },
-  {
-    q: "Can we message the tutor?",
-    a: "Yes, inside the site. Phone numbers, emails, links, social media, and inappropriate language are blocked automatically, and our own safety software (no outside AI services) checks messages for things like requests for secrecy, meeting in person, or bullying — hiding a message and pausing a tutor automatically when something is serious. Parents can read every message.",
-  },
-];

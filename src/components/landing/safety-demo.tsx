@@ -106,7 +106,7 @@ export function SafetyDemo() {
       </label>
       <p id="safety-verdict" aria-live="polite" className={cn("lm-micro", s.tryHint)}>
         {own === null
-          ? "Same rules the database enforces · Nothing you type is saved"
+          ? "Same rules the site enforces · Nothing you type is saved"
           : reason
             ? `For everyone’s safety, messages can’t include ${reason}.`
             : "This one would be sent — and a parent can read it."}

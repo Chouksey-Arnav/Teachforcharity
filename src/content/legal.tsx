@@ -238,6 +238,26 @@ export const LEGAL_DOCS: LegalDoc[] = [
             musical interests, learning preferences, and weekly availability. We do not ask for a Student’s last name, photo, or birth date.
           </li>
           <li>The signed consent form: guardian name, relationship, phone, typed signature, date, and browser information.</li>
+          <li>If a Student chooses to copy a link for their parent instead: the Student’s first name and any short note (deleted within
+            14 days, like an emailed invitation).</li>
+        </ul>
+        <h3 id="waitlist">Waitlist and contact form (no account needed)</h3>
+        <p>
+          <em>Added October 7, 2026.</em> Our two public forms collect only what they need, and nothing from either is shared with Tutors
+          or other families.
+        </p>
+        <ul>
+          <li>
+            <strong>Waitlist:</strong> an email address and what you’re waiting for (an instrument, a state, or a grade). We email you once,
+            when it changes, and delete the address 30 days after that email, or after 18 months if it never changes. Every email has a
+            link that deletes your address from every list. We ask for a parent’s or guardian’s email, not a child’s.
+          </li>
+          <li>
+            <strong>Contact form:</strong> your name, email, optional role, and message, plus your account if you’re signed in. Only
+            Program administrators read it, and we use your email only to reply. Messages are deleted a year after they’re handled;
+            reports of concerns are kept until an administrator deletes them.
+          </li>
+          <li>To stop abuse, both forms keep a one-way hash of your IP address, never the address itself.</li>
         </ul>
         <h3>Tutor accounts</h3>
         <ul>

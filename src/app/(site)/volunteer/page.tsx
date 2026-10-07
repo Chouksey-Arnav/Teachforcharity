@@ -7,7 +7,7 @@ import { pageSeo } from "@/lib/seo/meta";
 import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 
 const DESCRIPTION = "High school musicians: teach middle schoolers band and orchestra for free, on your own schedule, and earn volunteer hours verified by a partner nonprofit.";
-export const metadata: Metadata = pageSeo("/volunteer", "Become a tutor", DESCRIPTION);
+export const metadata: Metadata = pageSeo("/volunteer", "Become a tutor", DESCRIPTION, { ownImage: true });
 
 const NEED = [
   "You’re in 9th–12th grade and play a band or orchestra instrument.",

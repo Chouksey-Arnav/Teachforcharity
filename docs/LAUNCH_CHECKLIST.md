@@ -14,6 +14,10 @@ The software enforces the safety rules. These items are outside what software ca
 - [ ] **Supabase on the Pro plan** (backups + no auto-pause).
 - [ ] **Incident response owner.** Safety reports and serious flags email the alert addresses set in Admin → Settings. Decide who responds, how fast (target: same day), and when to contact parents or authorities. Write it down.
 
+- [ ] **Partner claims match reality.** Most pages say hours are “verified by our nonprofit partner.” While Admin → Settings shows the partner as **Not confirmed**, that sentence isn’t true yet. Either get the agreement in writing and turn on “Partnership confirmed,” or soften that copy before launch. The About page and the cause page already stay quiet about the partner until it’s confirmed.
+- [ ] **Fill in who runs the program** in `src/content/about.ts` (founder name, role, a few sentences in their own voice, optional photo). Until then /about explains how the program is run but not who runs it, and that’s the first question parents ask.
+- [ ] **Someone reads Admin → Inbox daily.** The public contact form (including “Report a concern” from people without an account) lands there, and admins get an email for each one. A public concern does **not** pause a tutor automatically (anyone could file one); open the tutor and act.
+
 ## Strongly recommended
 - [ ] Ask GLHS (and any school whose students volunteer) whether they’ll accept these hours for NHS/Tri-M before promising it. The site deliberately says acceptance is up to each organization.
 - [ ] Finalize the Code of Conduct with the partner (the current page states the enforced rules and says the full version is being finalized).
@@ -23,6 +27,8 @@ The software enforces the safety rules. These items are outside what software ca
 - [ ] Turn on Supabase **leaked password protection** (SETUP.md §2). The site already blocks breached passwords itself; this adds a second check.
 - [ ] Verify your Brevo sender domain (DOMAIN.md §3) so emails don’t land in spam.
 - [ ] Do one real end-to-end lesson with people you know before opening sign-ups.
+- [ ] **Check Admin → Waitlist weekly.** It counts who’s waiting on each instrument (and on other states and grades). That’s the recruiting list: the home page shows “Waitlist” for every instrument with no tutor taking students.
+- [ ] **`NEXT_PUBLIC_SITE_URL` must be `https://teachforacause.vercel.app`** (or your own domain), not the old `teachforcharity.vercel.app` address that only redirects. The code ignores that old address, but fix the variable so email links don’t bounce through a redirect either.
 
 ## Known, accepted limitations
 - Tutor skill levels are self-reported (per the program spec). Profiles say so.

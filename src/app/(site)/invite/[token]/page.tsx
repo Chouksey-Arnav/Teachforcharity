@@ -17,7 +17,8 @@ export const metadata: Metadata = { title: "Approve free music lessons", robots:
 interface Invite {
   child_first: string;
   note: string | null;
-  parent_email: string;
+  /** Null when the student copied a link instead of typing an email. */
+  parent_email: string | null;
   has_account: boolean;
   sent_at: string;
 }
@@ -42,7 +43,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
   const child = invite.child_first;
   const approveHref = invite.has_account
     ? `/login?next=${encodeURIComponent("/dashboard/students/new")}`
-    : `/signup?role=family&email=${encodeURIComponent(invite.parent_email)}&child=${encodeURIComponent(child)}`;
+    : `/signup?role=family${invite.parent_email ? `&email=${encodeURIComponent(invite.parent_email)}` : ""}&child=${encodeURIComponent(child)}`;
   const approveLabel = invite.has_account ? `Sign in and add ${child.length <= 14 ? child : "your child"}` : child.length <= 14 ? `Approve ${child}` : "Approve lessons";
   const stats = config?.stats;
   const showStats = (stats?.active_tutors ?? 0) >= 3;
@@ -197,7 +198,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
           </>
         }
         lead="Create your account, add your child, and sign consent. You can change your mind at any time."
-        micro={`Don’t know ${child}? Ignore the email and we’ll delete the request after 14 days.`}
+        micro={`Don’t know ${child}? Ignore this and we’ll delete the request after 14 days.`}
       >
         <LinkButton href={approveHref} size="lg">
           {approveLabel}

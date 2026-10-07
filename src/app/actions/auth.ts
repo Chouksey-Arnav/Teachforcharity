@@ -159,9 +159,9 @@ const parentInviteSchema = z.object({
  * child's first name and the note, and delete them after 14 days.
  */
 export async function requestParentInvite(
-  _: ActionState<{ parentEmail: string; childFirst: string }>,
+  _: ActionState<{ parentEmail: string; childFirst: string; status: "sent" | "already_sent" }>,
   form: FormData,
-): Promise<ActionState<{ parentEmail: string; childFirst: string }>> {
+): Promise<ActionState<{ parentEmail: string; childFirst: string; status: "sent" | "already_sent" }>> {
   const parsed = parentInviteSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) {
     return { ok: false, error: { message: "Please fix the highlighted fields." }, fieldErrors: fieldErrorsOf(parsed.error.issues) };
@@ -169,7 +169,7 @@ export async function requestParentInvite(
   const admin = serviceOrNull();
   if (!admin) return { ok: false, error: SETUP_ERROR };
   const ip = await clientIp();
-  const { error } = await admin.rpc("request_parent_invite", {
+  const { data: sent, error } = await admin.rpc("request_parent_invite", {
     p_child_first: parsed.data.childFirst,
     p_parent_email: parsed.data.parentEmail,
     p_ip_hash: ip ? createHash("sha256").update(`tfac-invite:${ip}`).digest("hex") : undefined,
@@ -184,8 +184,8 @@ export async function requestParentInvite(
     return { ok: false, error: toActionError(error, "We couldn’t send that right now. Please try again.") };
   }
   kickEmails();
-  // "already_sent" looks the same: the parent was emailed a few minutes ago.
-  return { ok: true, data: parsed.data };
+  // "already_sent": this parent was emailed in the last 10 minutes (or 3 times today), so nothing new went out.
+  return { ok: true, data: { parentEmail: parsed.data.parentEmail, childFirst: parsed.data.childFirst, status: sent === "already_sent" ? "already_sent" : "sent" } };
 }
 
 /** "Send a new code" on step 2 of sign-up or password reset. */

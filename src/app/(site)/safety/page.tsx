@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Siren } from "lucide-react";
 import { SafetyGrid } from "@/components/site/sections";
+import { LinkButton } from "@/components/ui/button";
 import { ClosingCta, PageHero, SectionHead } from "@/components/site/page-hero";
 import { pageSeo } from "@/lib/seo/meta";
 import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
@@ -9,12 +10,12 @@ import { JsonLd, breadcrumbJsonLd, webPageJsonLd } from "@/lib/seo/json-ld";
 const LINK = "font-semibold text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink";
 
 const DESCRIPTION = "How Teach for a Cause keeps students and tutors safe: parent consent before any lesson, filtered messages, no recordings, and hours verified by a nonprofit partner.";
-export const metadata: Metadata = pageSeo("/safety", "Safety & consent", DESCRIPTION);
+export const metadata: Metadata = pageSeo("/safety", "Safety & consent", DESCRIPTION, { ownImage: true });
 
 const DETAILS: [string, React.ReactNode][] = [
   [
     "Parent consent is a hard gate",
-    "A parent creates the account and adds their child — a middle schooler who tries to sign up can only send their parent an invitation. The parent’s account is created from a code we email them, so we know the address is theirs, and then they sign the consent form. Until they sign, the student can’t message anyone, request a lesson, or be seen by tutors. The database itself refuses. The consent covers the online-only format, the no-recording policy, having a parent nearby during lessons, and how concerns are handled.",
+    "A parent creates the account and adds their child — a middle schooler who tries to sign up can only send their parent an invitation. The parent’s account is created from a code we email them, so we know the address is theirs, and then they sign the consent form. Until they sign, the student can’t message anyone, request a lesson, or be seen by tutors. The site won’t allow it. The consent covers the online-only format, the no-recording policy, having a parent nearby during lessons, and how concerns are handled.",
   ],
   [
     "Tutors are accountable from day one",
@@ -34,7 +35,12 @@ const DETAILS: [string, React.ReactNode][] = [
   ],
   [
     "Reports are acted on immediately",
-    "Students, parents, and tutors can report a concern from any page of their dashboard, or flag a specific message — and parents can report from their own account. Reports go straight to the program team. A safety report from a student or parent connected to a tutor pauses that tutor on the spot, cancels their upcoming lessons, and hides their profile until the report is reviewed.",
+    <>
+      Students, parents, and tutors can report a concern from any page of their dashboard, or flag a specific message. Anyone else, with or without an
+      account, can use the <Link className={LINK} href="/contact?topic=concern">public report form</Link>. Reports go straight to the program team. A safety
+      report from a student or parent connected to a tutor pauses that tutor on the spot, cancels their upcoming lessons, and hides their profile until
+      the report is reviewed.
+    </>,
   ],
   [
     "Hours can’t be faked",
@@ -54,7 +60,7 @@ export default function SafetyPage() {
             Built for a program where everyone in the lesson is <em>a minor.</em>
           </>
         }
-        lead="Trust is the whole point. Every rule on this page is enforced by the site itself, so it holds even on a busy week."
+        lead="Trust is the whole point. The site itself enforces every rule on this page, so it holds even on a busy week."
       />
 
       <section className="lm-wrap py-[clamp(64px,8vw,112px)]">
@@ -77,16 +83,20 @@ export default function SafetyPage() {
             </div>
           ))}
         </div>
-        <div className="rv mt-8 flex gap-4 rounded-[22px] border border-clay-500/30 bg-clay-50 p-6">
+        <div id="report" className="rv mt-8 flex scroll-mt-24 flex-col gap-4 rounded-[22px] border border-clay-500/30 bg-clay-50 p-6 sm:flex-row sm:items-center">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-clay-700 text-white">
             <Siren className="size-5" />
           </span>
-          <div>
-            <h2 className="font-semibold text-clay-800">If someone is in immediate danger</h2>
+          <div className="flex-1">
+            <h2 className="font-semibold text-clay-800">Report a concern</h2>
             <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">
-              Call 911 first. Then use “Report a concern” in your dashboard so the program team can act on our side.
+              If someone is in immediate danger, call 911 first. Then tell us: from your dashboard if you have an account, or with the public form if you
+              don’t. Both reach the program team.
             </p>
           </div>
+          <LinkButton href="/contact?topic=concern" variant="danger" className="shrink-0 self-start sm:self-center">
+            Report a concern <ArrowRight className="size-4" />
+          </LinkButton>
         </div>
         <p className="mt-10 text-center text-[15px] text-muted">
           Read the <Link className={LINK} href="/legal/consent">parent consent</Link>,{" "}

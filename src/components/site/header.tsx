@@ -4,16 +4,16 @@ import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { MobileNav } from "./mobile-nav";
 import { HeaderShell } from "./header-shell";
-import { SITE_NAV } from "./nav-links";
+import type { NavLink } from "./nav-links";
 import type { SiteAccount } from "./account";
 
-export function SiteHeader({ account }: { account: SiteAccount | null }) {
+export function SiteHeader({ account, nav }: { account: SiteAccount | null; nav: NavLink[] }) {
   return (
     <HeaderShell>
       <div className="lm-wrap flex h-16 items-center justify-between gap-6 md:h-[72px]">
         <Logo />
-        <nav className="hidden items-center gap-7 lg:flex" aria-label="Main">
-          {SITE_NAV.map((l) => (
+        <nav className="hidden items-center gap-6 lg:flex xl:gap-7" aria-label="Main">
+          {nav.map((l) => (
             <Link key={l.href} href={l.href} className="text-[15px] text-ink/80 transition-colors duration-200 hover:text-ink">
               {l.label}
             </Link>
@@ -37,7 +37,7 @@ export function SiteHeader({ account }: { account: SiteAccount | null }) {
             </>
           )}
         </div>
-        <MobileNav account={account} />
+        <MobileNav account={account} nav={nav} />
       </div>
     </HeaderShell>
   );
