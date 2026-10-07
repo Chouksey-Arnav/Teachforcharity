@@ -71,7 +71,7 @@ export function MatchStage() {
         </svg>
       )}
 
-      <div className={s.request} aria-hidden>
+      <div className={s.request} data-scan={(!reduced && phase >= 1 && phase <= 2) || undefined} aria-hidden>
         <div className="flex items-center gap-2.5">
           <Avatar name="Leo" size={30} />
           <p className="text-[13.5px] font-semibold">Leo</p>
@@ -95,7 +95,12 @@ export function MatchStage() {
           >
             <div className="flex items-center gap-2">
               <span className="text-[13.5px] font-semibold">{m.name}</span>
-              <span className="ml-auto font-mono text-[11px] text-pine-700">{m.score} match</span>
+              <span className="ml-auto font-mono text-[11px] text-pine-700">
+                <span className={s.count} style={{ "--to": m.score } as CSSProperties}>
+                  {reduced ? m.score : null}
+                </span>{" "}
+                match
+              </span>
             </div>
             <ul className="mt-2 grid gap-1 text-[12px] text-ink-2">
               {m.reasons.map((r) => (
