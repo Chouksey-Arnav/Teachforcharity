@@ -140,8 +140,8 @@ To rotate the secret, update `tfac_cron_secret` the same way, set the same value
 
 - Run `supabase/tests/e2e_program_test.sql` in the SQL Editor. Expected output: `ERROR: ALL TESTS PASSED (rolled back): ...` (it deliberately errors to roll back all test data).
 - Sign up a test tutor and family with real inboxes you control, and walk one lesson through request → accept → log → confirm → verify.
-- Run `supabase/tests/v2_program_test.sql` and `supabase/tests/v3_program_test.sql` the same way (v3: two-factor admins, parent-first sign-up and phone checks, tutor parent approval, Meet gating, weekly lessons, email confirmations, waitlist, hour verification links, push).
-- On the sign-up page choose **student** with a parent email you control: the student can't make an account, and the parent gets an invitation. Sign up as that parent, add the student and sign consent, then take the verification call yourself from **Admin → Parent calls**.
+- Run `supabase/tests/v2_program_test.sql` and `supabase/tests/v3_program_test.sql` the same way (v3: two-factor admins, parent-first sign-up, the student's note and invitation page, email-verified consent, tutor parent approval, Meet gating, weekly lessons, email confirmations, waitlist, hour verification links, push).
+- On the sign-up page choose **student** with a parent email you control: the student can't make an account, and the parent gets an invitation. Open the invitation page from that email, sign up as the parent, add the student and sign consent: tutor matches and lesson requests unlock straight away.
 - Sign up a test tutor with a parent email you control and approve from the emailed parent link, then approve the tutor in **Admin → People**.
 - **Admin → Emails** should show everything as `sent`. **Admin → Settings & health** should be all green.
 

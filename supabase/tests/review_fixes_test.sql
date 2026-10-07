@@ -6,8 +6,6 @@ declare
   s1 uuid; s2 uuid; clar uuid; a uuid; b uuid; ok boolean; hint text; n int; log text := '';
   slot timestamptz := ((current_date + 2)::timestamp + time '17:00') at time zone 'America/New_York';
 begin
-  -- Phone-checked consent is covered by v3_program_test.sql; this suite tests what comes after consent.
-  update public.app_settings set require_consent_verification = false;
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
     (f1, 'rf-f1@example.test', 'authenticated', 'authenticated', '{"role":"family","full_name":"Pat Parent"}'),
     (f2, 'rf-f2@example.test', 'authenticated', 'authenticated', '{"role":"family","full_name":"Other Parent"}'),

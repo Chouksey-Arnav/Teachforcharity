@@ -82,7 +82,7 @@ export default async function HomePage() {
             </h2>
             <p className="lm-sub rv rv-d2">No auditions, no fees, no guesswork — a short questionnaire, a parent’s yes, and a tutor who plays your instrument.</p>
           </div>
-          <HowSteps phoneCheck={config?.require_consent_verification ?? true} />
+          <HowSteps />
           <div className="rv mt-10 text-center">
             <Link href="/how-it-works" className="text-[15px] font-semibold text-ink underline decoration-1 underline-offset-4">
               The full details

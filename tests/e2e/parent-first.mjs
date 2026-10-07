@@ -1,6 +1,6 @@
-// A middle schooler asks a parent; the parent signs up from the email, onboards,
-// signs consent, waits for the phone check; an admin verifies; lessons unlock.
-import { BASE, PW, adminLogin, browser, clearInbox, codeIn, forgetAdminSecret, shot, step, waitForEmail } from "./common.mjs";
+// A middle schooler asks a parent (with a note); the parent opens the invitation
+// page from the email, signs up, onboards and signs consent; lessons unlock at once.
+import { BASE, PW, browser, clearInbox, codeIn, shot, step, waitForEmail } from "./common.mjs";
 
 const b = await browser();
 const expect = (cond, msg) => {
@@ -9,7 +9,6 @@ const expect = (cond, msg) => {
 const mom = `e2e-pf-mom-${Date.now()}@tfac-e2e.test`;
 try {
   await clearInbox();
-  await forgetAdminSecret();
 
   // ---- The student: no account, just an invitation ----
   const kidCtx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -19,20 +18,41 @@ try {
   expect((await kid.getByLabel("Password", { exact: true }).count()) === 0, "students are asked for a password");
   await kid.getByLabel("Your first name").fill("Leo");
   await kid.getByLabel("Your parent or guardian’s email").fill(mom);
+  // A note that breaks the rules is stopped, and what the student typed survives.
+  await kid.getByLabel(/A note to your parent/).fill("add me on snapchat");
+  await kid.getByRole("button", { name: "Email my parent" }).click();
+  await kid.getByText(/can’t include outside apps/).first().waitFor();
+  expect((await kid.getByLabel("Your first name").inputValue()) === "Leo", "a rejected note wiped the student's name");
+  expect((await kid.getByLabel("Your parent or guardian’s email").inputValue()) === mom, "a rejected note wiped the parent's email");
+  await kid.getByLabel(/A note to your parent/).fill("Please say yes, I want to get better at clarinet before the spring concert!");
   await kid.getByRole("button", { name: "Email my parent" }).click();
   await kid.getByText("We emailed your parent!").waitFor();
   await shot(kid, "pf-01-student-asked");
   step("student asks a parent (no account, no password)");
   await kidCtx.close();
 
-  // ---- The parent follows the email ----
-  const invite = await waitForEmail(mom, /asked you to sign them up/);
-  const href = invite.html.match(/href="([^"]*\/signup\?role=family[^"]*)"/)?.[1]?.replace(/&amp;/g, "&");
-  expect(href, "invite has no sign-up link");
+  // ---- The parent follows the email to the invitation page ----
+  const invite = await waitForEmail(mom, /asking you to approve/);
+  expect(invite.text.includes("before the spring concert"), "the student's note isn't in the email");
+  const href = invite.html.match(/href="([^"]*\/invite\/[0-9a-f]{64})"/)?.[1];
+  expect(href, "invite has no link to the invitation page");
   const ctx = await b.newContext({ viewport: { width: 1360, height: 900 } });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log("  [pageerror]", e.message));
   await page.goto(href);
+  await page.getByText("Will you say yes?").waitFor();
+  await page.getByText(/before the spring concert/).waitFor();
+  await shot(page, "pf-02-invitation-page");
+  // Phone width: no sideways scrolling.
+  const phone = await (await b.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true })).newPage();
+  await phone.goto(href);
+  await phone.getByText("Will you say yes?").waitFor();
+  expect(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "invitation page scrolls sideways at 375px");
+  await shot(phone, "pf-02b-invitation-page-phone");
+  await phone.context().close();
+  step("parent sees the invitation page with the student's note");
+  await page.getByRole("link", { name: "Approve Leo" }).first().click();
+  await page.waitForURL("**/signup?**");
   await page.getByText("Leo asked you to sign them up").waitFor();
   expect((await page.getByLabel("Email").inputValue()) === mom, "parent email not pre-filled");
   await page.getByLabel(/Your name/).fill("Dana Parent");
@@ -71,32 +91,18 @@ try {
   await page.getByLabel("Signature").fill("Dana Parent");
   await page.getByRole("button", { name: /Sign & find tutors/ }).click();
   await page.waitForURL("**/dashboard/**", { timeout: 20000 });
-  await page.getByText("We’ll call you to confirm consent").first().waitFor();
-  step("parent finishes onboarding while the phone check is pending");
+  step("parent finishes onboarding");
   const receipt = await waitForEmail(mom, /consent form/);
-  expect(/will call you at \(919\) 555-0100/.test(receipt.text), "receipt doesn’t mention the call");
-  await page.goto(`${BASE}/dashboard/students`);
-  await page.getByText(/We’ll call \(919\) 555-0100 to confirm/).waitFor();
-  await shot(page, "pf-02-awaiting-call");
-  step("students page and receipt email explain the call");
-
-  // ---- Admin calls and verifies ----
-  const { ctx: actx, page: admin } = await adminLogin(b);
-  await admin.getByText("waiting for a verification call").waitFor();
-  await admin.goto(`${BASE}/admin/consents`);
-  const card = admin.locator("article", { hasText: "Dana Parent" });
-  await card.getByText("(919) 555-0100").waitFor();
-  await shot(admin, "pf-03-admin-calls");
-  await card.getByLabel("Call notes").fill("Spoke with Dana at 4:10 PM, confirmed she signed.");
-  await card.getByRole("button", { name: "Verified — it was the parent" }).click();
-  await admin.getByText("Verified — the family has been emailed").waitFor();
-  step("admin verifies the parent from the call list");
-  await actx.close();
-
-  await waitForEmail(mom, /all set for lessons/);
+  expect(!/will call you/i.test(receipt.text), "receipt still promises a phone call");
   await page.goto(`${BASE}/dashboard/students`);
   await page.getByText(/Consent signed .* by Dana Parent/).waitFor();
-  step("family is emailed and consent is now active");
+  await shot(page, "pf-03-consent-active");
+  step("consent is active straight away; no phone call");
+
+  // The invitation closes once the parent has an account.
+  await page.goto(href);
+  await page.getByText("This link has").waitFor();
+  step("invitation link closes after sign-up");
   await ctx.close();
   console.log("PARENT-FIRST E2E PASSED");
 } finally {

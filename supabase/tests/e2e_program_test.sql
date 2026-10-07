@@ -16,8 +16,6 @@ declare
   wk date; log text := '';
   j jsonb; sub public.subjects;
 begin
-  -- Phone-checked consent is covered by v3_program_test.sql; this suite tests what comes after consent.
-  update public.app_settings set require_consent_verification = false;
   -- users
   insert into auth.users (id, email, aud, role, raw_user_meta_data) values
     (f1, 'test-f1@example.test', 'authenticated', 'authenticated', '{"role":"family","full_name":"Pat Parent"}'),

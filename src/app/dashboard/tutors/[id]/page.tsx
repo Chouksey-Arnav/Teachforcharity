@@ -146,7 +146,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
                 studentId={student?.id}
                 threadHref={threadHref}
                 label={`Message ${first}`}
-                disabledReason={consent !== "active" ? (isStudent ? "Messaging opens once your parent’s approval is confirmed." : "Messaging opens once consent is confirmed.") : undefined}
+                disabledReason={consent !== "active" ? (isStudent ? "Messaging opens once your parent approves." : "Messaging opens once you sign the consent form.") : undefined}
               />
             </div>
           </header>

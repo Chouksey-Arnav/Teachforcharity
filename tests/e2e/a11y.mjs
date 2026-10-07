@@ -17,6 +17,11 @@ try {
   const visitor = await (await b.newContext()).newPage();
   for (const path of ["/", "/how-it-works", "/safety", "/volunteer", "/cause", "/legal/privacy", "/login", "/signup?role=family", "/signup?role=student", "/signup?role=tutor", "/admin/login", "/verify/aaaaaaaaaa"])
     await scan(visitor, path);
+  // A parent's invitation page (made the way the sign-up form makes it) and an expired one.
+  const invitee = `e2e-a11y-${Date.now()}@tfac-e2e.test`;
+  await sql(`select public.request_parent_invite('Leo', '${invitee}', null, 'Please say yes, I want to learn trumpet!')`);
+  const inviteToken = await sql(`select payload->>'token' from email_outbox where template = 'parent_invite' and to_email = '${invitee}' order by id desc limit 1`);
+  for (const path of [`/invite/${inviteToken}`, `/invite/${"0".repeat(64)}`]) await scan(visitor, path);
   step("public pages scanned");
   const mom = await sql(`select email from profiles where email like 'e2e-journey-mom-%' order by created_at desc limit 1`);
   const maya = await sql(`select id from profiles where email = 'e2e-tutor@tfac-e2e.test'`);

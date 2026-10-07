@@ -155,3 +155,6 @@ export const SESSION_STATUS_LABEL: Record<string, string> = {
   verified: "Certified by partner",
   rejected: "Not verified",
 };
+
+/** Longest note a student can add to their parent's invitation (the database enforces the same). */
+export const INVITE_NOTE_MAX = 200;

@@ -6,7 +6,7 @@ Drive the real site in Chromium against the **local** Supabase stack (they read 
 |---|---|
 | `admin-mfa.mjs` | admin sign-in with an authenticator app: setup, wrong codes, password-only sessions refused |
 | `auth.mjs` | sign-up codes, breached passwords, no account enumeration, new-device alerts, safe redirects |
-| `parent-first.mjs` | a student invites a parent; the parent signs up, signs consent, and is verified by phone |
+| `parent-first.mjs` | a student invites a parent with a note; the parent opens the invitation page, signs up and signs consent, and lessons unlock at once |
 | `tutor-approval.mjs` | a tutor's parent approves (and withdraws) from the emailed link; admin approval |
 | `journey.mjs` | the whole program: weekly booking from open times, counter-offer, joining only in the window, practice notes, one-tap email confirmation, verification, the public hours link |
 | `safety.mjs` | run after `journey.mjs`: every public page, messaging filter, a partner reviewer, report → auto-pause → reactivate, every page on a phone |

@@ -54,7 +54,6 @@ export interface PublicConfig {
   messaging_terms_version: string;
   tutor_agreement_version: string;
   require_tutor_approval: boolean;
-  require_consent_verification: boolean;
   partner: {
     id: string;
     name: string;

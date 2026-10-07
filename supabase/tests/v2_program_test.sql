@@ -11,8 +11,6 @@ declare
   ok boolean; hint text; log text := ''; run bigint; g_id uuid;
   slot timestamptz := ((current_date + 3)::timestamp + time '17:00') at time zone 'America/New_York';
 begin
-  -- Phone-checked consent is covered by v3_program_test.sql; this suite tests what comes after consent.
-  update public.app_settings set require_consent_verification = false;
   select id into clar from public.subjects where slug = 'clarinet';
   select id into tpt from public.subjects where slug = 'trumpet';
 

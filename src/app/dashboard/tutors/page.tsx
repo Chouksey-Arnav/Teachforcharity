@@ -199,13 +199,6 @@ export default async function TutorsPage({ searchParams }: PageProps<"/dashboard
           </div>
         </div>
 
-        {consent === "pending" && (
-          <Notice tone="info" className="mb-6" title={isStudent ? "Your parent said yes — one quick check left" : "We’ll call you to confirm consent"}>
-            {isStudent
-              ? "Someone from the program will call your parent to make sure it was really them. You can book lessons right after that call — look around and find tutors you like until then."
-              : `Someone from the program will call ${s.consent?.phone ?? "the number on your form"}, usually within two days, to confirm you’re the parent or guardian. You can book lessons right after that call.`}
-          </Notice>
-        )}
         {consent === "none" &&
           (isStudent ? (
             <Notice tone="warning" className="mb-6" title="Waiting for your parent’s OK" action={<LinkButton href="/dashboard" size="sm" variant="secondary">Resend</LinkButton>}>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PhoneCall, Plus, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Plus, ShieldCheck, ShieldAlert } from "lucide-react";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { getFamilyStudents } from "@/lib/data";
@@ -68,21 +68,10 @@ export default async function StudentsPage() {
                 {s.goals.length > 0 && <p className="text-[13px] text-muted">Goals: {s.goals.map(goalLabel).join(", ")}</p>}
               </div>
               <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line bg-paper/50 px-5 py-3">
-                {s.consent && s.consentActive ? (
+                {s.consent ? (
                   <>
                     <span className="flex items-center gap-1.5 text-[13px] text-pine-800">
                       <ShieldCheck className="size-4" /> Consent signed {formatDate(s.consent.signed_at)} by {s.consent.guardian_name}
-                    </span>
-                    <RevokeConsentButton studentId={s.id} name={s.first_name} />
-                  </>
-                ) : s.consent ? (
-                  <>
-                    <span className="flex items-start gap-1.5 text-[13px] text-sky-700">
-                      <PhoneCall className="mt-0.5 size-4 shrink-0" />
-                      <span>
-                        Signed {formatDate(s.consent.signed_at)}. We’ll call {s.consent.phone} to confirm — usually within two days. Lessons
-                        unlock right after.
-                      </span>
                     </span>
                     <RevokeConsentButton studentId={s.id} name={s.first_name} />
                   </>
