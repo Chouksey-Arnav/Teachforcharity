@@ -40,13 +40,17 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
   const viewer = await requireViewer(["tutor"]);
   const { id } = await params;
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("student_profile_for_tutor", { p_student: id });
+  // One round of queries: the rest are scoped to this tutor by RLS, so loading them before the access check reveals nothing.
+  const [{ data, error }, { data: thread }, kinds, practice, sessions] = await Promise.all([
+    supabase.rpc("student_profile_for_tutor", { p_student: id }),
+    supabase.from("threads").select("id").eq("student_id", id).eq("tutor_id", viewer.id).maybeSingle(),
+    getStudentKinds(supabase),
+    getMyPractice(supabase, { studentId: id }),
+    getMySessions(supabase, "all", 500),
+  ]);
   if (error || !data) notFound();
   const s = data as unknown as StudentForTutor;
-  const { data: me } = await supabase.from("tutor_profiles").select("availability").eq("user_id", viewer.id).single();
-  const { data: thread } = await supabase.from("threads").select("id").eq("student_id", id).eq("tutor_id", viewer.id).maybeSingle();
-  const selfManaged = (await getStudentKinds(supabase)).get(id) === "student";
-  const [practice, sessions] = await Promise.all([getMyPractice(supabase, { studentId: id }), getMySessions(supabase, "all", 500)]);
+  const selfManaged = kinds.get(id) === "student";
   const together = sessions.filter((x) => x.student_id === id && x.tutor_id === viewer.id);
   const nowIso = new Date().toISOString();
   const next = together.filter((x) => x.status === "scheduled" && x.end_at > nowIso).sort((a, b) => a.start_at.localeCompare(b.start_at))[0];
@@ -157,7 +161,7 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
         <Card className="p-6 lg:col-span-2">
           <h2 className="font-semibold">When you’re both free</h2>
           <p className="mb-3 text-xs text-muted">Gold = both free · green = you only · light = {s.first_name} only</p>
-          <SlotGrid value={me?.availability ?? []} highlight={s.availability} readOnly />
+          <SlotGrid value={viewer.tutor?.availability ?? []} highlight={s.availability} readOnly />
         </Card>
       </div>
     </>

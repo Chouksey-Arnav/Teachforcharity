@@ -12,13 +12,13 @@ export default async function ReportPage({ searchParams }: PageProps<"/dashboard
   const viewer = await requireViewer();
   const sp = await searchParams;
   const supabase = await createClient();
-  const threads = viewer.role === "family" || viewer.role === "tutor" ? await getMyThreads(supabase) : [];
   const str = (v: unknown) => (typeof v === "string" ? v : "");
-  let quoted: string | null = null;
-  if (str(sp.message)) {
-    const { data } = await supabase.from("messages").select("body").eq("id", str(sp.message)).maybeSingle();
-    quoted = data?.body ?? null;
-  }
+  const [threads, quoted] = await Promise.all([
+    viewer.role === "family" || viewer.role === "tutor" ? getMyThreads(supabase) : [],
+    str(sp.message)
+      ? supabase.from("messages").select("body").eq("id", str(sp.message)).maybeSingle().then(({ data }) => data?.body ?? null)
+      : null,
+  ]);
   return (
     <div className="max-w-2xl">
       <PageHeader title="Report a concern" description="Reports go straight to the program team. You can report anything — big or small." />

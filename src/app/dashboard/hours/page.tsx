@@ -20,12 +20,12 @@ const COUNTED = ["completed", "confirmed", "disputed", "verified", "rejected"];
 export default async function HoursPage() {
   const viewer = await requireViewer(["tutor"]);
   const supabase = await createClient();
-  const sessions = (await getMySessions(supabase, "all", 500)).filter((s) => COUNTED.includes(s.status)).sort((a, b) => a.start_at.localeCompare(b.start_at));
+  const [all, { data: code }] = await Promise.all([getMySessions(supabase, "all", 500), supabase.rpc("my_verify_code", { p_action: "get" })]);
+  const sessions = all.filter((s) => COUNTED.includes(s.status)).sort((a, b) => a.start_at.localeCompare(b.start_at));
   const minutes = (st: string[]) => sessions.filter((s) => st.includes(s.status)).reduce((a, s) => a + s.duration_minutes, 0);
   const verified = sessions.filter((s) => s.status === "verified");
   const h = (m: number) => (m / 60).toFixed(2).replace(/\.?0+$/, "") || "0";
   const t = viewer.tutor!;
-  const { data: code } = await supabase.rpc("my_verify_code", { p_action: "get" });
   const verifyUrl = code ? `${SITE.url}/verify/${code}` : null;
   const qr = verifyUrl ? await QRCode.toString(verifyUrl, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : null;
 

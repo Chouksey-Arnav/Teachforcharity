@@ -27,6 +27,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const counts = { action: 0, unread: 0 };
   let prompts: AttendancePrompt[] = [];
   let verdicts: AttendanceVerdict[] = [];
+  // Fetched alongside the counts: it doesn't depend on them.
+  const configP = getPublicConfig();
   if (viewer.role === "family" || viewer.role === "tutor") {
     // After a lesson: families are asked "was the tutor there?" on their next visit; tutors see the answer.
     const [actions, threads, checkIns] = await Promise.all([
@@ -41,7 +43,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     counts.unread = (threads.data ?? []).filter((t) => t.unread).length;
   }
   // Existing users accept revised Terms here; new users accept them during onboarding.
-  const config = await getPublicConfig();
+  const config = await configP;
   const termsOutdated =
     (viewer.role === "family" || viewer.role === "tutor") && !!viewer.profile.terms_version && !!config?.terms_version && viewer.profile.terms_version !== config.terms_version;
   const nav = navFor(viewer.role, counts, viewer.profile.account_kind);

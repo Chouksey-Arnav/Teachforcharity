@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { RequestLinkForm } from "./request-link-form";
 
 export const metadata: Metadata = { title: "Parent link", robots: { index: false, follow: true } };
@@ -18,7 +19,7 @@ export default function GuardianLinkPage() {
         <RequestLinkForm />
       </div>
       <p className="mt-10 text-sm text-muted">
-        Signed up your child yourself with a parent account? <a href="/login" className="text-pine-700 underline underline-offset-2">Sign in here</a> instead.
+        Signed up your child yourself with a parent account? <Link href="/login" className="text-pine-700 underline underline-offset-2">Sign in here</Link> instead.
       </p>
     </div></div>
   );

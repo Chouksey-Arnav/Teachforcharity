@@ -25,11 +25,13 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
   const { id } = await params;
   const sp = await searchParams;
   const supabase = await createClient();
-  const config = await getPublicConfig();
-  const tutor = await getTutor(supabase, id);
+  const [tutor, family] = await Promise.all([
+    getTutor(supabase, id),
+    getPublicConfig().then((config) => getFamilyStudents(supabase, viewer.id, config)),
+  ]);
   if (!tutor) notFound();
 
-  const students = (await getFamilyStudents(supabase, viewer.id, config)).filter((s) => s.subjects.length);
+  const students = family.filter((s) => s.subjects.length);
   const student = students.find((s) => s.id === sp.student) ?? students[0];
   const from = new Date();
   const to = new Date(from.getTime() + (OPEN_SLOT_DAYS + 1) * 86400000);
