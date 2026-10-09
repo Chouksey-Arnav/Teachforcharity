@@ -220,9 +220,10 @@ begin
   perform public.accept_terms('messaging');
   foreach msg in array array['my number is (919) 555-1234', 'email me: kid@gmail.com', 'add me on snapchat',
       'check www.example.com', 'dm @leo_plays', 'come over to my house', 'this is shit'] loop
-    begin perform public.send_message(th, null, msg); ok := false;
-    exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'MESSAGE_BLOCKED'; end;
-    if not ok then raise exception 'FAIL filter let through: %', msg; end if;
+    -- Blocked: nothing is sent, and the attempt is recorded (send_message returns null; see 20261009000100_message_gate.sql).
+    if public.send_message(th, null, msg) is not null or exists (select 1 from public.messages where thread_id = th and body = msg) then
+      raise exception 'FAIL filter let through: %', msg;
+    end if;
   end loop;
   perform public.send_message(th, null, 'Leo practiced measures 12-24 for 20 minutes, 3 times this week. He is working on a sextet!');
   if (select count(*) from public.my_threads()) <> 1 then raise exception 'FAIL my_threads'; end if;

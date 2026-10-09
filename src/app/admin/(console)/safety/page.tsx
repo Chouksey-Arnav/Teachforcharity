@@ -3,11 +3,17 @@ import Link from "next/link";
 import { adminDb } from "@/lib/admin/session";
 import { AdminPage, Empty, Panel, PersonLink, SeverityBadge, StatusBadge, Tabs, ago, when } from "@/components/admin/ui";
 import { FlagActions, RunScanButton } from "@/components/admin/flag-actions";
-import { HideToggle } from "@/components/admin/hide-toggle";
+import { HideToggle, PracticeHideToggle } from "@/components/admin/hide-toggle";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABEL } from "@/lib/safety/lexicon";
 
 export const metadata: Metadata = { title: "Safety scan" };
+
+/** Flag kinds that aren't lexicon categories. */
+const EXTRA_LABEL: Record<string, string> = {
+  blocked_attempts: "Tried to send blocked messages",
+  needs_review: "AI reviewer declined — read it",
+};
 
 export default async function SafetyPage({ searchParams }: PageProps<"/admin/safety">) {
   const sp = await searchParams;
@@ -39,13 +45,13 @@ export default async function SafetyPage({ searchParams }: PageProps<"/admin/saf
       ) : (
         <div className="space-y-3">
           {flags.map((f) => {
-            const ev = Array.isArray(f.evidence) ? (f.evidence as { rule?: string; match?: string; category?: string }[]) : [];
+            const ev = Array.isArray(f.evidence) ? (f.evidence as { rule?: string; match?: string; category?: string; text?: string; reason?: string }[]) : [];
             return (
               <article key={f.id} className={f.severity === "critical" ? "rounded-xl border border-clay-500/40 bg-card" : "rounded-xl border border-line bg-card"}>
                 <div className="space-y-2 px-4 py-3.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <SeverityBadge severity={f.severity} />
-                    <span className="font-semibold">{CATEGORY_LABEL[f.category as keyof typeof CATEGORY_LABEL] ?? f.category}</span>
+                    <span className="font-semibold">{CATEGORY_LABEL[f.category as keyof typeof CATEGORY_LABEL] ?? EXTRA_LABEL[f.category] ?? f.category}</span>
                     <Badge tone="neutral">{f.source_type.replace(/_/g, " ")}</Badge>
                     {view === "all" && <StatusBadge status={f.status} />}
                     {f.auto_actions.map((a) => (
@@ -66,8 +72,17 @@ export default async function SafetyPage({ searchParams }: PageProps<"/admin/saf
                   <blockquote className="whitespace-pre-wrap rounded-lg bg-paper px-3 py-2 text-sm text-ink-2">{f.excerpt}</blockquote>
                   <p className="text-xs text-muted">
                     Written by <PersonLink id={f.author_id} name={f.author_name} kind={f.author_kind} />
-                    {ev.length > 0 && <> · matched: {ev.slice(0, 4).map((e) => `“${e.match ?? e.category ?? e.rule}”`).join(", ")}</>}
+                    {ev.length > 0 && f.category !== "blocked_attempts" && <> · matched: {ev.slice(0, 4).map((e) => `“${e.match ?? e.category ?? e.rule}”`).join(", ")}</>}
                   </p>
+                  {f.category === "blocked_attempts" && ev.length > 0 && (
+                    <ul className="space-y-1 text-[13px] text-ink-2">
+                      {ev.map((e, i) => (
+                        <li key={i}>
+                          “{e.text}” <span className="text-muted">— blocked for {e.reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {f.review_note && <p className="text-xs text-ink-2">Review note: {f.review_note}</p>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-t border-line bg-paper/60 px-4 py-2.5">
@@ -78,6 +93,7 @@ export default async function SafetyPage({ searchParams }: PageProps<"/admin/saf
                     </Link>
                   )}
                   {f.message_id && <HideToggle id={f.message_id} hidden={Boolean(f.message_hidden)} />}
+                  {f.source_type === "assignment" && <PracticeHideToggle id={f.source_id} />}
                 </div>
               </article>
             );

@@ -117,7 +117,7 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
       <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat href="/dashboard/hours" icon={Clock3} label="Student-verified hours" value={hrs(studentVerified)} hint={`${hrs(certified)} certified by the partner`} />
         <Stat href="/dashboard/lessons?tab=history" icon={Hourglass} label="Awaiting student check-in" value={hrs(awaitingStudent)} hint="Logged, not yet confirmed" />
-        <Stat href="/dashboard/lessons?tab=upcoming" icon={Users} label="Active students" value={`${activeStudents}/${t.max_students}`} hint="Change your limit in Profile" />
+        <Stat href="/dashboard/my-students" icon={Users} label="Active students" value={`${activeStudents}/${t.max_students}`} hint="Change your limit in Profile" />
         <Stat href="/dashboard/lessons?tab=upcoming" icon={CalendarDays} label="Upcoming lessons" value={String(upcoming.filter((u) => u.status === "scheduled").length)} hint="See your schedule" />
       </div>
 

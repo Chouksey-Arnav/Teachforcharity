@@ -31,6 +31,13 @@ export function pushContent(template: string, p: Payload): PushContent | null {
         url: uuid.test(s(p.thread_id)) ? `/dashboard/messages/${s(p.thread_id)}` : "/dashboard/messages",
         tag: `thread:${s(p.thread_id)}`,
       };
+    case "practice_assigned":
+      return {
+        title: `New practice from ${s(p.tutor_name) || "your tutor"}`,
+        body: p.self ? "It’s on your Practice board." : `For ${s(p.student_name)}. It’s on the Practice board.`,
+        url: "/dashboard/practice",
+        tag: "practice",
+      };
     case "session_requested":
       return {
         title: weekly(p) ? `Weekly ${s(p.subject)} lessons requested` : `${s(p.subject)} lesson requested`,

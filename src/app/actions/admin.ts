@@ -203,6 +203,15 @@ export async function hideMessage(input: { id: string; hide: boolean }): Promise
   return ok(input.hide ? "Message hidden." : "Message restored.");
 }
 
+/** Hide (or restore) a practice task or note from a student's board while it's reviewed. */
+export async function hidePractice(input: { id: string; hide: boolean }): Promise<ActionState> {
+  if (!uuid.safeParse(input.id).success) return { ok: false, error: { message: "Invalid request." } };
+  const db = await adminDb();
+  const { error } = await db.rpc("admin_set_practice_hidden", { p_id: input.id, p_hidden: input.hide });
+  if (error) return { ok: false, error: toActionError(error) };
+  return ok(input.hide ? "Hidden from the practice board." : "Restored to the practice board.");
+}
+
 export async function updateFlag(input: { id: number; status: "open" | "dismissed" | "actioned"; note?: string }): Promise<ActionState> {
   const p = z.object({ id: z.number().int().positive(), status: z.enum(["open", "dismissed", "actioned"]), note: z.string().max(2000).optional() }).safeParse(input);
   if (!p.success) return { ok: false, error: { message: "Invalid request." } };

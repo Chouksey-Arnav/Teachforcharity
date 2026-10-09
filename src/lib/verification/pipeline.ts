@@ -31,6 +31,7 @@
 import { analyzeText, flagsForConversation, flagsForMessage, type ScanMessage, type Side } from "../safety/analyze";
 import { normalize, tokenize } from "../safety/normalize";
 import { messageViolation } from "../moderation";
+import { SERIOUS_CATEGORIES, gateCheck } from "../safety/gate";
 import {
   COMMERCIAL,
   DISCOMFORT,
@@ -256,10 +257,18 @@ function profileChecks(a: AccountInput): Check[] {
       checks.push(pass("bio_safety", "profile", "No unsafe language in the bio."));
     }
 
-    // Contact details or links: the site's message filter, applied to the bio.
-    const contact = messageViolation(bio);
-    if (contact)
-      checks.push({ id: "bio_contact", stage: "profile", outcome: "fail", points: 30, detail: `The bio includes ${contact}.`, tutorHint: `Remove ${contact} from your bio — all contact stays on the site.` });
+    // Contact details, links and anything else the message gate blocks, applied to the bio as a tutor's text.
+    const gate = gateCheck(bio, "tutor");
+    if (gate)
+      checks.push({
+        id: "bio_contact",
+        stage: "profile",
+        outcome: "fail",
+        points: 30,
+        detail: `The bio includes ${gate.reason}.`,
+        // Grooming signals are named to the team, never to the tutor.
+        tutorHint: SERIOUS_CATEGORIES.includes(gate.category) ? "Keep your bio about music and teaching." : `Remove ${gate.reason} from your bio — all contact stays on the site.`,
+      });
 
     if (COMMERCIAL.test(n.base) || COMMERCIAL.test(n.words))
       checks.push({

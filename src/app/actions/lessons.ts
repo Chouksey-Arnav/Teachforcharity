@@ -6,6 +6,8 @@ import { toActionError, type ActionState } from "@/lib/errors";
 import { easternToUtc, validateSlot } from "@/lib/time";
 import { messageViolation } from "@/lib/moderation";
 import { kickEmails } from "@/lib/email/kick";
+import { cleanTasks } from "@/lib/practice";
+import { assignPractice } from "./practice";
 
 const uuid = z.string().uuid();
 const note = z.string().trim().max(300).optional();
@@ -118,28 +120,53 @@ export async function cancelLesson(input: { sessionId: string; reason?: string; 
   return done(data && data > 1 ? `Cancelled ${data} lessons. We let the other side know.` : "Cancelled. We let the other side know.");
 }
 
-export async function logLesson(input: { sessionId: string; happened: boolean; note?: string; practice?: string; attest: boolean }): Promise<ActionState> {
+/**
+ * The tutor's log after a lesson. Practice tasks and a note for the student
+ * can go with it: they're saved first (so a blocked word stops everything and
+ * nothing is half-done), then the lesson is logged.
+ */
+export async function logLesson(input: {
+  sessionId: string;
+  happened: boolean;
+  note?: string;
+  attest: boolean;
+  studentId?: string;
+  tasks?: string[];
+  practiceNote?: string;
+  due?: string;
+}): Promise<ActionState> {
   if (!uuid.safeParse(input.sessionId).success) return { ok: false, error: { message: "Lesson not found." } };
   if (input.attest !== true) return { ok: false, error: { message: "Please confirm your log is truthful." } };
-  const bad = checkNote(input.note) ?? checkNote(input.practice);
+  const bad = checkNote(input.note);
   if (bad) return { ok: false, error: { message: bad } };
-  if ((input.practice ?? "").length > 1000) return { ok: false, error: { message: "Keep practice notes under 1,000 characters." } };
+  let added = 0;
+  const hasPractice = input.happened && (cleanTasks(input.tasks ?? []).length > 0 || Boolean(input.practiceNote?.trim()));
+  if (hasPractice) {
+    if (!input.studentId) return { ok: false, error: { message: "Lesson not found." } };
+    const r = await assignPractice({ studentId: input.studentId, sessionId: input.sessionId, tasks: input.tasks ?? [], note: input.practiceNote ?? "", due: input.due });
+    if (!r?.ok) return { ok: false, error: r?.error ?? { message: "Couldn’t save the practice notes." } };
+    added = r.data?.added ?? 0;
+  }
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("log_session", {
     p_session: input.sessionId,
     p_happened: input.happened,
     p_note: input.note?.trim().slice(0, 500) || undefined,
-    p_practice: input.happened ? input.practice?.trim() || undefined : undefined,
     p_attest: true,
   });
-  if (error) return { ok: false, error: toActionError(error) };
+  if (error) {
+    const e = toActionError(error);
+    // The practice notes are already on the board; say so, so they aren't sent twice.
+    return { ok: false, error: added ? { ...e, message: `${e.message} (Your practice notes were saved to the board.)` } : e };
+  }
   if (!input.happened) return done("Marked as not happened.");
+  const practice = added ? ` ${added === 1 ? "1 item is" : `${added} items are`} on the practice board.` : "";
   return done(
     data === "confirmed"
-      ? "Logged — your student already confirmed you were there."
+      ? `Logged — your student already confirmed you were there.${practice}`
       : data === "disputed"
         ? "Logged — but your student said you weren’t there. The program team will review it."
-        : "Logged. Your student will be asked to confirm next time they open the site.",
+        : `Logged.${practice} Your student will be asked to confirm next time they open the site.`,
   );
 }
 

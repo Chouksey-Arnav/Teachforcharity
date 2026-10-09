@@ -2,7 +2,7 @@ import type { Role } from "@/lib/viewer";
 
 export type NavIcon =
   | "home" | "search" | "calendar" | "messages" | "students" | "profile" | "hours" | "report" | "review"
-  | "overview" | "tutors" | "families" | "incidents" | "partners" | "settings" | "emails" | "verified" | "inbox" | "discover";
+  | "overview" | "tutors" | "families" | "incidents" | "partners" | "settings" | "emails" | "verified" | "inbox" | "discover" | "practice";
 
 export interface NavItem {
   href: string;
@@ -56,9 +56,10 @@ export function navFor(role: Role, counts: { action: number; unread: number }, k
           label: "Lessons",
           items: [
             HOME,
-            { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", tab: true, hint: "Tutors matched to you" },
+            { href: "/dashboard/practice", label: "Practice", icon: "practice", tab: true, hint: "What your tutor wants you to practice" },
             lessons,
             messages,
+            { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", hint: "Tutors matched to you" },
           ],
         },
         {
@@ -81,6 +82,7 @@ export function navFor(role: Role, counts: { action: number; unread: number }, k
             { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", tab: true, hint: "Tutors matched to your student" },
             lessons,
             messages,
+            { href: "/dashboard/practice", label: "Practice board", short: "Practice", icon: "practice", hint: "Homework and notes from tutors" },
           ],
         },
         {
@@ -100,9 +102,10 @@ export function navFor(role: Role, counts: { action: number; unread: number }, k
           label: "Teaching",
           items: [
             HOME,
-            { href: "/dashboard/find-students", label: "Find students", short: "Students", icon: "discover", tab: true, hint: "Students who fit your instruments" },
+            { href: "/dashboard/my-students", label: "My students", short: "Students", icon: "students", tab: true, hint: "Practice, next lessons and messages per student" },
             lessons,
             messages,
+            { href: "/dashboard/find-students", label: "Find students", icon: "discover", hint: "Students who fit your instruments" },
           ],
         },
         {

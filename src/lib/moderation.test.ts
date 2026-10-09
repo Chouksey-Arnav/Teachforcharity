@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { messageViolation, violationSpans } from "./moderation";
 
-// The same vectors are exercised against private.message_violation() in
-// supabase/tests/e2e_program_test.sql, so the two filters stay aligned.
+// The full attack and lesson-talk corpus is in src/lib/safety/__eval__/gate-corpus.ts,
+// run against both this gate and the database's (supabase/tests/message_gate_test.sql).
 describe("messageViolation", () => {
   const blocked: [string, string][] = [
     ["my number is (919) 555-1234", "phone numbers"],
@@ -46,10 +46,17 @@ describe("violationSpans", () => {
     const text = "Great lesson! Text me at 919-555-0142 or add me on snapchat @mayaplays";
     const spans = violationSpans(text).map((s) => [text.slice(s.start, s.end), s.reason]);
     expect(spans).toEqual([
+      ["Text me", "requests to talk somewhere other than this site"],
       ["919-555-0142", "phone numbers"],
+      ["add me on", "requests to talk somewhere other than this site"],
       ["snapchat", "outside apps, social media, or payment apps"],
       ["@mayaplays", "social media handles"],
     ]);
+  });
+
+  it("highlights disguised text as a whole", () => {
+    expect(violationSpans("ѕnаpchаt")).toEqual([{ start: 0, end: 8, reason: "outside apps, social media, or payment apps" }]);
+    expect(violationSpans("s n a p c h a t")).toEqual([{ start: 0, end: 15, reason: "outside apps, social media, or payment apps" }]);
   });
 
   it("returns nothing for an allowed message", () => {

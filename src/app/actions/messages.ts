@@ -23,22 +23,31 @@ export async function openThread(tutorId: string, studentId: string, template?: 
   redirect(`/dashboard/messages/${data}`);
 }
 
+/**
+ * Sends a quick reply or a typed message. The database's message gate decides
+ * what can be sent: a blocked message isn't saved, the attempt is recorded for
+ * the safety team, and the database returns no id. The reason comes back from
+ * the sender's own block record, so it's always the gate's real answer.
+ */
 export async function sendMessage(input: { threadId: string; template?: string; body?: string }): Promise<ActionState> {
   if (!uuid.safeParse(input.threadId).success) return { ok: false, error: { message: "Conversation not found." } };
+  const body = (input.body ?? "").trim();
   if (!input.template) {
-    const body = (input.body ?? "").trim();
     if (!body) return { ok: false, error: { message: "Write a message first." } };
     if (body.length > MESSAGE_MAX) return { ok: false, error: { message: `Messages can be up to ${MESSAGE_MAX} characters.` } };
-    const v = messageViolation(body);
-    if (v) return { ok: false, error: { message: `For everyone's safety, messages can't include ${v}.` } };
   }
   const supabase = await createClient();
-  const { error } = await supabase.rpc("send_message", {
+  const { data, error } = await supabase.rpc("send_message", {
     p_thread: input.threadId,
     p_template: input.template || undefined,
-    p_body: input.template ? undefined : input.body?.trim(),
+    p_body: input.template ? undefined : body,
   });
   if (error) return { ok: false, error: toActionError(error) };
+  if (!data) {
+    const { data: block } = await supabase.from("message_blocks").select("reason").order("id", { ascending: false }).limit(1).maybeSingle();
+    const why = block?.reason ?? messageViolation(body) ?? "things that aren’t allowed in messages";
+    return { ok: false, error: { message: `Not sent. For everyone’s safety, messages can’t include ${why}. Keep all contact on Teach for a Cause.` } };
+  }
   kickEmails();
   if (!input.template) kickSafetyScan();
   revalidatePath(`/dashboard/messages/${input.threadId}`);
