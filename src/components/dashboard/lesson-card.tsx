@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { ArrowRightLeft, BadgeCheck, CheckCircle2, Clock, MessageCircle, Repeat, Video, X, XCircle } from "lucide-react";
+import { ArrowRightLeft, BadgeCheck, CheckCircle2, ChevronRight, Clock, ListChecks, MessageCircle, Repeat, Video, X, XCircle } from "lucide-react";
 import type { MySession } from "@/lib/data";
 import { SESSION_STATUS_LABEL } from "@/lib/constants";
 import { formatDate, formatDay, formatTime, easternDateOffset, easternParts } from "@/lib/time";
@@ -12,11 +12,13 @@ import { Avatar } from "@/components/ui/avatar";
 import { Notice } from "@/components/ui/notice";
 import { Textarea } from "@/components/ui/field";
 import { DateTimeFields, type DateTimeValue } from "@/components/forms/date-time-fields";
+import { PracticeComposer, PracticeFields, draftHasContent, emptyDraft, type PracticeDraft } from "@/components/dashboard/practice-fields";
+import { draftProblem } from "@/lib/practice";
 import { answerAttendance, cancelLesson, logLesson, respondLesson } from "@/app/actions/lessons";
 import type { ActionState } from "@/lib/errors";
 import { cn } from "@/lib/cn";
 
-type Panel = null | "counter" | "decline" | "cancel" | "log-yes" | "log-no" | "answer-yes" | "answer-no" | "join";
+type Panel = null | "counter" | "decline" | "cancel" | "log-yes" | "log-no" | "answer-yes" | "answer-no" | "join" | "practice";
 
 function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(() => Date.now());
@@ -59,6 +61,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         setPanel(null);
         setNote("");
         setAttest(false);
+        setDraft(emptyDraft());
       }
     });
 
@@ -71,7 +74,10 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const isWeekly = weeksPending > 1;
   const laterWeeks = s.series_id && s.series_size && s.series_index ? s.series_size - s.series_index : 0;
   const [cancelRest, setCancelRest] = useState(false);
-  const [practice, setPractice] = useState("");
+  const [draft, setDraft] = useState<PracticeDraft>(emptyDraft);
+  const draftIssue = draftHasContent(draft) ? draftProblem(draft.tasks, draft.note) : null;
+  // Practice can be added to a lesson that happened (logged, or confirmed by the student).
+  const canAddPractice = isTutor && ["completed", "confirmed", "verified"].includes(s.status);
 
   let statusLine: string | null = null;
   if (s.status === "pending") {
@@ -238,16 +244,40 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             </Button>
           </>
         )}
-        {s.thread_id && (
-          <Link href={`/dashboard/messages/${s.thread_id}`} className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] text-muted hover:bg-paper-2 hover:text-ink">
-            <MessageCircle className="size-4" /> Message
-          </Link>
+        {canAddPractice && (
+          <Button size="sm" variant={panel === "practice" ? "primary" : "secondary"} onClick={() => setPanel(panel === "practice" ? null : "practice")} aria-expanded={panel === "practice"}>
+            <ListChecks className="size-4" /> Add practice
+          </Button>
         )}
+        <span className="ml-auto flex items-center gap-0.5">
+          {s.thread_id && (
+            <Link href={`/dashboard/messages/${s.thread_id}`} className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] text-muted hover:bg-paper-2 hover:text-ink">
+              <MessageCircle className="size-4" /> Message
+            </Link>
+          )}
+          {s.status !== "pending" && (
+            <Link href={`/dashboard/lessons/${s.id}`} className="inline-flex h-8 items-center gap-0.5 rounded-full px-3 text-[13px] text-muted hover:bg-paper-2 hover:text-ink">
+              Details <ChevronRight className="size-4" />
+            </Link>
+          )}
+        </span>
       </div>
 
       {panel === "join" && <JoinPanel sessionId={s.id} isTutor={isTutor} studentName={s.student_name} onClose={() => setPanel(null)} />}
 
-      {panel && panel !== "join" && (
+      {panel === "practice" && (
+        <div className="animate-fade border-t border-line px-4 py-4 sm:px-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-semibold">Practice for {s.student_name}</p>
+            <button type="button" onClick={() => setPanel(null)} className="rounded-full p-1 text-muted hover:bg-paper-2" aria-label="Close">
+              <X className="size-4" />
+            </button>
+          </div>
+          <PracticeComposer studentId={s.student_id} studentName={s.student_name} sessionId={s.id} idPrefix={`card-${s.id}`} />
+        </div>
+      )}
+
+      {panel && panel !== "join" && panel !== "practice" && (
         <div className="animate-fade border-t border-line px-4 py-4 sm:px-5">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">
@@ -279,20 +309,11 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             <p className="mb-2 text-[13px] text-muted">This lesson won’t count toward the tutor’s hours, and the program team will look at it. If something made you uncomfortable, please also use “Report a concern.”</p>
           )}
           {panel === "log-yes" && (
-            <>
-              <label htmlFor={`practice-${s.id}`} className="block text-[13px] font-medium">
-                What should {s.student_name} practice? <span className="font-normal text-faint">Optional — the family sees this</span>
-              </label>
-              <Textarea
-                id={`practice-${s.id}`}
-                className="mt-1.5 min-h-20"
-                placeholder="e.g. Long tones for 5 minutes a day. Measures 20–40 of the concert piece, slowly, then at 80 bpm."
-                value={practice}
-                onChange={(e) => setPractice(e.target.value)}
-                maxLength={1000}
-                rows={3}
-              />
-            </>
+            <div className="rounded-2xl border border-line bg-paper/60 p-4">
+              <p className="eyebrow">Homework for {s.student_name}</p>
+              <p className="mb-3 mt-1 text-[13px] text-muted">Optional. It goes straight to {s.student_name}’s practice board when you log the lesson.</p>
+              <PracticeFields value={draft} onChange={setDraft} studentName={s.student_name} idPrefix={`log-${s.id}`} />
+            </div>
           )}
           {panel !== "answer-yes" && (
             <Textarea
@@ -322,19 +343,20 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               size="sm"
               variant={panel === "counter" || panel === "log-yes" || panel === "answer-yes" ? "primary" : "danger"}
               pending={pending}
-              disabled={needsAttest && !attest}
+              disabled={(needsAttest && !attest) || (panel === "log-yes" && Boolean(draftIssue))}
               onClick={() =>
                 run(() => {
                   if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note });
                   if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note });
                   if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" });
-                  if (panel === "log-yes") return logLesson({ sessionId: s.id, happened: true, note, practice, attest });
+                  if (panel === "log-yes")
+                    return logLesson({ sessionId: s.id, happened: true, note, attest, studentId: s.student_id, tasks: draft.tasks, practiceNote: draft.note, due: draft.due || undefined });
                   if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note, attest });
                   return answerAttendance({ sessionId: s.id, present: panel === "answer-yes", note, attest });
                 })
               }
             >
-              {panel === "counter" ? "Send new time" : panel === "log-yes" ? "Log lesson" : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : panel === "answer-yes" ? "Verify lesson" : "Submit"}
+              {panel === "counter" ? "Send new time" : panel === "log-yes" ? (draftHasContent(draft) ? "Log lesson & send practice" : "Log lesson") : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : panel === "answer-yes" ? "Verify lesson" : "Submit"}
             </Button>
           </div>
         </div>

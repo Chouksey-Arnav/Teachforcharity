@@ -3,7 +3,8 @@ import { ArrowRight, HandHeart, ShieldAlert, Sparkles } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMySessions, getMyThreads, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMyPractice, getMySessions, getMyThreads, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { PracticeBoard } from "@/components/dashboard/practice-board";
 import { NextLessonSection, YourTutors, myTutors } from "./family-sections";
 import { matchTutors } from "@/lib/matching";
 import { LEVEL_INFO } from "@/lib/constants";
@@ -25,7 +26,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const supabase = await createClient();
   const config = await getPublicConfig();
   const isStudent = viewer.profile.account_kind === "student";
-  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, threads] = await Promise.all([
+  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, threads, practice] = await Promise.all([
     getFamilyStudents(supabase, viewer.id, config),
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming", 20),
@@ -36,7 +37,11 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
       ? supabase.from("guardians").select("name, email, last_invited_at").eq("account_id", viewer.id).maybeSingle()
       : Promise.resolve({ data: null }),
     getMyThreads(supabase),
+    getMyPractice(supabase),
   ]);
+  // The board on Home: groups that still have something to do (notes show with their tasks).
+  const openGroups = new Set(practice.filter((p) => p.kind === "task" && !p.done_at).map((p) => `${p.tutor_id}:${p.student_id}`));
+  const homePractice = practice.filter((p) => openGroups.has(`${p.tutor_id}:${p.student_id}`));
 
   // Top matches for each student's first instrument.
   const matchSets = await Promise.all(
@@ -157,6 +162,20 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
               <LessonCard key={s.id} s={s} />
             ))}
           </div>
+        </section>
+      )}
+
+      {homePractice.length > 0 && (
+        <section className="mb-10" aria-labelledby="home-practice">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <h2 id="home-practice" className="text-lg font-semibold">
+              {isStudent ? "Your practice" : "Practice this week"}
+            </h2>
+            <Link href="/dashboard/practice" className="shrink-0 text-sm font-semibold text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-ink">
+              Practice board
+            </Link>
+          </div>
+          <PracticeBoard items={homePractice} view="family" limit={4} showStudent={students.length > 1} />
         </section>
       )}
 

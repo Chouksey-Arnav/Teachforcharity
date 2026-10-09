@@ -25,6 +25,7 @@ import {
   UserRound,
   Users,
   X,
+  ListChecks,
 } from "lucide-react";
 import { allItems, type Nav, type NavIcon, type NavItem } from "./nav-config";
 import { LogoMark } from "@/components/brand/logo";
@@ -53,6 +54,7 @@ const ICONS = {
   verified: BadgeCheck,
   inbox: Inbox,
   discover: Compass,
+  practice: ListChecks,
 } as const satisfies Record<NavIcon, unknown>;
 
 export interface Account {

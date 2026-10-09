@@ -1,5 +1,7 @@
 import "server-only";
 import type { createClient } from "./supabase/server";
+import type { Database } from "./database.types";
+import type { PracticeItem } from "./practice";
 import type { Level } from "./constants";
 import type { PublicConfig } from "./viewer";
 import { RELATED_GROUPS, type StudentProfile, type TutorCandidate, type TutorSubject } from "./matching";
@@ -453,4 +455,18 @@ export function contactLabel(studentName: string, kind: "student" | "parent" | u
   return kind === "student"
     ? { title: studentName, sub: "Student (manages their own account; a parent can read every message)" }
     : { title: `${studentName}’s family`, sub: parentFirst ? `Parent: ${parentFirst}` : "Parent account" };
+}
+
+/** The practice board: a family's tasks and notes, or what a tutor wrote. Optionally one student or one lesson. */
+export async function getMyPractice(supabase: Supa, opts: { studentId?: string; sessionId?: string } = {}): Promise<PracticeItem[]> {
+  const { data } = await supabase.rpc("my_practice", { p_student: opts.studentId, p_session: opts.sessionId });
+  return (data ?? []) as PracticeItem[];
+}
+
+export type MyStudent = Database["public"]["Functions"]["my_students"]["Returns"][number];
+
+/** A tutor's students, soonest next lesson first. */
+export async function getMyStudents(supabase: Supa): Promise<MyStudent[]> {
+  const { data } = await supabase.rpc("my_students");
+  return data ?? [];
 }

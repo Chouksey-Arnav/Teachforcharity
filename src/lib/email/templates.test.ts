@@ -17,6 +17,7 @@ const TEMPLATES = [
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
   "incident_reported", "incident_received", "new_sign_in",
   "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew", "waitlist_match", "weekly_digest",
+  "practice_assigned",
 ];
 
 describe("renderEmail", () => {

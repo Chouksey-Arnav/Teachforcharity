@@ -47,6 +47,63 @@ export type Database = {
         }
         Relationships: []
       }
+      assignments: {
+        Row: {
+          body: string
+          created_at: string
+          done_at: string | null
+          due_on: string | null
+          family_id: string
+          hidden_at: string | null
+          hidden_by: string | null
+          id: string
+          kind: string
+          position: number
+          removed_at: string | null
+          session_id: string | null
+          student_id: string
+          subject_id: string | null
+          tutor_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          done_at?: string | null
+          due_on?: string | null
+          family_id: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          id?: string
+          kind: string
+          position?: number
+          removed_at?: string | null
+          session_id?: string | null
+          student_id: string
+          subject_id?: string | null
+          tutor_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          done_at?: string | null
+          due_on?: string | null
+          family_id?: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          id?: string
+          kind?: string
+          position?: number
+          removed_at?: string | null
+          session_id?: string | null
+          student_id?: string
+          subject_id?: string | null
+          tutor_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -648,6 +705,42 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      message_blocks: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          id: number
+          reason: string
+          rule: string
+          sender_id: string | null
+          side: string
+          thread_id: string
+        }
+        Insert: {
+          body: string
+          category: string
+          created_at?: string
+          id?: never
+          reason: string
+          rule: string
+          sender_id?: string | null
+          side: string
+          thread_id: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: never
+          reason?: string
+          rule?: string
+          sender_id?: string | null
+          side?: string
+          thread_id?: string
+        }
+        Relationships: []
       }
       message_templates: {
         Row: {
@@ -2025,6 +2118,10 @@ export type Database = {
         Args: { p_partner: string }
         Returns: undefined
       }
+      admin_set_practice_hidden: {
+        Args: { p_hidden: boolean; p_id: string }
+        Returns: undefined
+      }
       admin_set_role: {
         Args: {
           p_partner?: string
@@ -2083,6 +2180,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["session_status"]
       }
       attest_guardian: { Args: never; Returns: undefined }
+      assign_practice: {
+        Args: { p_due?: string; p_note?: string; p_session: string | null; p_student: string; p_tasks: string[] }
+        Returns: Json
+      }
       auth_user_by_email: {
         Args: { p_email: string }
         Returns: {
@@ -2212,6 +2313,16 @@ export type Database = {
       join_lesson: { Args: { p_session: string }; Returns: string }
       leave_interest_list: { Args: { p_token: string }; Returns: boolean }
       lesson_for_link: { Args: { p_session: string }; Returns: Json }
+      lesson_timeline: {
+        Args: { p_session: string }
+        Returns: {
+          at: string
+          by_side: string
+          from_status: Database["public"]["Enums"]["session_status"] | null
+          note: string | null
+          to_status: Database["public"]["Enums"]["session_status"]
+        }[]
+      }
       list_students_for_tutor: {
         Args: {
           p_limit?: number
@@ -2379,6 +2490,28 @@ export type Database = {
           tutor_name: string
         }[]
       }
+      my_practice: {
+        Args: { p_limit?: number; p_session?: string; p_student?: string }
+        Returns: {
+          body: string
+          created_at: string
+          done_at: string | null
+          due_on: string | null
+          id: string
+          kind: string
+          my_side: string
+          session_id: string | null
+          session_start: string | null
+          student_id: string
+          student_name: string
+          subject_name: string | null
+          thread_id: string | null
+          tutor_avatar: string | null
+          tutor_id: string
+          tutor_name: string
+          updated_at: string
+        }[]
+      }
       my_sessions: {
         Args: { p_limit?: number; p_offset?: number; p_scope?: string }
         Returns: {
@@ -2422,6 +2555,28 @@ export type Database = {
           verifier_org: string
         }[]
       }
+      my_students: {
+        Args: never
+        Returns: {
+          done_tasks: number
+          first_name: string
+          grade: number
+          last_lesson_at: string | null
+          last_lesson_id: string | null
+          last_lesson_status: Database["public"]["Enums"]["session_status"] | null
+          last_practice_at: string | null
+          lessons_done: number
+          needs_log: number
+          next_lesson_at: string | null
+          next_lesson_id: string | null
+          open_tasks: number
+          self_managed: boolean
+          student_id: string
+          subjects: string[]
+          thread_id: string | null
+          unread: boolean
+        }[]
+      }
       my_threads: {
         Args: never
         Returns: {
@@ -2447,6 +2602,10 @@ export type Database = {
       }
       parent_invite_view: { Args: { p_token: string }; Returns: Json }
       public_instrument_supply: { Args: never; Returns: Json }
+      remove_practice: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       report_incident: {
         Args: {
           p_category: string
@@ -2569,6 +2728,10 @@ export type Database = {
         Args: { p_body?: string; p_template?: string; p_thread: string }
         Returns: string
       }
+      set_practice_done: {
+        Args: { p_done: boolean; p_id: string }
+        Returns: undefined
+      }
       set_waitlist: {
         Args: { p_on: boolean; p_student: string; p_subject: string }
         Returns: undefined
@@ -2660,6 +2823,10 @@ export type Database = {
       tutor_update_guardian: {
         Args: { p_email: string; p_name: string; p_phone?: string }
         Returns: undefined
+      }
+      update_practice: {
+        Args: { p_body: string; p_due?: string; p_id: string }
+        Returns: Json
       }
       verification_apply: {
         Args: { p_results: Json; p_source: string }

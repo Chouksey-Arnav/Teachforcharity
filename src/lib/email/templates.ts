@@ -295,6 +295,22 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         cta: { label: "Read the message", href: link(`/dashboard/messages/${encodeURIComponent(str(p.thread_id))}`) },
       });
 
+    case "practice_assigned": {
+      const tasks = Number(p.tasks) || 0;
+      const what = [tasks ? `${tasks} practice task${tasks === 1 ? "" : "s"}` : "", p.note ? "a note" : ""].filter(Boolean).join(" and ") || "practice notes";
+      return make(`${str(p.tutor_name)} added ${what} for ${str(p.student_name)}`, {
+        heading: p.self ? "New practice from your tutor" : `New practice for ${str(p.student_name)}`,
+        paragraphs: [
+          hi(p),
+          p.self
+            ? `<strong>${esc(p.tutor_name)}</strong> added ${esc(what)} to your Practice board. Tick each task off as you do it — your tutor sees your progress.`
+            : `<strong>${esc(p.tutor_name)}</strong> added ${esc(what)} to ${esc(p.student_name)}’s Practice board. ${esc(p.student_name)} can tick each task off as they go, and the tutor sees the progress.`,
+        ],
+        cta: { label: "Open the Practice board", href: link("/dashboard/practice") },
+        note: "For privacy, what the tutor wrote is only shown on the site.",
+      });
+    }
+
     case "consent_receipt":
       return make(`Your consent form for ${str(p.student_name)}`, {
         heading: "Consent received — lessons are unlocked",

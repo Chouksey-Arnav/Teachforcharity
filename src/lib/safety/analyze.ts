@@ -208,7 +208,7 @@ export function policy(category: string, severity: Severity, side: Side | null, 
 // Flags (the shape stored by public.moderation_apply)
 // ---------------------------------------------------------------------------
 export interface Flag {
-  source_type: "message" | "thread" | "session_note" | "profile_bio" | "student_note" | "tutor_offer";
+  source_type: "message" | "thread" | "session_note" | "profile_bio" | "student_note" | "tutor_offer" | "assignment";
   source_id: string;
   message_id?: string | null;
   thread_id?: string | null;

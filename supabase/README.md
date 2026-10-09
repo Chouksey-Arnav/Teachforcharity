@@ -11,6 +11,11 @@ All migrations in `migrations/` are **already applied** to the production projec
 
 - `…20261007000200_public_waitlist_contact` — public tutor counts per instrument, the no-account waitlist (emailed once when a matching tutor goes live), the public contact form, invitation links a student copies for a parent, and their retention job
 
+- `…20261009000100_message_gate` — the rebuilt message gate (`private.gate_check`, generated from `src/lib/safety/gate.ts`: look-alike letters, invisible characters, leetspeak, spaced letters, spelled-out numbers, plus secrecy/probing/photo/romance requests). Blocked chat messages are recorded in `message_blocks` and flag the safety team. **Never edit the generated block by hand:** change `gate.ts`, then run `GATE_WRITE=1 npx vitest run src/lib/safety/gate-sql.test.ts` (it rewrites the block and `tests/message_gate_test.sql`; the normal test run fails if they drift).
+- `…20261009000200_practice_board` — homework tasks and notes from tutor to student (`assignments`, `assign_practice`, `my_practice`, `set_practice_done`), the tutor's `my_students` list, the per-side `lesson_timeline`, admin hiding, and a privacy fix (lesson event notes are no longer readable by the other side)
+
 Migrations after the first six are applied by hand (Supabase SQL editor, or `supabase db push`). Apply each one **before** deploying the code that uses it; the site degrades gracefully without it (no tutor counts, and the waitlist and contact forms say they aren’t available).
 
 `tests/e2e_program_test.sql` exercises all of it as real roles (including attacks) and rolls back.
+
+`tests/message_gate_test.sql` holds the database gate to the same corpus as the site's (same rule, byte-identical normalized text), and `tests/v5_practice_board_test.sql` covers blocked-attempt recording and the practice board as real roles.

@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageCircle } from "lucide-react";
+import { ChevronRight, MessageCircle } from "lucide-react";
 import { BackLink } from "@/components/dashboard/back-link";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getStudentKinds } from "@/lib/data";
+import { getMyPractice, getMySessions, getStudentKinds } from "@/lib/data";
+import { easternDate } from "@/lib/practice";
+import { SESSION_STATUS_LABEL } from "@/lib/constants";
+import { formatWhen } from "@/lib/time";
+import { PracticeBoard } from "@/components/dashboard/practice-board";
+import { PracticeComposer } from "@/components/dashboard/practice-fields";
+import { Badge as StatusBadge, sessionTone } from "@/components/ui/badge";
 import { EXPLAIN_STYLES, LEVEL_INFO, TEACHING_STYLES, goalLabel, type Level } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,10 +46,15 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
   const { data: me } = await supabase.from("tutor_profiles").select("availability").eq("user_id", viewer.id).single();
   const { data: thread } = await supabase.from("threads").select("id").eq("student_id", id).eq("tutor_id", viewer.id).maybeSingle();
   const selfManaged = (await getStudentKinds(supabase)).get(id) === "student";
+  const [practice, sessions] = await Promise.all([getMyPractice(supabase, { studentId: id }), getMySessions(supabase, "all", 500)]);
+  const together = sessions.filter((x) => x.student_id === id && x.tutor_id === viewer.id);
+  const nowIso = new Date().toISOString();
+  const next = together.filter((x) => x.status === "scheduled" && x.end_at > nowIso).sort((a, b) => a.start_at.localeCompare(b.start_at))[0];
+  const canAssign = together.some((x) => ["scheduled", "completed", "confirmed", "verified"].includes(x.status));
 
   return (
     <>
-      <BackLink href="/dashboard/lessons" label="Lessons" />
+      <BackLink href="/dashboard/my-students" label="My students" />
       <div className="mb-8 flex flex-wrap items-center gap-5">
         <Avatar name={s.first_name} size={72} />
         <div className="flex-1">
@@ -98,6 +109,51 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
           </dl>
           {s.notes && <p className="mt-4 rounded-xl bg-paper-2 px-4 py-3 text-sm text-ink-2">“{s.notes}”</p>}
         </Card>
+        <section id="practice" className="scroll-mt-24 lg:col-span-2" aria-labelledby="practice-title">
+          <h2 id="practice-title" className="display mb-3 text-[28px]">
+            {s.first_name}’s <em>practice</em>
+          </h2>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="h-fit p-5 sm:p-6">
+              <p className="eyebrow mb-3">Send to {s.first_name}’s board</p>
+              {canAssign ? (
+                <PracticeComposer studentId={s.id} studentName={s.first_name} nextLesson={next ? easternDate(0, new Date(next.start_at)) : null} idPrefix={`student-${s.id}`} />
+              ) : (
+                <p className="text-sm text-muted">Once you have a lesson booked together, you can send practice tasks and notes here.</p>
+              )}
+            </Card>
+            <div>
+              {practice.length ? (
+                <PracticeBoard items={practice} view="tutor" />
+              ) : (
+                <p className="rounded-2xl border border-dashed border-line-2 px-5 py-6 text-sm text-muted">
+                  Nothing on {s.first_name}’s board yet. Tasks you send show up here, and you’ll see each one get ticked off.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+        {together.length > 0 && (
+          <Card className="p-6 lg:col-span-2">
+            <h2 className="font-semibold">Lessons together</h2>
+            <ul className="mt-3 divide-y divide-line">
+              {together.map((x) => (
+                <li key={x.id}>
+                  <Link href={`/dashboard/lessons/${x.id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm hover:bg-paper/70">
+                    <span className="min-w-0 flex-1 truncate">
+                      <strong className="font-medium">{formatWhen(x.start_at)}</strong>
+                      <span className="text-muted"> · {x.subject_name}</span>
+                    </span>
+                    <StatusBadge tone={sessionTone(x.status)} dot>
+                      {SESSION_STATUS_LABEL[x.status] ?? x.status}
+                    </StatusBadge>
+                    <ChevronRight className="size-4 shrink-0 text-faint" aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
         <Card className="p-6 lg:col-span-2">
           <h2 className="font-semibold">When you’re both free</h2>
           <p className="mb-3 text-xs text-muted">Gold = both free · green = you only · light = {s.first_name} only</p>

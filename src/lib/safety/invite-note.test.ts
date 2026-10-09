@@ -21,7 +21,7 @@ describe("inviteNoteProblem", () => {
     ["send me nudes", /not allowed/],
     ["you're a stupid idiot", /kind and about music/],
     ["I'll kill you", /kind and about music/],
-    ["this is a scam click here to win a free iphone gift card", /kind and about music/],
+    ["this is a scam click here to win a free iphone gift card", /gifts or money/],
     ["I want to die", /988/],
   ])("stops %s", (note, why) => {
     expect(inviteNoteProblem(note)).toMatch(why);

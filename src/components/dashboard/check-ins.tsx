@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { BadgeCheck, CircleAlert, Clock, X } from "lucide-react";
+import { BadgeCheck, CircleAlert, Clock, ListChecks, X } from "lucide-react";
 import { ackAttendanceVerdicts, answerAttendance } from "@/app/actions/lessons";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
 import { formatDate, formatTime } from "@/lib/time";
 import { cn } from "@/lib/cn";
@@ -117,9 +117,12 @@ export function AttendanceCheckIn({ prompts, isStudent }: { prompts: AttendanceP
             All <em>caught up</em>
           </h2>
           <p className="mt-2 text-sm text-ink-2">{thanks}</p>
-          <Button className="mt-6" onClick={() => setThanks(null)}>
-            Done
-          </Button>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <LinkButton href="/dashboard/practice" variant="secondary" onClick={() => setThanks(null)}>
+              <ListChecks className="size-4" /> {isStudent ? "What to practice" : "Practice board"}
+            </LinkButton>
+            <Button onClick={() => setThanks(null)}>Done</Button>
+          </div>
         </div>
       ) : p ? (
         <div className="p-6 sm:p-8">

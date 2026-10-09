@@ -122,7 +122,7 @@ export function Conversation({
     };
   }, [threadId, me]);
 
-  const violation = body ? messageViolation(body) : null;
+  const violation = body ? messageViolation(body, me === tutorId ? "tutor" : "family") : null;
   const send = (payload: { template?: string; body?: string }) => {
     const text = payload.template ? (templates.find((t) => t.key === payload.template)?.body ?? "") : (payload.body ?? "").trim();
     if (!text) return;
