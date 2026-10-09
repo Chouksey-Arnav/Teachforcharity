@@ -17,18 +17,27 @@ export interface Viewer {
   onboarded: boolean;
 }
 
-/** The signed-in user with their profile, or null. Cached per request. */
+/**
+ * The signed-in user with their profile, or null. Cached per request.
+ *
+ * Runs before every page's own queries, so it costs one round trip: the token
+ * is verified locally against the project's signing keys (as the proxy and the
+ * admin console do), and the profile comes with its tutor profile embedded. A
+ * deleted account has no profile row, so it still reads as signed out.
+ */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return null;
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
-  if (!profile) return null;
-  let tutor: TutorProfile | null = null;
-  if (profile.role === "tutor") {
-    const { data } = await supabase.from("tutor_profiles").select("*").eq("user_id", profile.id).maybeSingle();
-    tutor = data;
-  }
+  const { data: auth } = await supabase.auth.getClaims();
+  const userId = auth?.claims?.sub;
+  if (!userId) return null;
+  const { data: row } = await supabase
+    .from("profiles")
+    .select("*, tutor_profile:tutor_profiles!tutor_profiles_user_id_fkey(*)")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!row) return null;
+  const { tutor_profile, ...profile } = row;
+  const tutor: TutorProfile | null = profile.role === "tutor" ? tutor_profile : null;
   return {
     id: profile.id,
     email: profile.email,
