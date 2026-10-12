@@ -12,7 +12,11 @@ export const metadata: Metadata = { title: "Get set up" };
 export default async function OnboardingPage() {
   const viewer = await getViewer();
   if (!viewer) redirect("/login?next=/onboarding");
-  if (viewer.onboarded) redirect("/dashboard");
+  if (viewer.onboarded) {
+    // Just finished (the last step's action re-renders this page): land on the dashboard's "You're all set up!".
+    const justFinished = Date.now() - new Date(viewer.profile.onboarded_at ?? 0).getTime() < 15 * 60_000;
+    redirect(justFinished ? "/dashboard?welcome=1" : "/dashboard");
+  }
 
   const supabase = await createClient();
   const [{ data: subjects }, config] = await Promise.all([

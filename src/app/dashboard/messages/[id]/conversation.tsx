@@ -144,7 +144,16 @@ export function Conversation({
   let lastDay = "";
   return (
     <>
-      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-paper/50 px-3 py-4 sm:px-6" aria-live="polite" aria-relevant="additions">
+      {/* Focusable so keyboard users can scroll a long conversation (WCAG 2.1.1). */}
+      <div
+        ref={scroller}
+        tabIndex={0}
+        role="log"
+        aria-label={`Conversation with ${otherName}`}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-paper/50 px-3 py-4 outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-glow/50 sm:px-6"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         <div className="mx-auto max-w-2xl">
           <p className="mx-auto mb-4 flex max-w-md items-center justify-center gap-1.5 text-center text-[11.5px] leading-snug text-muted">
             <ShieldCheck className="size-3.5 shrink-0 text-pine-700" aria-hidden />

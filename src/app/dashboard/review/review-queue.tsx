@@ -29,7 +29,8 @@ export type ReviewRow = {
   review_note: string | null;
 };
 
-export function ReviewQueue({ rows }: { rows: ReviewRow[] }) {
+/** `week`: the week on screen. After verifying, stay on it: otherwise the page jumps to the next week with work and the result is lost. */
+export function ReviewQueue({ rows, week }: { rows: ReviewRow[]; week: string }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(() => new Set(rows.filter((r) => r.status === "confirmed").map((r) => r.session_id)));
   const [reason, setReason] = useState("");
@@ -59,7 +60,7 @@ export function ReviewQueue({ rows }: { rows: ReviewRow[] }) {
       setSelected(new Set());
       setRejecting(false);
       setReason("");
-      router.refresh();
+      router.replace(`/dashboard/review?week=${week}`);
     });
 
   return (
@@ -140,12 +141,13 @@ export function ReviewQueue({ rows }: { rows: ReviewRow[] }) {
               </div>
             </div>
           )}
-          {msg && (
-            <Notice tone={msg.ok ? "success" : "danger"} className="mt-3">
-              {msg.text}
-            </Notice>
-          )}
         </div>
+      )}
+      {/* Outside the action bar: verifying the last lesson hides the bar, and the result must still show. */}
+      {msg && (
+        <Notice tone={msg.ok ? "success" : "danger"} className="animate-rise">
+          {msg.text}
+        </Notice>
       )}
     </div>
   );

@@ -22,6 +22,7 @@ Free, one-on-one band and orchestra lessons for North Carolina middle schoolers,
 | Parent approval links & parent portal | `src/app/(site)/guardian/` |
 | Admin console (admin accounts with two-factor sign-in) | `src/app/admin/`, `src/lib/admin/` |
 | Phone notifications (web push) and the installable app | `src/lib/push/`, `public/sw.js`, `src/app/manifest.ts` |
+| Updates (the bell): one feed per account, and when messages are worth an email | `supabase/migrations/20261012000100_updates.sql`, `src/lib/updates.ts`, `/dashboard/updates` |
 | Dashboards (student/parent, tutor, partner reviewer) | `src/app/dashboard/` |
 
 ## How the system is designed
@@ -33,6 +34,7 @@ Free, one-on-one band and orchestra lessons for North Carolina middle schoolers,
 - **Volunteer hours are verified twice, and only the second step is by hand.** The tutor logs the lesson and confirms the log is truthful. The next time the student's (or parent's) account opens the site, a check-in asks "Was your tutor there?", with no email involved. Yes counts as student-verified and the tutor sees "you're good to go". No marks the lesson disputed: it never counts, the tutor sees "your student said you weren't there", and admins are alerted with whether each side opened the lesson. The partner nonprofit then certifies student-verified lessons weekly. Only certified hours go on the printable record.
 - **Every message is scanned** by a rule-based pipeline (`src/lib/safety/`) right after it's sent and again on a schedule. It needs no AI or outside API. It handles text normalisation (look-alike letters, leetspeak, spaced-out words), a music-aware lexicon, negation, and conversation-level patterns. Flags land in the admin console.
 - **Everything is logged by the database**, including sign-ins, consent changes, tutor status, reports, flags and admin logins, in an append-only activity log that the admin console reads.
+- **Everything lands in Updates; only some of it is emailed.** Every message, lesson change, practice note and "was your tutor there?" answer becomes an update (the bell, with a badge on every screen). Messages roll up per conversation. Chat messages are not emailed when sent: every 2 minutes the database decides, per person, whether one bundled email is worth it — 3+ unread messages, one unread for 6 hours, or a message about a lesson in the next day. Never for something already read (an open conversation reads messages as they arrive), at most one every 3 hours and 4 a day, and not 9 PM–7 AM unless urgent. Every email the program sends to an account also becomes an update, so nothing lives only in an inbox.
 - **Emails use an outbox.** Actions queue emails in the database; a worker sends them (Gmail SMTP or Brevo) with retries and de-duplication, so an email is never lost or sent twice. Opted-in devices get a phone notification for the same events, after the email is sent.
 - **No money, ever.** Donations are a link-out to the partner nonprofit’s own page.
 

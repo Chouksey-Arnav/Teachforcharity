@@ -13,6 +13,8 @@ export function Avatar({ name, path, size = 40, className }: { name: string; pat
   const initials =
     name
       .split(/\s+/)
+      // Words only: "Dana (Leo's family)" is "DL", not "D(".
+      .map((w) => w.replace(/^[^\p{L}\p{N}]+/u, ""))
       .filter(Boolean)
       .slice(0, 2)
       .map((p) => p[0]?.toUpperCase())

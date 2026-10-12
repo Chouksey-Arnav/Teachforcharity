@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ListChecks } from "lucide-react";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getMyPractice } from "@/lib/data";
+import { getMyPractice, markAreaSeen } from "@/lib/data";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PracticeBoard } from "@/components/dashboard/practice-board";
 import { Empty } from "@/components/ui/empty";
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Practice" };
 export default async function PracticePage() {
   const viewer = await requireViewer(["family"]);
   const supabase = await createClient();
-  const items = await getMyPractice(supabase);
+  const [items] = await Promise.all([getMyPractice(supabase), markAreaSeen(supabase, "practice")]);
   const isStudent = viewer.profile.account_kind === "student";
   const open = items.filter((i) => i.kind === "task" && !i.done_at).length;
   const students = new Set(items.map((i) => i.student_id)).size;

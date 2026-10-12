@@ -9,7 +9,7 @@ const POLL_MS = 60_000;
 
 /**
  * Keeps dashboard pages in sync with the database. Realtime pushes changes to
- * the viewer's lessons, conversations and messages (RLS limits events to rows
+ * the viewer's lessons, conversations, messages and updates (RLS limits events to rows
  * they can see); on top of that it re-fetches when the tab becomes visible or
  * the device comes back online, right after a dropped realtime connection
  * recovers (to catch anything missed), and once a minute while visible.
@@ -31,6 +31,8 @@ export function LiveRefresh({ userId }: { userId: string }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, refresh)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "threads" }, refresh)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, refresh)
+      // The bell: new updates, and ones read on another device.
+      .on("postgres_changes", { event: "*", schema: "public", table: "updates", filter: `user_id=eq.${userId}` }, refresh)
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           if (dropped) refresh();

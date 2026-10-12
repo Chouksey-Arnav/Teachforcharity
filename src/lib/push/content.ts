@@ -24,13 +24,22 @@ export function pushContent(template: string, p: Payload): PushContent | null {
   // Emails to a parent's own inbox about a student account (role "guardian") are not for this device's user.
   if (p.role === "guardian") return null;
   switch (template) {
-    case "new_message":
+    case "new_message": {
+      // One notification for the whole bundle (see private.run_update_emails), replacing the last one.
+      const total = Number(p.total) || 1;
+      const people = Array.isArray(p.threads) ? p.threads.length : 1;
+      const sender = s(p.sender_name) || "your tutor";
       return {
-        title: `New message from ${s(p.sender_name) || "your tutor"}`,
-        body: s(p.student_name) ? `About ${s(p.student_name)}’s lessons. Tap to read.` : "Tap to read.",
-        url: uuid.test(s(p.thread_id)) ? `/dashboard/messages/${s(p.thread_id)}` : "/dashboard/messages",
-        tag: `thread:${s(p.thread_id)}`,
+        title: p.urgent
+          ? `${sender}: message about your lesson`
+          : total > 1
+            ? `${total} new messages${people > 1 ? "" : ` from ${sender}`}`
+            : `New message from ${sender}`,
+        body: p.urgent ? "It’s about a lesson coming up soon. Tap to read." : s(p.student_name) && people === 1 ? `About ${s(p.student_name)}’s lessons. Tap to read.` : "Tap to read.",
+        url: uuid.test(s(p.thread_id)) ? `/dashboard/messages/${s(p.thread_id)}` : people > 1 ? "/dashboard/updates" : "/dashboard/messages",
+        tag: "messages",
       };
+    }
     case "practice_assigned":
       return {
         title: `New practice from ${s(p.tutor_name) || "your tutor"}`,

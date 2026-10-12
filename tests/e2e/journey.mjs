@@ -149,7 +149,7 @@ try {
   await tutor.goto(`${BASE}/dashboard/lessons?tab=action`);
   const toLog = tutor.locator(`#lesson-${firstId}`);
   await toLog.getByRole("button", { name: "It happened" }).click();
-  await toLog.getByLabel(/What should Leo practice/).fill("Long tones for 5 minutes a day.\nMeasures 20–40, slowly.");
+  await toLog.getByLabel("Task 1", { exact: true }).fill("Long tones for 5 minutes a day.");
   await toLog.getByPlaceholder(/Optional private note/).fill("Great focus today.");
   expect(await toLog.getByRole("button", { name: "Log lesson" }).isDisabled(), "logged without confirming it's truthful");
   await toLog.getByRole("checkbox", { name: /This log is truthful/ }).check();
@@ -187,10 +187,12 @@ try {
   step("tutor saw “you’re good to go” and dismissed it");
 
   // The family sees the practice plan, but not the tutor's private note.
+  // (Practice lives on the Practice board since the board replaced the free-text plan.)
+  await fam.goto(`${BASE}/dashboard/practice`);
+  await fam.getByText("Long tones for 5 minutes a day.").waitFor();
+  expect((await fam.getByText("Great focus today.").count()) === 0, "family sees the tutor's private note");
   await fam.goto(`${BASE}/dashboard/lessons?tab=history`);
-  const famCard = fam.locator(`#lesson-${firstId}`);
-  await famCard.getByText("Long tones for 5 minutes a day.").waitFor();
-  expect((await famCard.getByText("Great focus today.").count()) === 0, "family sees the tutor's private note");
+  expect((await fam.locator(`#lesson-${firstId}`).getByText("Great focus today.").count()) === 0, "family sees the tutor's private note on the lesson");
 
   await admin.goto(`${BASE}/admin/lessons?status=confirmed`);
   await admin.getByText("Select all").click();

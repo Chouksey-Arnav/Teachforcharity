@@ -79,7 +79,8 @@ export async function WelcomeHero({ viewer }: { viewer: Viewer }) {
   const g = await getGlance(viewer);
   const links = viewer.onboarded
     ? allItems(navFor(viewer.role, { action: g.action, unread: g.unread }, viewer.profile.account_kind))
-        .filter((i) => i.href !== "/dashboard" && i.tone !== "danger")
+        // The status line above already says what's waiting, so Updates doesn't take one of the four spots.
+        .filter((i) => i.href !== "/dashboard" && i.href !== "/dashboard/updates" && i.tone !== "danger")
         .slice(0, 4)
     : [];
   const next = g.next;

@@ -2,7 +2,7 @@ import type { Role } from "@/lib/viewer";
 
 export type NavIcon =
   | "home" | "search" | "calendar" | "messages" | "students" | "profile" | "hours" | "report" | "review"
-  | "overview" | "tutors" | "families" | "incidents" | "partners" | "settings" | "emails" | "verified" | "inbox" | "discover" | "practice";
+  | "overview" | "tutors" | "families" | "incidents" | "partners" | "settings" | "emails" | "verified" | "inbox" | "discover" | "practice" | "updates";
 
 export interface NavItem {
   href: string;
@@ -38,7 +38,8 @@ const REPORT: NavItem = { href: "/dashboard/report", label: "Report a concern", 
  * phones (bottom tabs + "More" sheet), so nothing is only reachable from a link
  * buried on another page.
  */
-export function navFor(role: Role, counts: { action: number; unread: number }, kind?: string | null): Nav {
+export function navFor(role: Role, counts: { action: number; unread: number; updates?: number }, kind?: string | null): Nav {
+  const updates: NavItem = { href: "/dashboard/updates", label: "Updates", icon: "updates", badge: counts.updates, hint: "Everything new: messages, lessons, practice" };
   const lessons: NavItem = { href: "/dashboard/lessons", label: "Lessons", icon: "calendar", badge: counts.action, tab: true, hint: "Requests, booked lessons and confirmations" };
   const messages: NavItem = {
     href: "/dashboard/messages",
@@ -56,6 +57,7 @@ export function navFor(role: Role, counts: { action: number; unread: number }, k
           label: "Lessons",
           items: [
             HOME,
+            updates,
             { href: "/dashboard/practice", label: "Practice", icon: "practice", tab: true, hint: "What your tutor wants you to practice" },
             lessons,
             messages,
@@ -79,6 +81,7 @@ export function navFor(role: Role, counts: { action: number; unread: number }, k
           label: "Lessons",
           items: [
             HOME,
+            updates,
             { href: "/dashboard/tutors", label: "Find tutors", short: "Tutors", icon: "search", tab: true, hint: "Tutors matched to your student" },
             lessons,
             messages,
@@ -102,6 +105,7 @@ export function navFor(role: Role, counts: { action: number; unread: number }, k
           label: "Teaching",
           items: [
             HOME,
+            updates,
             { href: "/dashboard/my-students", label: "My students", short: "Students", icon: "students", tab: true, hint: "Practice, next lessons and messages per student" },
             lessons,
             messages,

@@ -113,6 +113,24 @@ describe("renderEmail", () => {
     expect(r.text).toContain("1 lesson needs your confirmation");
   });
 
+  it("bundles unread conversations into one message email", () => {
+    const one = renderEmail("new_message", { recipient_first: "Pat", total: 3, threads: [{ sender_name: "Maya P.", student_name: "Leo", thread_id: "t1", count: 3 }], thread_id: "t1" })!;
+    expect(one.subject).toBe("3 new messages from Maya P.");
+    expect(one.html).toContain("/dashboard/messages/t1");
+    const two = renderEmail("new_message", {
+      recipient_first: "Pat", total: 5,
+      threads: [{ sender_name: "Maya P.", student_name: "Leo", thread_id: "t1", count: 4 }, { sender_name: "Sam L.", student_name: "Leo", thread_id: "t2", count: 1 }],
+    })!;
+    expect(two.subject).toBe("5 new messages from 2 people");
+    expect(two.text).toContain("Maya P.: 4 messages");
+    expect(two.text).toContain("Sam L.: 1 message");
+    expect(two.html).toContain("/dashboard/updates");
+    const urgent = renderEmail("new_message", { recipient_first: "Pat", total: 1, urgent: true, threads: [{ sender_name: "Maya P.", student_name: "Leo", thread_id: "t1", count: 1 }] })!;
+    expect(urgent.subject).toBe("Maya P. sent a message about your lesson");
+    // Rows queued before the bundling change still render.
+    expect(renderEmail("new_message", { sender_name: "Maya P.", student_name: "Leo", thread_id: "t1" })!.subject).toBe("New message from Maya P.");
+  });
+
   it("never includes message bodies in new-message emails", () => {
     const r = renderEmail("new_message", { ...base, body: "SECRET BODY" })!;
     expect(r.html).not.toContain("SECRET BODY");
