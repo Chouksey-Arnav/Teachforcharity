@@ -11,13 +11,16 @@ try {
   // ---------- Public pages ----------
   {
     const p = await (await b.newContext()).newPage();
-    const paths = ["/", "/how-it-works", "/safety", "/volunteer", "/cause", "/guardian", "/legal/terms", "/legal/privacy", "/legal/consent", "/legal/messaging",
+    const paths = ["/", "/how-it-works", "/safety", "/volunteer", "/guardian", "/legal/terms", "/legal/privacy", "/legal/consent", "/legal/messaging",
       "/legal/tutor-agreement", "/legal/code-of-conduct", "/login", "/signup", "/signup?role=family", "/signup?role=tutor", "/signup?role=student", "/forgot-password",
       "/admin/login", "/verify/aaaaaaaaaa", "/confirm/not-a-token", "/manifest.webmanifest", "/sw.js"];
     for (const path of paths) {
       const r = await p.goto(BASE + path);
       expect(r.status() === 200, `${path} -> ${r.status()}`);
     }
+    // No placeholder trust page: /cause only exists once a confirmed partner has a cause and donation page.
+    const cause = (await p.goto(BASE + "/cause")).status();
+    expect(cause === 200 || cause === 404, `/cause -> ${cause}`);
     for (const path of ["/dashboard", "/dashboard/hours", "/onboarding"]) {
       await p.goto(BASE + path);
       expect(p.url().includes("/login"), `${path} not protected`);
@@ -106,7 +109,7 @@ try {
     await page.getByRole("button", { name: "Reactivate tutor" }).first().click();
     await page.waitForTimeout(1500);
     expect((await sql(`select status from tutor_profiles t join profiles p on p.id = t.user_id where p.email = 'e2e-tutor@tfac-e2e.test'`)) === "active", "tutor not reactivated");
-    for (const path of ["/admin", "/admin/people", "/admin/people?kind=tutor", "/admin/consents", "/admin/lessons", "/admin/lessons?status=confirmed", "/admin/messages",
+    for (const path of ["/admin", "/admin/people", "/admin/people?kind=tutor", "/admin/checks", "/admin/inbox", "/admin/waitlist", "/admin/lessons", "/admin/lessons?status=confirmed", "/admin/messages",
       "/admin/reports", "/admin/safety", "/admin/activity", "/admin/emails", "/admin/settings"]) {
       const r = await page.goto(BASE + path);
       expect(r.status() === 200 && !page.url().includes("/login"), `${path} -> ${r.status()} ${page.url()}`);
@@ -118,8 +121,8 @@ try {
 
   // ---------- Every signed-in page loads ----------
   for (const [who, paths] of [
-    [mom, ["/dashboard", "/dashboard/students", "/dashboard/profile", "/dashboard/lessons", "/dashboard/lessons?tab=history", "/dashboard/tutors", "/dashboard/tutors?view=all", "/dashboard/messages", "/dashboard/report"]],
-    ["e2e-tutor@tfac-e2e.test", ["/dashboard", "/dashboard/find-students", "/dashboard/lessons", "/dashboard/hours", "/dashboard/profile", "/dashboard/messages", "/dashboard/report"]],
+    [mom, ["/dashboard", "/dashboard/students", "/dashboard/profile", "/dashboard/lessons", "/dashboard/lessons?tab=history", "/dashboard/tutors", "/dashboard/tutors?view=all", "/dashboard/messages", "/dashboard/updates", "/dashboard/practice", "/dashboard/report"]],
+    ["e2e-tutor@tfac-e2e.test", ["/dashboard", "/dashboard/find-students", "/dashboard/lessons", "/dashboard/hours", "/dashboard/profile", "/dashboard/messages", "/dashboard/updates", "/dashboard/my-students", "/dashboard/report"]],
   ]) {
     const { ctx, page } = await login(b, who, { width: 390, height: 844 });
     for (const path of paths) {

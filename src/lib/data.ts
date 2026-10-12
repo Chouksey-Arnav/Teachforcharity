@@ -6,6 +6,8 @@ import type { Level } from "./constants";
 import type { PublicConfig } from "./viewer";
 import { RELATED_GROUPS, type StudentProfile, type TutorCandidate, type TutorSubject } from "./matching";
 import { defaultMinutes, openSlots, type BusyInterval, type OpenSlot } from "./slots";
+import { describeUpdate, safeUpdateHref, type UpdateItem, type UpdateRow, type Viewer as UpdateViewer } from "./updates";
+import { formatRelative } from "./time";
 
 type Supa = Awaited<ReturnType<typeof createClient>>;
 
@@ -469,4 +471,33 @@ export type MyStudent = Database["public"]["Functions"]["my_students"]["Returns"
 export async function getMyStudents(supabase: Supa): Promise<MyStudent[]> {
   const { data } = await supabase.rpc("my_students");
   return data ?? [];
+}
+
+// ---------------------------------------------------------------------------
+// Updates (the bell)
+// ---------------------------------------------------------------------------
+/** The viewer's updates, worded for them: unread first, then newest. */
+export async function getMyUpdates(supabase: Supa, viewer: UpdateViewer, limit = 100): Promise<UpdateItem[]> {
+  const { data } = await supabase.rpc("my_updates", { p_limit: limit });
+  const now = new Date();
+  return ((data ?? []) as UpdateRow[]).map((row) => ({
+    id: row.id,
+    unread: !row.read_at,
+    when: formatRelative(row.updated_at, now),
+    updatedAt: row.updated_at,
+    area: row.area,
+    view: (() => {
+      const v = describeUpdate(row, viewer);
+      return { ...v, href: safeUpdateHref(v.href) };
+    })(),
+  }));
+}
+
+/** Marks a part of the site seen (visiting Lessons means you've seen lesson updates). Never throws. */
+export async function markAreaSeen(supabase: Supa, area: "lessons" | "practice" | "hours") {
+  try {
+    await supabase.rpc("mark_updates_read", { p_area: area });
+  } catch {
+    // The badge catches up on the next visit.
+  }
 }

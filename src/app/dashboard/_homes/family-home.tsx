@@ -3,7 +3,8 @@ import { ArrowRight, HandHeart, ShieldAlert, Sparkles } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMyPractice, getMySessions, getMyThreads, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMyPractice, getMySessions, getMyThreads, getMyUpdates, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { UpdatesPreview } from "@/components/dashboard/updates-preview";
 import { PracticeBoard } from "@/components/dashboard/practice-board";
 import { NextLessonSection, YourTutors, myTutors } from "./family-sections";
 import { matchTutors } from "@/lib/matching";
@@ -26,7 +27,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const supabase = await createClient();
   const config = await getPublicConfig();
   const isStudent = viewer.profile.account_kind === "student";
-  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, threads, practice] = await Promise.all([
+  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, threads, practice, updates] = await Promise.all([
     getFamilyStudents(supabase, viewer.id, config),
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming", 20),
@@ -38,6 +39,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
       : Promise.resolve({ data: null }),
     getMyThreads(supabase),
     getMyPractice(supabase),
+    getMyUpdates(supabase, { role: "family", isStudent }, 20),
   ]);
   // The board on Home: groups that still have something to do (notes show with their tasks).
   const openGroups = new Set(practice.filter((p) => p.kind === "task" && !p.done_at).map((p) => `${p.tutor_id}:${p.student_id}`));
@@ -99,6 +101,8 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
             : "Your profile is ready. Below are your best tutor matches."}
         </Notice>
       )}
+
+      <UpdatesPreview items={updates} />
 
       <SetupSteps title={isStudent ? "Getting started" : "Getting your student started"} steps={steps} />
 

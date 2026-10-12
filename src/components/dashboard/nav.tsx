@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   BadgeCheck,
+  Bell,
   CalendarDays,
   ClipboardCheck,
   Clock3,
@@ -55,6 +56,7 @@ const ICONS = {
   inbox: Inbox,
   discover: Compass,
   practice: ListChecks,
+  updates: Bell,
 } as const satisfies Record<NavIcon, unknown>;
 
 export interface Account {
@@ -134,6 +136,30 @@ export function SidebarNav({ nav }: { nav: Nav }) {
   );
 }
 
+const UPDATES = "/dashboard/updates";
+
+/** The bell in the phone header: always one tap from anywhere, with how many things are new. */
+function HeaderBell({ n, active }: { n: number; active: boolean }) {
+  return (
+    <Link
+      href={UPDATES}
+      aria-label={n ? `Updates, ${n} new` : "Updates"}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "relative flex size-9 shrink-0 items-center justify-center rounded-full transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.3,1.4,0.5,1)] active:scale-[0.94]",
+        active ? "bg-ink text-glow" : "text-ink-2 hover:bg-paper-2",
+      )}
+    >
+      <Bell className="size-[20px]" strokeWidth={active ? 2.1 : 1.8} />
+      {n > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-glow px-1 text-center font-mono text-[10px] font-medium leading-[18px] text-ink ring-2 ring-cream">
+          {badgeText(n)}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 /**
  * Phone chrome: a slim header that names the current page (plus a one-tap
  * "Report" and a menu button), up to four bottom tabs, and a "More" sheet that
@@ -143,7 +169,9 @@ export function MobileChrome({ nav, account }: { nav: Nav; account: Account }) {
   const pathname = usePathname();
   const title = useCurrentTitle(nav);
   const tabs = allItems(nav).filter((i) => i.tab).slice(0, 4);
-  const moreBadge = allItems(nav).some((i) => !i.tab && i.badge);
+  // Updates has its own bell in the header, so it doesn't also light up "More".
+  const updates = allItems(nav).find((i) => i.href === UPDATES);
+  const moreBadge = allItems(nav).some((i) => !i.tab && i.badge && i.href !== UPDATES);
   const [open, setOpen] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
 
@@ -165,6 +193,7 @@ export function MobileChrome({ nav, account }: { nav: Nav; account: Account }) {
           <LogoMark className="size-7" />
         </Link>
         <p className="min-w-0 flex-1 truncate font-serif text-[19px] font-[560] tracking-[-0.012em]">{title}</p>
+        {updates && <HeaderBell n={updates.badge ?? 0} active={isActive(pathname, updates)} />}
         {!pathname.startsWith("/dashboard/report") && allItems(nav).some((i) => i.href === "/dashboard/report") && (
           <Link href="/dashboard/report" className="flex shrink-0 items-center gap-1 rounded-full border border-clay-500/25 bg-white/60 px-3 py-1.5 text-xs font-semibold text-clay-700 hover:bg-clay-50">
             <Flag className="size-3.5" /> Report

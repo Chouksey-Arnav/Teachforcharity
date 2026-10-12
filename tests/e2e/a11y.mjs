@@ -27,8 +27,8 @@ try {
   const maya = await sql(`select id from profiles where email = 'e2e-tutor@tfac-e2e.test'`);
   const thread = await sql(`select t.id from threads t join profiles p on p.id = t.family_id where p.email = '${mom}' order by t.created_at limit 1`);
   for (const [who, paths] of [
-    [mom, ["/dashboard", "/dashboard/tutors", "/dashboard/tutors?view=all", `/dashboard/tutors/${maya}`, `/dashboard/messages/${thread}`, "/dashboard/lessons", "/dashboard/students", "/dashboard/messages", "/dashboard/profile", "/dashboard/report"]],
-    ["e2e-tutor@tfac-e2e.test", ["/dashboard", "/dashboard/find-students", "/dashboard/lessons?tab=history", "/dashboard/hours", "/dashboard/profile"]],
+    [mom, ["/dashboard", "/dashboard/tutors", "/dashboard/tutors?view=all", `/dashboard/tutors/${maya}`, `/dashboard/messages/${thread}`, "/dashboard/lessons", "/dashboard/students", "/dashboard/messages", "/dashboard/profile", "/dashboard/updates", "/dashboard/report"]],
+    ["e2e-tutor@tfac-e2e.test", ["/dashboard", "/dashboard/find-students", "/dashboard/lessons?tab=history", "/dashboard/hours", "/dashboard/profile", "/dashboard/updates"]],
   ]) {
     const { ctx, page } = await login(b, who);
     for (const path of paths) await scan(page, path);

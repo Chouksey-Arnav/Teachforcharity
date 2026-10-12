@@ -18,6 +18,16 @@ describe("pushContent", () => {
     expect(r.url.startsWith("/dashboard/lessons")).toBe(true);
   });
 
+  it("one notification per message bundle", () => {
+    const c = pushContent("new_message", { sender_name: "Maya R.", total: 4, threads: [{}], thread_id: sid })!;
+    expect(c.title).toBe("4 new messages from Maya R.");
+    expect(c.tag).toBe("messages");
+    const many = pushContent("new_message", { sender_name: "Maya R.", total: 5, threads: [{}, {}] })!;
+    expect(many.title).toBe("5 new messages");
+    expect(many.url).toBe("/dashboard/updates");
+    expect(pushContent("new_message", { sender_name: "Maya R.", urgent: true, thread_id: sid })!.title).toBe("Maya R.: message about your lesson");
+  });
+
   it("describes weekly series once", () => {
     const c = pushContent("session_requested", { subject: "Clarinet", student_name: "Leo", weeks: 4, weekly: "Thursdays at 5:00 PM ET", when: "Thu" })!;
     expect(c.title).toBe("Weekly Clarinet lessons requested");
