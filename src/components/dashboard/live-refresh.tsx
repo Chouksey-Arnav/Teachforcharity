@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WifiOff } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, createRealtimeClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /** Backstop for changes that don't arrive over realtime (a parent approving, an admin pausing a tutor…). */
 const POLL_MS = 60_000;
@@ -20,27 +21,31 @@ export function LiveRefresh({ userId }: { userId: string }) {
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
     const refresh = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => router.refresh(), 600);
     };
     let dropped = false;
-    const channel = supabase
-      .channel(`live:${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, refresh)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "threads" }, refresh)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, refresh)
-      // The bell: new updates, and ones read on another device.
-      .on("postgres_changes", { event: "*", schema: "public", table: "updates", filter: `user_id=eq.${userId}` }, refresh)
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          if (dropped) refresh();
-          dropped = false;
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          dropped = true;
-        }
-      });
+    let closed = false;
+    let channel: RealtimeChannel | null = null;
+    void createRealtimeClient().then((supabase) => {
+      if (closed) return;
+      channel = supabase
+        .channel(`live:${userId}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, refresh)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "threads" }, refresh)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, refresh)
+        // The bell: new updates, and ones read on another device.
+        .on("postgres_changes", { event: "*", schema: "public", table: "updates", filter: `user_id=eq.${userId}` }, refresh)
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            if (dropped) refresh();
+            dropped = false;
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            dropped = true;
+          }
+        });
+    });
 
     const onVisible = () => document.visibilityState === "visible" && refresh();
     const onOnline = () => {
@@ -62,7 +67,8 @@ export function LiveRefresh({ userId }: { userId: string }) {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       if (timer.current) clearTimeout(timer.current);
-      supabase.removeChannel(channel);
+      closed = true;
+      if (channel) void createClient().removeChannel(channel);
     };
   }, [router, userId]);
 

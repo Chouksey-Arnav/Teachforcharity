@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, Flag, Lock, SendHorizontal, ShieldCheck, Zap } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createClient, createRealtimeClient } from "@/lib/supabase/client";
 import { sendMessage, markThreadRead } from "@/app/actions/messages";
 import { acceptMessagingTerms } from "@/app/actions/profile";
 import { MESSAGE_MAX, messageViolation } from "@/lib/moderation";
@@ -107,18 +108,23 @@ export function Conversation({
 
   // Live updates for this conversation (RLS ensures only participants receive them).
   useEffect(() => {
-    const supabase = createClient();
-    const ch = supabase
-      .channel(`thread:${threadId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `thread_id=eq.${threadId}` }, (payload) => {
-        const m = payload.new as Msg & { hidden_at: string | null };
-        if (m.hidden_at) return;
-        setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
-        if (m.sender_id !== me) void markThreadRead(threadId);
-      })
-      .subscribe();
+    let closed = false;
+    let ch: RealtimeChannel | null = null;
+    void createRealtimeClient().then((supabase) => {
+      if (closed) return;
+      ch = supabase
+        .channel(`thread:${threadId}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `thread_id=eq.${threadId}` }, (payload) => {
+          const m = payload.new as Msg & { hidden_at: string | null };
+          if (m.hidden_at) return;
+          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          if (m.sender_id !== me) void markThreadRead(threadId);
+        })
+        .subscribe();
+    });
     return () => {
-      supabase.removeChannel(ch);
+      closed = true;
+      if (ch) void createClient().removeChannel(ch);
     };
   }, [threadId, me]);
 
