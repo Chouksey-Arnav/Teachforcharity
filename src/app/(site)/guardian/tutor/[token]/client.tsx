@@ -1,5 +1,4 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ShieldCheck } from "lucide-react";
 import { tutorGuardianApprove, tutorGuardianWithdraw } from "@/app/actions/guardian";
@@ -8,7 +7,6 @@ import { Checkbox, Field, Input } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 
 export function TutorGuardianApprove({ token, tutorFirst, guardianName }: { token: string; tutorFirst: string; guardianName: string }) {
-  const router = useRouter();
   const [name, setName] = useState(guardianName);
   const [relationship, setRelationship] = useState("");
   const [signature, setSignature] = useState("");
@@ -34,8 +32,8 @@ export function TutorGuardianApprove({ token, tutorFirst, guardianName }: { toke
             readAgreement: true,
             understandsFormat: true,
           });
+          // The action revalidates this page, so it re-renders as approved.
           if (r && !r.ok) return setError(r.error.message);
-          router.refresh();
           window.scrollTo({ top: 0, behavior: "smooth" });
         });
       }}
@@ -69,7 +67,6 @@ export function TutorGuardianApprove({ token, tutorFirst, guardianName }: { toke
 }
 
 export function TutorGuardianWithdraw({ token, tutorFirst }: { token: string; tutorFirst: string }) {
-  const router = useRouter();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   return (
@@ -81,8 +78,9 @@ export function TutorGuardianWithdraw({ token, tutorFirst }: { token: string; tu
           if (!window.confirm(`Withdraw your approval? ${tutorFirst}’s profile will be paused and upcoming lessons cancelled.`)) return;
           start(async () => {
             const r = await tutorGuardianWithdraw({ token });
-            setMsg(r?.ok ? { ok: true, text: r.message ?? "Withdrawn." } : { ok: false, text: r?.error.message ?? "Something went wrong." });
-            if (r?.ok) router.refresh();
+            // On success the action re-renders this page in its withdrawn state, replacing this button.
+            if (r?.ok) window.scrollTo({ top: 0, behavior: "smooth" });
+            else setMsg({ ok: false, text: r?.error.message ?? "Something went wrong." });
           });
         }}
       >

@@ -354,7 +354,11 @@ I really want to learn trumpet. ') <> 'sent' then raise exception 'FAIL invite w
 
   -- The parent can withdraw from the same link: the tutor is paused and admins are told.
   perform pg_temp.act_as_anon();
+  if (public.tutor_guardian_view(tok) ->> 'withdrawn')::boolean then raise exception 'FAIL approved tutor shown as withdrawn'; end if;
   perform public.tutor_guardian_withdraw(tok);
+  -- The parent's page confirms it (instead of quietly showing the approval form again).
+  j := public.tutor_guardian_view(tok);
+  if not (j ->> 'withdrawn')::boolean or j ->> 'approved_at' is not null then raise exception 'FAIL parent page after withdrawal: %', j; end if;
   execute 'reset role';
   if (select status from public.tutor_profiles where user_id = tut) <> 'paused' then raise exception 'FAIL withdrawal didn''t pause the tutor'; end if;
   if pg_temp.mail('tutor_guardian_withdrew', 'alerts@example.test') is null then raise exception 'FAIL admins not told about withdrawal'; end if;
