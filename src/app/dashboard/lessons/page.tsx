@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getMySessions } from "@/lib/data";
+import { getMySessions, markAreaSeen } from "@/lib/data";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { LessonCard } from "@/components/dashboard/lesson-card";
 import { ScrollToFocus } from "@/components/dashboard/scroll-to-focus";
@@ -26,6 +26,13 @@ const JOIN_ERRORS: Record<string, string> = {
   ERROR: "Something went wrong. Please try again.",
 };
 
+/** Confirmations for actions that move a lesson out of the list it was in (see LessonCard). */
+const JUST_DONE: Record<string, [string, string]> = {
+  countered: ["New time sent.", "We let them know. You’ll see their answer here and in Updates."],
+  declined: ["Declined.", "We let them know, so they can pick another time or tutor."],
+  cancelled: ["Cancelled.", "We let them know. It’s listed under Past."],
+};
+
 export default async function LessonsPage({ searchParams }: PageProps<"/dashboard/lessons">) {
   const viewer = await requireViewer(["family", "tutor"]);
   const sp = await searchParams;
@@ -34,6 +41,8 @@ export default async function LessonsPage({ searchParams }: PageProps<"/dashboar
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming"),
     getMySessions(supabase, "history", 200),
+    // Being here means lesson updates are seen (the bell stops counting them).
+    markAreaSeen(supabase, "lessons"),
   ]);
   const focus = typeof sp.focus === "string" ? sp.focus : undefined;
   const requested = typeof sp.tab === "string" ? sp.tab : undefined;
@@ -63,6 +72,11 @@ export default async function LessonsPage({ searchParams }: PageProps<"/dashboar
       {sp.booked === "1" && (
         <Notice tone="success" className="mb-6 animate-rise" title="Booked!">
           Confirmation emails are on their way. You can join from the lesson card 15 minutes before it starts.
+        </Notice>
+      )}
+      {typeof sp.done === "string" && JUST_DONE[sp.done] && (
+        <Notice tone="success" className="mb-6 animate-rise" title={JUST_DONE[sp.done][0]}>
+          {JUST_DONE[sp.done][1]}
         </Notice>
       )}
       {typeof sp.join === "string" && JOIN_ERRORS[sp.join] && (

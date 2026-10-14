@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { CheckCircle2, Clock, ExternalLink, Hourglass, Video } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Clock, ExternalLink, Video } from "lucide-react";
 import { WizardShell } from "./wizard-shell";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ChoiceCards } from "@/components/forms/choice-cards";
@@ -10,7 +11,6 @@ import { SlotGrid } from "@/components/forms/slot-grid";
 import { AvatarUpload } from "@/components/forms/avatar-upload";
 import type { SubjectOption } from "@/components/forms/instrument-picker";
 import { TutorInstrumentsEditor, tutorInstrumentsError, type TutorInstrumentItem } from "@/components/forms/tutor-instruments";
-import { LinkButton } from "@/components/ui/button";
 import { EXPLAIN_STYLES, GOALS, NC_COUNTIES, TEACHING_STYLES, INTERESTS } from "@/lib/constants";
 import { normalizeMeetUrl } from "@/lib/meet";
 import { messageViolation } from "@/lib/moderation";
@@ -71,7 +71,7 @@ export function TutorWizard({
   const [step, setStep] = useState(initialStep);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const [done, setDone] = useState<string | null>(null);
+  const router = useRouter();
   const [p, setP] = useState(profile);
   const [acceptTerms, setAcceptTerms] = useState(initialStep > 0);
   const [acks, setAcks] = useState([false, false, false, false]);
@@ -152,30 +152,12 @@ export function TutorWizard({
               guardianPhone: p.guardianPhone,
               acks: [true, true, true, true],
             }),
-          (res) => setDone(res && res.ok ? ((res.data as { status: string })?.status ?? "pending") : "pending"),
+          // The confirmation lives on the dashboard: the action refreshes the session cookie, which
+          // re-renders this page, and a finished account is sent to the dashboard anyway.
+          () => router.replace("/dashboard?welcome=1"),
         );
     }
   };
-
-  if (done) {
-    const active = done === "active";
-    return (
-      <div className="animate-rise py-8 text-center">
-        <span className={cn("mx-auto flex size-16 items-center justify-center rounded-full", active ? "bg-pine-50 text-pine-700" : "bg-brass-100 text-brass-800")}>
-          {active ? <CheckCircle2 className="size-8" /> : <Hourglass className="size-8" />}
-        </span>
-        <h1 className="display mt-6 text-5xl">{active ? "You’re live!" : "You’re all set up!"}</h1>
-        <p className="mx-auto mt-4 max-w-lg text-[16px] leading-relaxed text-muted">
-          {active
-            ? "Families can now find you. When someone requests a lesson, you’ll get an email and see it on your dashboard."
-            : `We just emailed ${p.guardianEmail || "your parent or guardian"} a link to approve you — tutors are minors too, so a parent says yes first. As soon as they do, our automated account check reviews your profile — usually within minutes — and we’ll email you the moment families can see you.`}
-        </p>
-        <LinkButton href="/dashboard" size="lg" className="mt-8">
-          Go to my dashboard
-        </LinkButton>
-      </div>
-    );
-  }
 
   const shared = { steps: STEPS, step, error, pending, onNext: next, onBack: step > 0 ? () => go(step - 1) : undefined };
   const bioIssue = p.bio ? messageViolation(p.bio) : null;

@@ -24,23 +24,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (viewer.role === "admin") redirect("/admin");
 
-  const counts = { action: 0, unread: 0 };
+  const counts = { action: 0, unread: 0, updates: 0 };
   let prompts: AttendancePrompt[] = [];
   let verdicts: AttendanceVerdict[] = [];
   // Fetched alongside the counts: it doesn't depend on them.
   const configP = getPublicConfig();
   if (viewer.role === "family" || viewer.role === "tutor") {
     // After a lesson: families are asked "was the tutor there?" on their next visit; tutors see the answer.
-    const [actions, threads, checkIns] = await Promise.all([
+    const [actions, threads, checkIns, updates] = await Promise.all([
       supabase.rpc("my_sessions", { p_scope: "action", p_limit: 100 }),
       supabase.rpc("my_threads"),
       viewer.role === "family" ? supabase.rpc("my_attendance_prompts") : supabase.rpc("my_attendance_verdicts"),
+      supabase.from("updates").select("id", { count: "exact", head: true }).is("read_at", null),
     ]);
     if (viewer.role === "family") prompts = (checkIns.data ?? []) as AttendancePrompt[];
     else verdicts = (checkIns.data ?? []) as AttendanceVerdict[];
     // A pending weekly request is one thing to answer, not one per week.
     counts.action = collapsePendingSeries((actions.data ?? []) as MySession[]).length;
     counts.unread = (threads.data ?? []).filter((t) => t.unread).length;
+    counts.updates = updates.count ?? 0;
   }
   // Existing users accept revised Terms here; new users accept them during onboarding.
   const config = await configP;

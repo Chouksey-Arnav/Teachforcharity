@@ -11,7 +11,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   const viewer = await requireViewer();
   const sp = await searchParams;
   if (viewer.role === "family") return <FamilyHome viewer={viewer} welcome={sp.welcome === "1"} />;
-  if (viewer.role === "tutor") return <TutorHome viewer={viewer} passwordUpdated={sp.password === "updated"} />;
+  if (viewer.role === "tutor") return <TutorHome viewer={viewer} passwordUpdated={sp.password === "updated"} welcome={sp.welcome === "1"} />;
   if (viewer.role === "reviewer") return <ReviewerHome viewer={viewer} />;
   redirect("/admin");
 }

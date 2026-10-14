@@ -62,8 +62,9 @@ try {
   {
     const page = await (await b.newContext()).newPage();
     for (const [name, role] of [
-      [/middle schooler/, "student"],
-      [/parent/, "family"],
+      // "I’m a…" names each door: the parent door also says "my middle schooler".
+      [/I’m a middle schooler/, "student"],
+      [/I’m a parent/, "family"],
       [/high school musician/, "tutor"],
     ]) {
       await page.goto(BASE + "/");

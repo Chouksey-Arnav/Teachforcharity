@@ -19,6 +19,8 @@ interface TutorGuardianData {
   guardian_email: string;
   approved_at: string | null;
   approved_name: string | null;
+  /** Paused because this parent withdrew their approval. */
+  withdrawn?: boolean;
   instruments: string[];
   lessons_taught: number;
 }
@@ -47,9 +49,16 @@ export default async function TutorGuardianPage({ params }: PageProps<"/guardian
   return (
     <div className="lm-wash"><div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
       <p className="eyebrow">Private parent page · {d.guardian_email}</p>
-      <h1 className="display mt-3 text-4xl sm:text-6xl">{d.approved_at ? `${first} is approved to volunteer` : `${first} wants to volunteer`}</h1>
+      <h1 className="display mt-3 text-4xl sm:text-6xl">
+        {d.approved_at ? `${first} is approved to volunteer` : d.withdrawn ? `${first}’s profile is paused` : `${first} wants to volunteer`}
+      </h1>
 
-      {d.approved_at ? (
+      {d.withdrawn ? (
+        <Notice tone="success" className="mt-6" title="Approval withdrawn">
+          Families can’t see {first}’s profile, any upcoming lessons were cancelled, and the program team has been told. There’s nothing else you need
+          to do.
+        </Notice>
+      ) : d.approved_at ? (
         <Notice tone="success" className="mt-6" title={`You approved on ${formatDate(d.approved_at)}`}>
           {d.status === "active"
             ? `${first}’s profile is live. ${d.lessons_taught} lesson${d.lessons_taught === 1 ? "" : "s"} taught so far.`
@@ -105,8 +114,12 @@ export default async function TutorGuardianPage({ params }: PageProps<"/guardian
             </p>
           </section>
           <section className="mt-10 rounded-3xl border border-line bg-paper-2/50 p-5 sm:p-8">
-            <h2 className="display text-3xl">Approve {first}</h2>
-            <p className="mt-2 text-sm text-muted">Takes about two minutes. If you don’t want {first} to volunteer, just ignore the email — the profile stays hidden.</p>
+            <h2 className="display text-3xl">{d.withdrawn ? `Changed your mind? Approve ${first} again` : `Approve ${first}`}</h2>
+            <p className="mt-2 text-sm text-muted">
+              {d.withdrawn
+                ? `The profile stays paused until the program team reviews it and turns it back on.`
+                : `Takes about two minutes. If you don’t want ${first} to volunteer, just ignore the email — the profile stays hidden.`}
+            </p>
             <div className="mt-6">
               <TutorGuardianApprove token={token} tutorFirst={first} guardianName={d.guardian_name ?? ""} />
             </div>

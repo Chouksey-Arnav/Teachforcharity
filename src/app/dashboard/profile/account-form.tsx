@@ -31,8 +31,8 @@ export function AccountForm({ role, kind, initial }: { role: string; kind?: stri
       <Checkbox
         checked={v.emailNotifications}
         onChange={(e) => setV({ ...v, emailNotifications: e.target.checked })}
-        label="Email me when I get a new message"
-        description="Lesson requests, bookings, cancellations, and safety notices are always emailed."
+        label="Email me about messages I haven’t read"
+        description="Only when it matters: 3 or more waiting, one waiting 6 hours, or a message about a lesson coming up. Never while you’re chatting. Every message is always in Updates, and lesson requests, bookings, cancellations and safety notices are always emailed."
       />
       {kind === "parent" && (
         <Checkbox

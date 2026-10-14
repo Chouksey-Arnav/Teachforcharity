@@ -63,7 +63,7 @@ export default async function ReviewPage({ searchParams }: PageProps<"/dashboard
           {!rows?.length ? (
             <Empty icon={<ClipboardCheck className="size-5" />} title="Nothing logged this week" />
           ) : (
-            <ReviewQueue rows={rows as ReviewRow[]} />
+            <ReviewQueue rows={rows as ReviewRow[]} week={week} />
           )}
         </div>
       </div>

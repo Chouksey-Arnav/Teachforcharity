@@ -1897,6 +1897,103 @@ export type Database = {
           },
         ]
       }
+      update_email_log: {
+        Row: {
+          conversations: number
+          id: number
+          messages: number
+          reason: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          conversations: number
+          id?: never
+          messages: number
+          reason: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          conversations?: number
+          id?: never
+          messages?: number
+          reason?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "update_email_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      updates: {
+        Row: {
+          area: string
+          count: number
+          created_at: string
+          email_state: string
+          emailed_at: string | null
+          emailed_count: number
+          group_key: string | null
+          id: number
+          kind: string
+          payload: Json
+          pending_since: string | null
+          read_at: string | null
+          updated_at: string
+          urgent: boolean
+          user_id: string
+        }
+        Insert: {
+          area: string
+          count?: number
+          created_at?: string
+          email_state?: string
+          emailed_at?: string | null
+          emailed_count?: number
+          group_key?: string | null
+          id?: never
+          kind: string
+          payload?: Json
+          pending_since?: string | null
+          read_at?: string | null
+          updated_at?: string
+          urgent?: boolean
+          user_id: string
+        }
+        Update: {
+          area?: string
+          count?: number
+          created_at?: string
+          email_state?: string
+          emailed_at?: string | null
+          emailed_count?: number
+          group_key?: string | null
+          id?: never
+          kind?: string
+          payload?: Json
+          pending_since?: string | null
+          read_at?: string | null
+          updated_at?: string
+          urgent?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "updates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2402,6 +2499,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["session_status"]
       }
       mark_thread_read: { Args: { p_thread: string }; Returns: undefined }
+      mark_updates_read: {
+        Args: { p_area?: string; p_ids?: number[] }
+        Returns: number
+      }
       moderation_apply: {
         Args: { p_flags: Json; p_run: number; p_scanned: string[] }
         Returns: number
@@ -2593,6 +2694,20 @@ export type Database = {
           tutor_name: string
           tutor_status: Database["public"]["Enums"]["tutor_status"]
           unread: boolean
+        }[]
+      }
+      my_updates: {
+        Args: { p_limit?: number }
+        Returns: {
+          area: string
+          count: number
+          created_at: string
+          id: number
+          kind: string
+          payload: Json
+          preview: string
+          read_at: string
+          updated_at: string
         }[]
       }
       my_verify_code: { Args: { p_action?: string }; Returns: string }

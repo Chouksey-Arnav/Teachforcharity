@@ -285,15 +285,33 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
         cta: { label: "Log the lesson", href: lessonsLink(p) },
       });
 
-    case "new_message":
-      return make(`New message from ${str(p.sender_name)}`, {
-        heading: "You have a new message",
-        paragraphs: [
-          hi(p),
-          `${esc(p.sender_name)} sent you a message about ${esc(p.student_name)}'s lessons. For privacy, messages are only shown on the site.`,
-        ],
-        cta: { label: "Read the message", href: link(`/dashboard/messages/${encodeURIComponent(str(p.thread_id))}`) },
-      });
+    case "new_message": {
+      // Sent by the database's decider (private.run_update_emails): one email for all
+      // unread conversations. Older rows only have one sender and no `threads`.
+      const threads = (Array.isArray(p.threads) ? p.threads : [{ sender_name: p.sender_name, student_name: p.student_name, thread_id: p.thread_id, count: 1 }]) as P[];
+      const total = Number(p.total) || threads.reduce((a, t) => a + (Number(t.count) || 1), 0);
+      const one = threads.length === 1;
+      const who = one ? str(threads[0].sender_name) : `${threads.length} people`;
+      const href = one && str(threads[0].thread_id) ? link(`/dashboard/messages/${encodeURIComponent(str(threads[0].thread_id))}`) : link("/dashboard/updates");
+      return make(
+        p.urgent ? `${str(threads[0].sender_name)} sent a message about your lesson` : total > 1 ? `${total} new messages from ${who}` : `New message from ${who}`,
+        {
+          heading: p.urgent ? "A message about your lesson" : total > 1 ? `You have ${total} unread messages` : "You have a new message",
+          paragraphs: [
+            hi(p),
+            p.urgent
+              ? `${esc(threads[0].sender_name)} sent a message about ${esc(threads[0].student_name)}'s lesson coming up soon. Please read it before the lesson.`
+              : one
+                ? `${esc(who)} sent you ${total > 1 ? `${total} messages` : "a message"} about ${esc(threads[0].student_name)}'s lessons that you haven't read yet.`
+                : "You have unread messages waiting:",
+            ...(one ? [] : [threads.map((t) => `• ${esc(t.sender_name)}: ${Number(t.count) > 1 ? `${esc(t.count)} messages` : "1 message"}`).join("<br>")]),
+            "For privacy, messages are only shown on the site.",
+          ],
+          cta: { label: one ? (total > 1 ? "Read the messages" : "Read the message") : "See your updates", href },
+          note: "We bundle messages into one email and only send one when several are waiting, one has waited a while, or it's about a lesson soon. You'll always see every message in Updates.",
+        },
+      );
+    }
 
     case "practice_assigned": {
       const tasks = Number(p.tasks) || 0;

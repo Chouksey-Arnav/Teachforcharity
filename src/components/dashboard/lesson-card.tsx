@@ -183,9 +183,11 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               onClick={() =>
                 run(async () => {
                   const r = await respondLesson({ sessionId: s.id, action: "accept" });
-                  // Accepting moves the lesson out of "Needs you", which unmounts this card and its message.
-                  if (r?.ok) router.push(`/dashboard/lessons?tab=upcoming&focus=${s.id}&booked=1`);
-                  return r;
+                  // Accepting moves the lesson out of "Needs you", which unmounts this card and its message,
+                  // so Lessons shows "Booked!" instead (and the card doesn't repeat it if it survives).
+                  if (!r?.ok) return r;
+                  router.push(`/dashboard/lessons?tab=upcoming&focus=${s.id}&booked=1`);
+                  return { ok: true } as ActionState;
                 })
               }
             >
@@ -346,9 +348,17 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               disabled={(needsAttest && !attest) || (panel === "log-yes" && Boolean(draftIssue))}
               onClick={() =>
                 run(() => {
-                  if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note });
-                  if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note });
-                  if (panel === "cancel") return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" });
+                  // These move the lesson to another list, which unmounts this card and its message,
+                  // so the confirmation is shown at the top of Lessons instead (see JUST_DONE there).
+                  const moved = (code: string) => async (r: ActionState) => {
+                    if (!r?.ok) return r;
+                    router.push(`/dashboard/lessons?focus=${s.id}&done=${code}`);
+                    return { ok: true } as ActionState;
+                  };
+                  if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note }).then(moved("countered"));
+                  if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note }).then(moved("declined"));
+                  if (panel === "cancel")
+                    return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" }).then(moved("cancelled"));
                   if (panel === "log-yes")
                     return logLesson({ sessionId: s.id, happened: true, note, attest, studentId: s.student_id, tasks: draft.tasks, practiceNote: draft.note, due: draft.due || undefined });
                   if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note, attest });

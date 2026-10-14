@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, Flag, Lock, SendHorizontal, ShieldCheck, Zap } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createClient, createRealtimeClient } from "@/lib/supabase/client";
 import { sendMessage, markThreadRead } from "@/app/actions/messages";
 import { acceptMessagingTerms } from "@/app/actions/profile";
 import { MESSAGE_MAX, messageViolation } from "@/lib/moderation";
@@ -107,18 +108,23 @@ export function Conversation({
 
   // Live updates for this conversation (RLS ensures only participants receive them).
   useEffect(() => {
-    const supabase = createClient();
-    const ch = supabase
-      .channel(`thread:${threadId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `thread_id=eq.${threadId}` }, (payload) => {
-        const m = payload.new as Msg & { hidden_at: string | null };
-        if (m.hidden_at) return;
-        setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
-        if (m.sender_id !== me) void markThreadRead(threadId);
-      })
-      .subscribe();
+    let closed = false;
+    let ch: RealtimeChannel | null = null;
+    void createRealtimeClient().then((supabase) => {
+      if (closed) return;
+      ch = supabase
+        .channel(`thread:${threadId}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `thread_id=eq.${threadId}` }, (payload) => {
+          const m = payload.new as Msg & { hidden_at: string | null };
+          if (m.hidden_at) return;
+          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          if (m.sender_id !== me) void markThreadRead(threadId);
+        })
+        .subscribe();
+    });
     return () => {
-      supabase.removeChannel(ch);
+      closed = true;
+      if (ch) void createClient().removeChannel(ch);
     };
   }, [threadId, me]);
 
@@ -144,7 +150,16 @@ export function Conversation({
   let lastDay = "";
   return (
     <>
-      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-paper/50 px-3 py-4 sm:px-6" aria-live="polite" aria-relevant="additions">
+      {/* Focusable so keyboard users can scroll a long conversation (WCAG 2.1.1). */}
+      <div
+        ref={scroller}
+        tabIndex={0}
+        role="log"
+        aria-label={`Conversation with ${otherName}`}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-paper/50 px-3 py-4 outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-glow/50 sm:px-6"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         <div className="mx-auto max-w-2xl">
           <p className="mx-auto mb-4 flex max-w-md items-center justify-center gap-1.5 text-center text-[11.5px] leading-snug text-muted">
             <ShieldCheck className="size-3.5 shrink-0 text-pine-700" aria-hidden />

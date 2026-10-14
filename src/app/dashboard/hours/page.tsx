@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BadgeCheck } from "lucide-react";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getMySessions } from "@/lib/data";
+import { getMySessions, markAreaSeen } from "@/lib/data";
 import { SESSION_STATUS_LABEL } from "@/lib/constants";
 import { formatDate, formatTime } from "@/lib/time";
 import { SITE } from "@/lib/site";
@@ -20,7 +20,7 @@ const COUNTED = ["completed", "confirmed", "disputed", "verified", "rejected"];
 export default async function HoursPage() {
   const viewer = await requireViewer(["tutor"]);
   const supabase = await createClient();
-  const [all, { data: code }] = await Promise.all([getMySessions(supabase, "all", 500), supabase.rpc("my_verify_code", { p_action: "get" })]);
+  const [all, { data: code }] = await Promise.all([getMySessions(supabase, "all", 500), supabase.rpc("my_verify_code", { p_action: "get" }), markAreaSeen(supabase, "hours")]);
   const sessions = all.filter((s) => COUNTED.includes(s.status)).sort((a, b) => a.start_at.localeCompare(b.start_at));
   const minutes = (st: string[]) => sessions.filter((s) => st.includes(s.status)).reduce((a, s) => a + s.duration_minutes, 0);
   const verified = sessions.filter((s) => s.status === "verified");

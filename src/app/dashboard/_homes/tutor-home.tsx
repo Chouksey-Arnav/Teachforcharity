@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowUpRight, CalendarDays, Clock3, Hourglass, PauseCircle, Users } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getMySessions } from "@/lib/data";
+import { getMySessions, getMyUpdates } from "@/lib/data";
+import { UpdatesPreview } from "@/components/dashboard/updates-preview";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { LessonCard } from "@/components/dashboard/lesson-card";
 import { AcceptingToggle } from "@/components/dashboard/accepting-toggle";
@@ -29,13 +30,14 @@ function Stat({ icon: Icon, label, value, hint, href }: { icon: typeof Clock3; l
 
 const hrs = (m: number) => (m / 60).toFixed(1).replace(/\.0$/, "");
 
-export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; passwordUpdated?: boolean }) {
+export async function TutorHome({ viewer, passwordUpdated, welcome }: { viewer: Viewer; passwordUpdated?: boolean; welcome?: boolean }) {
   const supabase = await createClient();
-  const [action, upcoming, all, { data: checkData }] = await Promise.all([
+  const [action, upcoming, all, { data: checkData }, updates] = await Promise.all([
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming", 5),
     getMySessions(supabase, "all", 500),
     supabase.rpc("my_account_check"),
+    getMyUpdates(supabase, { role: "tutor", isStudent: false }, 20),
   ]);
   const check = checkData as { status: string; checked_at: string | null; hints: string[] } | null;
   const hints = check?.hints ?? [];
@@ -86,6 +88,16 @@ export async function TutorHome({ viewer, passwordUpdated }: { viewer: Viewer; p
         actions={t.status === "active" ? <AcceptingToggle accepting={t.accepting_students} /> : undefined}
       />
       {passwordUpdated && <Notice tone="success" className="mb-6">Your password was updated.</Notice>}
+      {welcome && (
+        <Notice tone="success" className="mb-6 animate-rise" title={t.status === "active" ? "You’re live!" : "You’re all set up!"}>
+          {t.status === "active"
+            ? "Families can now find you. When someone requests a lesson, you’ll get an email and see it here and in Updates."
+            : t.guardian_approved_at
+              ? "Your parent already approved you. Our automated account check is reviewing your profile, usually within minutes, and we’ll email you the moment families can see you."
+              : `We just emailed ${t.guardian_email || "your parent or guardian"} a link to approve you. Tutors are minors too, so a parent says yes first. Then our automated account check reviews your profile, usually within minutes, and we’ll email you the moment families can see you.`}
+        </Notice>
+      )}
+      <UpdatesPreview items={updates} />
       {t.status === "pending" && !t.guardian_approved_at && (
         <TutorGuardianStatus guardianName={t.guardian_name ?? ""} guardianEmail={t.guardian_email ?? ""} lastSent={t.guardian_last_invited_at} />
       )}
