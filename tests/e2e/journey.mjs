@@ -106,14 +106,18 @@ try {
   await req.waitFor();
   await shot(tutor, "journey-02-tutor-sees-weekly");
   await req.getByRole("button", { name: "Suggest another time" }).click();
-  const current = await sql(`select to_char(min(s.start_at) at time zone 'America/New_York', 'YYYY-MM-DD HH24:MI') from sessions s join profiles p on p.id = s.family_id where p.email = '${mom}' and s.status = 'pending'`);
-  const [d, t] = current.split(" ");
-  const later = `${String(Number(t.slice(0, 2)) + 1).padStart(2, "0")}:${t.slice(3)}`;
-  await req.getByLabel("Date").fill(d);
-  await req.getByLabel("Start time (ET)").selectOption(later);
+  // The same picker as booking: only the tutor's open times, with nothing that clashes.
+  const before = await sql(`select min(s.start_at) from sessions s join profiles p on p.id = s.family_id where p.email = '${mom}' and s.status = 'pending'`);
+  const picker = req.getByRole("radiogroup", { name: /^Start times/ });
+  await picker.getByRole("radio").first().waitFor();
+  const choices = picker.getByRole("radio");
+  await choices.nth((await choices.count()) > 1 ? 1 : 0).click();
+  await req.getByText(/will be asked whether this new time works/).waitFor();
+  await shot(tutor, "journey-02b-tutor-picks-new-time");
   await req.getByRole("button", { name: "Send new time" }).click();
   await tutor.getByText("New time sent.").waitFor();
-  step("tutor suggested a new weekly time");
+  expect((await sql(`select min(s.start_at) from sessions s join profiles p on p.id = s.family_id where p.email = '${mom}' and s.status = 'pending'`)) !== before, "the new time wasn't saved");
+  step("tutor suggested a new weekly time from their open times");
 
   await fam.goto(`${BASE}/dashboard/lessons?tab=action`);
   const offer = fam.locator("article", { hasText: "4 weekly lessons" });

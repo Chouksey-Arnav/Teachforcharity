@@ -2,10 +2,9 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, CalendarPlus, MessageCircle } from "lucide-react";
 import type { MySession } from "@/lib/data";
 import { LessonCard } from "@/components/dashboard/lesson-card";
+import { BookAgain } from "@/components/dashboard/book-again";
 import { Avatar } from "@/components/ui/avatar";
 import { formatTime, formatWhen, startsIn } from "@/lib/time";
-
-const LESSON_DONE = ["scheduled", "completed", "confirmed", "verified"];
 
 /** The next booked lesson, full size (so Join works from here), then a compact list of the ones after it. */
 export function NextLessonSection({ upcoming, isStudent }: { upcoming: MySession[]; isStudent: boolean }) {
@@ -72,6 +71,7 @@ export function NextLessonSection({ upcoming, isStudent }: { upcoming: MySession
 }
 
 export interface MyTutor {
+  teachershipId: string;
   tutorId: string;
   name: string;
   avatar: string | null;
@@ -80,72 +80,88 @@ export interface MyTutor {
   subjectId: string;
   subjectName: string;
   threadId: string | null;
+  nextLessonAt: string | null;
+  instant: boolean;
+  /** Why booking isn't possible right now, if it isn't. */
+  blocked: "tutor_unavailable" | "consent" | null;
+  /** The suggested next lesson: same weekday and time as the last one, if it's open. */
+  again: { date: string; time: string; start: string } | null;
+  minutes: number;
 }
 
-/** Tutors this family already has lessons with, newest first, one per tutor + student. */
-export function myTutors(sessions: MySession[]): MyTutor[] {
-  const seen = new Set<string>();
-  const out: MyTutor[] = [];
-  for (const s of [...sessions].sort((a, b) => b.start_at.localeCompare(a.start_at))) {
-    const key = `${s.tutor_id}:${s.student_id}`;
-    if (seen.has(key) || !LESSON_DONE.includes(s.status)) continue;
-    seen.add(key);
-    out.push({
-      tutorId: s.tutor_id,
-      name: s.tutor_name,
-      avatar: s.tutor_avatar,
-      studentId: s.student_id,
-      studentName: s.student_name,
-      subjectId: s.subject_id,
-      subjectName: s.subject_name,
-      threadId: s.thread_id,
-    });
-  }
-  return out;
-}
-
-/** One tap to message a current tutor or book the next lesson with them. */
+/** The tutors each student works with: next lesson, one tap to message, and "Book again". */
 export function YourTutors({ tutors, isStudent, multipleStudents }: { tutors: MyTutor[]; isStudent: boolean; multipleStudents: boolean }) {
   if (!tutors.length) return null;
   return (
     <section className="mb-10" aria-labelledby="your-tutors">
       <h2 id="your-tutors" className="mb-3 text-lg font-semibold">
-        {isStudent ? "Your tutors" : "Your family’s tutors"}
+        {isStudent ? (tutors.length === 1 ? "Your tutor" : "Your tutors") : "Your family’s tutors"}
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         {tutors.map((t) => {
           const profile = `/dashboard/tutors/${t.tutorId}?student=${t.studentId}&subject=${t.subjectId}`;
+          const first = t.name.split(" ")[0];
           return (
-            <article key={`${t.tutorId}:${t.studentId}`} className="flex items-center gap-3 rounded-2xl border border-line bg-card p-4 shadow-card">
-              <Link href={profile} className="shrink-0" aria-label={`${t.name}’s profile`}>
-                <Avatar name={t.name} path={t.avatar} size={48} />
-              </Link>
-              <div className="min-w-0 flex-1">
-                <Link href={profile} className="block truncate text-[15px] font-semibold hover:underline">
-                  {t.name}
+            <article key={t.teachershipId} className="flex min-w-0 animate-rise flex-col gap-3 rounded-2xl border border-line bg-card p-4 shadow-card">
+              <div className="flex items-center gap-3">
+                <Link href={profile} className="shrink-0" aria-label={`${t.name}’s profile`}>
+                  <Avatar name={t.name} path={t.avatar} size={48} />
                 </Link>
-                <p className="truncate text-[13px] text-muted">
-                  {t.subjectName}
-                  {multipleStudents && ` · ${t.studentName}`}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-1.5">
+                <div className="min-w-0 flex-1">
+                  <Link href={profile} className="block truncate text-[15px] font-semibold hover:underline">
+                    {t.name}
+                  </Link>
+                  <p className="truncate text-[13px] text-muted">
+                    {t.subjectName}
+                    {multipleStudents && ` · ${t.studentName}`}
+                  </p>
+                </div>
                 <Link
                   href={t.threadId ? `/dashboard/messages/${t.threadId}` : profile}
-                  className="flex size-10 items-center justify-center rounded-full border border-line-2 text-ink-2 hover:border-ink/30 hover:text-ink"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line-2 text-ink-2 hover:border-ink/30 hover:text-ink"
                   aria-label={`Message ${t.name}`}
                   title="Message"
                 >
                   <MessageCircle className="size-[18px]" aria-hidden />
                 </Link>
+              </div>
+              <p className="flex items-center gap-1.5 text-[13.5px] text-ink-2">
+                <CalendarDays className="size-4 shrink-0 text-muted" aria-hidden />
+                {t.nextLessonAt ? (
+                  <>
+                    Next: <strong className="font-semibold text-ink">{formatWhen(t.nextLessonAt)}</strong>
+                  </>
+                ) : (
+                  <span className="text-muted">No lesson booked yet</span>
+                )}
+              </p>
+              {t.blocked ? (
+                <p className="rounded-xl bg-paper-2/60 px-3.5 py-3 text-[13px] text-muted">
+                  {t.blocked === "consent"
+                    ? isStudent
+                      ? "Booking opens again once your parent approves."
+                      : `Sign the consent form for ${t.studentName} to book again.`
+                    : `${first} isn’t taking lessons right now. You can still read your messages.`}
+                </p>
+              ) : t.again ? (
+                <BookAgain
+                  tutorFirst={first}
+                  studentId={t.studentId}
+                  tutorId={t.tutorId}
+                  subjectId={t.subjectId}
+                  slot={t.again}
+                  minutes={t.minutes}
+                  instant={t.instant}
+                  pickHref={`${profile}#book`}
+                />
+              ) : (
                 <Link
                   href={`${profile}#book`}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px px-3.5 text-[13px] font-semibold text-cream"
-                  aria-label={`Book again with ${t.name}`}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream shadow-[0_10px_26px_-12px_rgb(22_32_28/0.55)] transition-[transform,box-shadow] hover:-translate-y-px"
                 >
-                  <CalendarPlus className="size-4" aria-hidden /> Book
+                  <CalendarPlus className="size-4" aria-hidden /> {t.instant ? `Book with ${first}` : `Ask ${first} for a time`}
                 </Link>
-              </div>
+              )}
             </article>
           );
         })}

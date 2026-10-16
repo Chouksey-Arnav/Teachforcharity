@@ -89,3 +89,26 @@ describe("dayBucket", () => {
     expect(dayBucket("2026-09-30T16:00:00Z", now)).toBe("Older");
   });
 });
+
+describe("teachership updates", () => {
+  const row = (kind: string, payload: Record<string, unknown>) => ({ id: 1, kind, area: "lessons", payload, count: 1, created_at: "", updated_at: "", read_at: null });
+  const family = { role: "family", isStudent: false };
+  const tutor = { role: "tutor", isStudent: false };
+
+  it("tells a family a request ran out of time and where to go next", () => {
+    const v = describeUpdate(row("session_expired", { other_name: "Jordan L.", subject: "Clarinet", when: "Thu 5 PM", waiting_on_you: false }), family);
+    expect(v.title).toBe("No answer from Jordan L. in time");
+    expect(v.href).toBe("/dashboard/tutors");
+  });
+
+  it("asks for an answer to a move and says the lesson stays put otherwise", () => {
+    const v = describeUpdate(row("session_moved", { outcome: "requested", other_name: "Leo", subject: "Clarinet", when: "Fri 5 PM", session_id: "00000000-0000-0000-0000-000000000001" }), tutor);
+    expect(v.cta).toBe("Answer");
+    expect(v.detail).toContain("stays at the old time");
+  });
+
+  it("tells a tutor a student booked an open time", () => {
+    expect(describeUpdate(row("session_booked", { instant: true, student_name: "Leo", subject: "Clarinet", when: "Fri 5 PM" }), tutor).title).toBe("Leo booked a lesson with you");
+  });
+});
+

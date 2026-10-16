@@ -1,19 +1,20 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { CalendarCheck2, CalendarPlus, ChevronLeft, ChevronRight, Clock, MessageCircle, Repeat, Send, Star } from "lucide-react";
+import { CalendarCheck2, CalendarPlus, Clock, MessageCircle, Repeat, Send, Zap } from "lucide-react";
 import { requestLesson } from "@/app/actions/lessons";
 import { DateTimeFields, type DateTimeValue } from "@/components/forms/date-time-fields";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
-import { easternDateOffset, easternToUtc, formatDate, formatTime, validateSlot } from "@/lib/time";
+import { easternDateOffset, easternToUtc, formatDate, formatTime, formatWhen, validateSlot } from "@/lib/time";
 import { messageViolation } from "@/lib/moderation";
 import { RELATED_GROUPS } from "@/lib/matching";
-import { DAY_PARTS, bestSlot, calendarLabel, dayPart, defaultMinutes, friendlyDay, openSlots, weeklyStarts, type BusyInterval, type OpenSlot } from "@/lib/slots";
+import { NEW_STUDENT_NOTICE_HOURS, defaultMinutes, friendlyDay, openSlots, weeklyStarts, type BusyInterval, type OpenSlot } from "@/lib/slots";
 import type { ActionState } from "@/lib/errors";
 import type { ConsentState } from "@/lib/data";
 import { cn } from "@/lib/cn";
+import { TimePicker } from "@/components/forms/time-picker";
 
 interface Props {
   tutor: {
@@ -40,6 +41,8 @@ interface Props {
   /** A time picked on a tutor card ("?slot="), preselected if it's still open. */
   initialStart?: string;
   canRequest: boolean;
+  /** Students already working with this tutor: whether their open times book instantly, and the notice the tutor asks for. */
+  booking?: Record<string, { instant: boolean; minNoticeHours: number }>;
   /** The signed-in account is the student (changes "Leo’s" to "your"). */
   isStudent: boolean;
   threadHref?: string;
@@ -66,12 +69,15 @@ function Step({ n, title, aside, children }: { n: number; title: string; aside?:
   );
 }
 
-export function RequestLessonForm({ tutor, students, initialStudentId, initialSubjectId, initialStart, canRequest, isStudent, threadHref }: Props) {
+export function RequestLessonForm({ tutor, students, initialStudentId, initialSubjectId, initialStart, canRequest, booking = {}, isStudent, threadHref }: Props) {
   const [studentId, setStudentId] = useState(initialStudentId ?? students[0]?.id ?? "");
   const student = students.find((s) => s.id === studentId);
   const teachable = useMemo(() => (student?.subjects ?? []).filter((s) => tutor.subjects.some((t) => related(t.slug, s.slug))), [student, tutor.subjects]);
   const [subjectId, setSubjectId] = useState(initialSubjectId && teachable.some((t) => t.id === initialSubjectId) ? initialSubjectId : (teachable[0]?.id ?? ""));
   const [minutes, setMinutes] = useState(() => defaultMinutes(tutor.sessionMinutes, student?.preferredMinutes));
+  // Working together already: the tutor's own notice, and maybe instant booking. New: 12 hours, always a request.
+  const together = studentId ? booking[studentId] : undefined;
+  const leadHours = together ? together.minNoticeHours : NEW_STUDENT_NOTICE_HOURS;
 
   const slots = useMemo(
     () =>
@@ -81,8 +87,9 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
         busy: [...tutor.busy, ...(student?.busy ?? [])],
         minutes,
         days: DAYS_SHOWN,
+        leadHours,
       }),
-    [tutor.availability, tutor.busy, student, minutes],
+    [tutor.availability, tutor.busy, student, minutes, leadHours],
   );
   // A time chosen on the tutor card wins; otherwise nothing is chosen until the family taps one.
   const [picked, setPicked] = useState<OpenSlot | null>(() => (initialStart ? (slots.find((s) => s.start === initialStart) ?? null) : null));
@@ -94,25 +101,21 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
   const [weeks, setWeeks] = useState(4);
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState("");
-  const [result, setResult] = useState<ActionState<{ id: string }>>(null);
+  const [result, setResult] = useState<ActionState<{ id: string; booked: boolean; respondBy: string | null }>>(null);
   const [pending, start] = useTransition();
 
-  const dates = useMemo(() => Array.from({ length: DAYS_SHOWN }, (_, i) => easternDateOffset(i)), []);
-  const byDay = useMemo(() => {
-    const m = new Map<string, OpenSlot[]>();
-    for (const s of slots) m.set(s.date, [...(m.get(s.date) ?? []), s]);
-    return m;
-  }, [slots]);
-  const suggested = bestSlot(slots);
-  const [day, setDay] = useState<string | null>(picked?.date ?? null);
-  const activeDay = day && byDay.has(day) ? day : (picked?.date ?? suggested?.date ?? null);
-  const [page, setPage] = useState(() => Math.max(0, Math.floor(dates.indexOf(activeDay ?? dates[0]) / 7)));
-  const daySlots = (activeDay && byDay.get(activeDay)) || [];
 
   const chosen = manual ? (dt.date && dt.time ? { date: dt.date, time: dt.time } : null) : picked ? { date: picked.date, time: picked.time } : null;
   const effectiveMinutes = manual ? dt.minutes : minutes;
   const startDate = chosen ? easternToUtc(chosen.date, chosen.time) : null;
-  const slotIssue = !chosen ? "Choose a time." : validateSlot(startDate, effectiveMinutes);
+  const slotIssue = !chosen
+    ? "Choose a time."
+    : (validateSlot(startDate, effectiveMinutes) ??
+      (startDate && startDate.getTime() < Date.now() + leadHours * 3600000
+        ? `Please pick a time at least ${leadHours} hours from now${together ? "." : ", so the tutor has time to answer."}`
+        : null));
+  // Booked straight away: an open time (inside the tutor's free times) with a tutor who allows it.
+  const instant = Boolean(together?.instant) && !manual && Boolean(picked);
   const nWeeks = repeat ? weeks : 1;
   const series = chosen && !slotIssue ? weeklyStarts(chosen.date, chosen.time, nWeeks) : [];
   const tooFar = series.length > 1 && series[series.length - 1].getTime() > Date.now() + 90 * 86400000;
@@ -131,6 +134,31 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
           : null;
   const subjectName = teachable.find((t) => t.id === subjectId)?.name ?? "";
 
+  if (result?.ok && result.data?.booked) {
+    return (
+      <div className="animate-rise rounded-2xl border border-pine-200 bg-pine-50 p-6" role="status">
+        <span className="flex size-11 items-center justify-center rounded-full bg-card text-pine-700 ring-1 ring-pine-200">
+          <CalendarCheck2 className="size-5" aria-hidden />
+        </span>
+        <h2 className="display mt-4 text-3xl">
+          You’re <em>booked</em>!
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">
+          {series.length > 1 ? `${series.length} weekly lessons, ${weekdayLong(series[0])}s at ${formatTime(series[0])} ET. ` : startDate ? `${friendlyDay(chosen!.date)} at ${formatTime(startDate)} ET. ` : ""}
+          We emailed {tutorFirst}. The Join button shows up on your Lessons page 15 minutes before it starts.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <LinkButton href={`/dashboard/lessons?tab=upcoming&focus=${result.data?.id}`} size="sm">
+            See it in Lessons
+          </LinkButton>
+          <Button size="sm" variant="ghost" onClick={() => { setResult(null); setPicked(null); }}>
+            Book another
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (result?.ok) {
     return (
       <div className="rounded-2xl border border-pine-200 bg-pine-50 p-6" role="status">
@@ -140,7 +168,8 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
         <h2 className="display mt-4 text-3xl">Request sent!</h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">
           {series.length > 1 ? `${series.length} weekly lessons, ${weekdayLong(series[0])}s at ${formatTime(series[0])} ET. ` : startDate ? `${friendlyDay(chosen!.date)} at ${formatTime(startDate)} ET. ` : ""}
-          We emailed {tutorFirst}. You’ll get an email as soon as they accept or suggest another time.
+          We emailed {tutorFirst}.{" "}
+          {result.data?.respondBy ? `They have until ${formatWhen(result.data.respondBy)} to answer.` : ""} We’ll email you either way, so you’re never left wondering.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <LinkButton href={`/dashboard/lessons?focus=${result.data?.id}`} size="sm">
@@ -170,7 +199,11 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
     <div className="overflow-hidden rounded-2xl border border-line bg-card shadow-lift">
       <div className="border-b border-line bg-paper/50 px-5 py-4">
         <h2 className="text-[17px] font-semibold">Book a lesson with {tutorFirst}</h2>
-        <p className="mt-0.5 text-[13px] text-muted">Pick a time — {tutorFirst} accepts it or suggests another. Times are Eastern.</p>
+        <p className="mt-0.5 text-[13px] text-muted">
+          {together?.instant
+            ? `Pick one of ${tutorFirst}’s open times and it’s booked right away. Times are Eastern.`
+            : `Pick a time and ${tutorFirst} says yes or suggests another. Times are Eastern.`}
+        </p>
       </div>
       <form
         className="space-y-6 p-5"
@@ -269,88 +302,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
                   That time was just taken. Here are the times still open.
                 </Notice>
               )}
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-[13px] font-medium text-ink-2">
-                  {calendarLabel(dates[page * 7], { month: "short", day: "numeric" })} – {calendarLabel(dates[page * 7 + 6], { month: "short", day: "numeric" })}
-                </p>
-                <div className="flex gap-1">
-                  <button type="button" onClick={() => setPage(0)} disabled={page === 0} aria-label="This week" className="rounded-full p-1.5 text-ink-2 hover:bg-paper-2 disabled:opacity-30">
-                    <ChevronLeft className="size-4" />
-                  </button>
-                  <button type="button" onClick={() => setPage(1)} disabled={page === 1} aria-label="Next week" className="rounded-full p-1.5 text-ink-2 hover:bg-paper-2 disabled:opacity-30">
-                    <ChevronRight className="size-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-7 gap-1" role="group" aria-label="Day">
-                {dates.slice(page * 7, page * 7 + 7).map((d) => {
-                  const list = byDay.get(d) ?? [];
-                  const on = d === activeDay;
-                  const fits = list.some((s) => s.both);
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      disabled={!list.length}
-                      aria-pressed={on}
-                      aria-label={`${calendarLabel(d, { weekday: "long", month: "long", day: "numeric" })}: ${list.length ? `${list.length} open time${list.length === 1 ? "" : "s"}` : "no open times"}`}
-                      onClick={() => setDay(d)}
-                      className={cn(
-                        "flex flex-col items-center rounded-xl border py-1.5 transition",
-                        on ? "border-ink bg-ink text-cream" : list.length ? "border-line bg-card hover:border-pine-500" : "border-transparent text-faint",
-                      )}
-                    >
-                      <span className={cn("text-[10px] font-semibold uppercase", on ? "text-white/80" : "text-muted")}>{calendarLabel(d, { weekday: "short" })}</span>
-                      <span className="text-[15px] font-semibold leading-tight">{calendarLabel(d, { day: "numeric" })}</span>
-                      <span className={cn("mt-0.5 size-1.5 rounded-full", !list.length ? "bg-transparent" : fits ? (on ? "bg-brass-300" : "bg-pine-600") : on ? "bg-white/50" : "bg-line-2")} aria-hidden />
-                    </button>
-                  );
-                })}
-              </div>
-
-              {activeDay && (
-                <div className="mt-4 space-y-3" role="radiogroup" aria-label={`Start times on ${calendarLabel(activeDay, { weekday: "long", month: "long", day: "numeric" })}`}>
-                  <p className="text-[13px] font-semibold">{calendarLabel(activeDay, { weekday: "long", month: "long", day: "numeric" })}</p>
-                  {DAY_PARTS.map((part) => {
-                    const list = daySlots.filter((s) => dayPart(s.time) === part);
-                    if (!list.length) return null;
-                    return (
-                      <div key={part}>
-                        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint">{part}</p>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {list.map((s) => {
-                            const on = picked?.start === s.start;
-                            return (
-                              <button
-                                key={s.start}
-                                type="button"
-                                role="radio"
-                                aria-checked={on}
-                                aria-label={`${formatTime(s.start)}${s.both ? `, fits ${yours} free times` : ""}`}
-                                onClick={() => setPicked(s)}
-                                className={cn(
-                                  "inline-flex h-9 items-center justify-center gap-1 rounded-lg border text-[13px] font-medium tabular-nums transition",
-                                  on
-                                    ? "border-ink bg-ink text-cream shadow-[0_0_0_3px_rgb(42_106_87/0.15)]"
-                                    : s.both
-                                      ? "border-pine-200 bg-pine-50 text-pine-800 hover:border-pine-600"
-                                      : "border-line bg-card text-ink-2 hover:border-ink/30",
-                                )}
-                              >
-                                {s.both && <Star className={cn("size-3", on ? "fill-brass-300 text-brass-300" : "fill-current")} aria-hidden />}
-                                {formatTime(s.start)}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
-                <Star className="size-3 fill-pine-600 text-pine-600" aria-hidden /> Fits {yours} usual free times
-              </p>
+              <TimePicker slots={slots} value={picked} onChange={setPicked} fitsLabel={yours} days={DAYS_SHOWN} />
             </>
           )}
         </Step>
@@ -423,7 +375,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
         <div className={cn("rounded-xl border p-4 transition", chosen && !slotIssue ? "border-pine-200 bg-pine-50/60" : "border-dashed border-line-2 bg-paper/50")} aria-live="polite">
           {chosen && !slotIssue && startDate ? (
             <>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-pine-800">You’re requesting</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-pine-800">{instant ? "You’re booking" : "You’re requesting"}</p>
               <p className="mt-1 text-[16px] font-semibold">
                 {series.length > 1 ? `${weekdayLong(series[0])}s` : `${friendlyDay(chosen.date)}${["Today", "Tomorrow"].includes(friendlyDay(chosen.date)) ? `, ${short(startDate)}` : ""}`}
               </p>
@@ -447,8 +399,14 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
         {result && !result.ok && <Notice tone="danger">{result.error.message}</Notice>}
 
         <Button type="submit" size="lg" className="w-full" pending={pending} disabled={Boolean(lockReason) || Boolean(slotIssue) || Boolean(noteIssue) || tooFar}>
-          {!pending && <Send className="size-4" aria-hidden />} {nWeeks > 1 ? `Request ${nWeeks} weekly lessons` : `Send request to ${tutorFirst}`}
+          {!pending && (instant ? <Zap className="size-4" aria-hidden /> : <Send className="size-4" aria-hidden />)}{" "}
+          {instant ? (nWeeks > 1 ? `Book ${nWeeks} weekly lessons` : "Book it") : nWeeks > 1 ? `Request ${nWeeks} weekly lessons` : `Send request to ${tutorFirst}`}
         </Button>
+        <p className="text-center text-[12.5px] text-muted">
+          {instant
+            ? `Booked as soon as you tap. ${tutorFirst} gets an email.`
+            : `Nothing is booked until ${tutorFirst} says yes. We’ll email you either way.`}
+        </p>
       </form>
     </div>
   );

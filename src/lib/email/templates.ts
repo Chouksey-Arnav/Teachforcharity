@@ -142,9 +142,10 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           ["When", esc(whenText(p))],
           ["Length", `${esc(p.minutes)} minutes`],
           ...(p.note ? ([["Their note", esc(p.note)]] as [string, string][]) : []),
+          ...(p.respond_by ? ([["Please answer by", esc(p.respond_by)]] as [string, string][]) : []),
         ],
         cta: { label: "Review the request", href: lessonsLink(p) },
-        note: "Requests expire automatically if the time passes without an answer.",
+        note: "If there's no answer in time, the request ends and we tell the family, so nobody is left waiting.",
         },
       );
 
@@ -193,7 +194,9 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           paragraphs: [
             hi(p),
             role === "tutor"
-              ? `You're teaching <strong>${esc(p.student_name)}</strong> ${esc(p.subject)}. Join from your Lessons page a couple of minutes early.`
+              ? p.instant
+                ? `<strong>${esc(p.student_name)}</strong> booked ${isSeries(p) ? "weekly lessons" : "a lesson"} in one of your open times, so it's already on your schedule. Join from your Lessons page a couple of minutes early.${p.note ? ` Their note: “${esc(p.note)}”` : ""}`
+                : `You're teaching <strong>${esc(p.student_name)}</strong> ${esc(p.subject)}. Join from your Lessons page a couple of minutes early.`
               : role === "guardian"
                 ? `For your records: <strong>${esc(p.student_name)}</strong> booked a ${esc(p.subject)} lesson with volunteer tutor ${esc(p.other_name)}. You can see every lesson and message on your private parent page (use the link from your approval email).`
                 : `<strong>${esc(p.student_name)}</strong>'s ${esc(p.subject)} lesson with ${esc(p.other_name)} is confirmed.`,
@@ -206,11 +209,98 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
           cta: { label: "View lesson", href: lessonsLink(p) },
           note:
             role === "tutor"
-              ? "Reminder: never record lessons, keep all contact on the platform, and log the lesson afterward so the family can confirm it."
+              ? `Reminder: never record lessons, keep all contact on the platform, and log the lesson afterward so the family can confirm it.${p.instant ? " Can't make it? Move or cancel it from Lessons, or turn off instant booking for this student in My students." : ""}`
               : `Reminder: a parent or guardian must be home or nearby and reachable for the whole lesson. Lessons are never recorded. ${isSeries(p) ? "Calendar invites for every week are attached." : "A calendar invite is attached."}`,
         },
         ics ? [{ name: "lesson.ics", content: Buffer.from(ics).toString("base64") }] : undefined,
       );
+    }
+
+    case "session_expired": {
+      const forTutor = str(p.role) === "tutor";
+      const theirTurn = !p.waiting_on_you;
+      return make(`No answer in time: ${str(p.subject)} lesson, ${str(p.when)}`, {
+        heading: "That request ran out of time",
+        paragraphs: [
+          hi(p),
+          forTutor
+            ? p.waiting_on_you
+              ? `${esc(p.student_name)}'s request for ${esc(p.when)} wasn't answered in time, so nothing was booked. We let the family know.`
+              : `Your suggested time for ${esc(p.student_name)} (${esc(p.when)}) wasn't answered in time, so nothing was booked.`
+            : theirTurn
+              ? `${esc(p.other_name)} didn't answer the request for ${esc(p.student_name)}'s ${esc(p.subject)} lesson on ${esc(p.when)} in time, so nothing was booked.`
+              : `The time ${esc(p.other_name)} suggested (${esc(p.when)}) wasn't answered in time, so nothing was booked.`,
+          forTutor ? "Nothing else to do. If you'd still like to teach them, you can propose a new time." : "You can pick another time, or try another tutor with open times.",
+        ],
+        cta: forTutor ? { label: "Open Lessons", href: link("/dashboard/lessons") } : { label: "Find a time", href: link("/dashboard/tutors") },
+      });
+    }
+
+    case "session_nudge":
+      return make(p.move ? `Can the lesson move to ${str(p.when)}? Please answer by ${str(p.respond_by)}` : `Please answer by ${str(p.respond_by)}: ${str(p.subject)} lesson, ${str(p.when)}`, {
+        heading: "Quick reminder",
+        paragraphs: [
+          hi(p),
+          p.move
+            ? `${esc(p.other_name)} asked to move the ${esc(p.subject)} lesson from ${esc(p.from)} to <strong>${esc(p.when)}</strong>.`
+            : `${esc(p.other_name)} is waiting to hear about the ${esc(p.subject)} lesson on <strong>${esc(p.when)}</strong>.`,
+          `Please answer by <strong>${esc(p.respond_by)}</strong>. ${p.move ? "If you don't, the lesson simply stays at its original time." : "After that the request ends and we let them know."}`,
+        ],
+        cta: { label: "Answer now", href: lessonsLink(p) },
+      });
+
+    case "session_moved": {
+      const outcome = str(p.outcome);
+      const dates =
+        (outcome === "moved" || outcome === "accepted") && p.start_iso && p.end_iso
+          ? [{ uid: str(p.session_id), start: str(p.start_iso), end: str(p.end_iso), sequence: Math.floor(Date.now() / 1000) }]
+          : [];
+      const ics = dates.length
+        ? buildIcs({
+            events: dates,
+            summary: `${str(p.subject)} lesson${str(p.role) === "tutor" ? ` with ${str(p.student_name)}` : ` with ${str(p.other_name)}`} · ${SITE.name}`,
+            description: `Join from your Lessons page — the Google Meet button appears 15 minutes before the start: ${lessonsLink(p)}`,
+            location: lessonsLink(p),
+          })
+        : null;
+      const subject =
+        outcome === "requested"
+          ? `${str(p.other_name)} asked to move a lesson to ${str(p.when)}`
+          : outcome === "declined" || outcome === "expired"
+            ? `Lesson stays at ${str(p.from)}`
+            : `Lesson moved to ${str(p.when)}`;
+      const body =
+        outcome === "requested"
+          ? `${esc(p.other_name)} asked to move the ${esc(p.subject)} lesson from ${esc(p.from)} to <strong>${esc(p.when)}</strong>. It stays booked at the old time unless you say yes${p.respond_by ? ` by ${esc(p.respond_by)}` : ""}.`
+          : outcome === "declined"
+            ? `${esc(p.other_name)} couldn't move the ${esc(p.subject)} lesson to ${esc(p.when)}, so it stays at <strong>${esc(p.from)}</strong>.`
+            : outcome === "expired"
+              ? `Your request to move the ${esc(p.subject)} lesson to ${esc(p.when)} wasn't answered in time, so it stays at <strong>${esc(p.from)}</strong>.`
+              : `The ${esc(p.subject)} lesson${p.student_name ? ` for ${esc(p.student_name)}` : ""} moved from ${esc(p.from)} to <strong>${esc(p.when)}</strong>.`;
+      return make(
+        subject,
+        {
+          heading: outcome === "requested" ? "Can the lesson move?" : outcome === "declined" || outcome === "expired" ? "The lesson time stays the same" : "Your lesson moved",
+          paragraphs: [hi(p), body, ...(p.note ? [`Their note: “${esc(p.note)}”`] : [])],
+          cta: { label: outcome === "requested" ? "Answer" : "View lesson", href: lessonsLink(p) },
+          note: dates.length ? "An updated calendar invite is attached." : undefined,
+        },
+        ics ? [{ name: "lesson.ics", content: Buffer.from(ics).toString("base64") }] : undefined,
+      );
+    }
+
+    case "teachership_ended": {
+      const forTutor = str(p.role) === "tutor";
+      const n = Number(p.cancelled) || 0;
+      return make(`Lessons ${forTutor ? `with ${str(p.student_name)}` : `with ${str(p.other_name)}`} have stopped`, {
+        heading: "Lessons together have stopped",
+        paragraphs: [
+          hi(p),
+          `${esc(p.other_name)} stopped ${forTutor ? "lessons with you" : `${esc(p.student_name)}'s lessons`}.${n ? ` ${n} upcoming lesson${n === 1 ? " was" : "s were"} cancelled.` : ""}${p.reason ? ` Their note: “${esc(p.reason)}”` : ""}`,
+          forTutor ? "Your past lessons and hours stay on your record." : "You can book with another tutor any time.",
+        ],
+        cta: forTutor ? { label: "Open My students", href: link("/dashboard/my-students") } : { label: "Find a tutor", href: link("/dashboard/tutors") },
+      });
     }
 
     case "session_reminder":

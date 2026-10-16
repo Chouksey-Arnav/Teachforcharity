@@ -1,6 +1,9 @@
 import { BLOCKS, DAYS } from "./constants";
 import { easternDateOffset, easternParts, easternToUtc } from "./time";
 
+/** A new student's request needs this much notice: tutors are in class all day (the database's private.min_lead). */
+export const NEW_STUDENT_NOTICE_HOURS = 12;
+
 export interface BusyInterval {
   start: string;
   end: string;
@@ -21,7 +24,7 @@ export interface OpenSlot {
  * Times a family can request with a tutor: inside the tutor's weekly free
  * blocks, on the half hour, not overlapping anything the tutor (or the
  * student) already has booked or requested, and valid by the program's rules
- * (2+ hours ahead, 8 AM–10 PM Eastern). Times that also fit the student's own
+ * (the tutor's notice — 12 hours for a new student — and 8 AM–10 PM Eastern). Times that also fit the student's own
  * free blocks are flagged so they can be shown first.
  *
  * Pure: pass `now` for testing. The database re-checks everything on request.
@@ -34,6 +37,8 @@ export function openSlots(opts: {
   now?: Date;
   days?: number;
   stepMinutes?: number;
+  /** Notice the tutor needs. Defaults to a new student's 12 hours, so every time shown can really be requested. */
+  leadHours?: number;
 }): OpenSlot[] {
   const now = opts.now ?? new Date();
   const days = opts.days ?? 14;
@@ -43,7 +48,7 @@ export function openSlots(opts: {
   const busy = opts.busy.map((b) => [Date.parse(b.start), Date.parse(b.end)] as const);
   const out: OpenSlot[] = [];
 
-  const earliest = now.getTime() + 2 * 3600_000;
+  const earliest = now.getTime() + Math.max(2, opts.leadHours ?? NEW_STUDENT_NOTICE_HOURS) * 3600_000;
   const latest = now.getTime() + 90 * 86400_000;
   for (let d = 0; d < days; d++) {
     const date = easternDateOffset(d, now);
@@ -118,4 +123,16 @@ export function friendlyDay(date: string, now: Date = new Date()): string {
 /** 0 = Monday … 6 = Sunday, matching DAYS. */
 export function weekdayIndex(date: string): number {
   return (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7;
+}
+
+/**
+ * "Book again": the next open time on the same weekday and at the same Eastern
+ * time as the last lesson, after anything already booked. Null when that time
+ * isn't open in the coming weeks (then the family just picks one).
+ */
+export function bookAgainSlot(lastStart: string, slots: OpenSlot[], after?: string | null): OpenSlot | null {
+  const p = easternParts(new Date(lastStart));
+  const weekday = (p.weekday + 6) % 7; // 0 = Monday, like weekdayIndex
+  const from = Math.max(Date.parse(lastStart), after ? Date.parse(after) : 0);
+  return slots.find((s) => Date.parse(s.start) > from && s.time === p.time && weekdayIndex(s.date) === weekday) ?? null;
 }

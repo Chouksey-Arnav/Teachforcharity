@@ -2,7 +2,8 @@ import "server-only";
 import { createHmac, randomInt } from "node:crypto";
 import { headers } from "next/headers";
 import { createServiceClient } from "../supabase/admin";
-import { emailProvider } from "../email/provider";
+import { emailProvider, fallbackProvider, type EmailProvider } from "../email/provider";
+import { BrevoError } from "../email/brevo";
 import { renderEmail } from "../email/templates";
 import { toActionError, type ActionError } from "../errors";
 
@@ -97,15 +98,39 @@ export async function sendEmailCode(opts: {
     minutes: CODE_TTL_MINUTES,
     recipient_first: opts.name?.trim().split(/\s+/)[0] ?? "",
   });
+  const outgoing = { to: email, toName: opts.name ?? null, email: rendered!, tag: "otp" };
   try {
-    await provider.send({ to: email, toName: opts.name ?? null, email: rendered! });
+    await provider.send(outgoing);
     return { ok: true };
   } catch (e) {
     console.error(`[auth] could not send ${opts.purpose} code via ${provider.name}:`, e instanceof Error ? e.message : e);
+    // A code is the one email worth sending twice rather than not at all: try the backup sender.
+    const backup = fallbackProvider();
+    if (backup) {
+      try {
+        await backup.send(outgoing);
+        console.warn(`[auth] ${opts.purpose} code sent by the backup sender (${backup.name}) after ${provider.name} failed`);
+        return { ok: true };
+      } catch (e2) {
+        console.error(`[auth] backup sender ${backup.name} also failed:`, e2 instanceof Error ? e2.message : e2);
+      }
+    }
     // Forgive this send so the person can retry straight away.
     await supabase.rpc("clear_email_code", { p_email: email, p_purpose: opts.purpose, p_send_id: sendId ?? undefined });
-    return { ok: false, error: { message: "We couldn’t send the email. Please check the address and try again.", code: "SEND_FAILED" } };
+    return { ok: false, error: sendFailure(e, provider) };
   }
+}
+
+/** What to tell the person when a code couldn't be sent: never blame them for our setup. */
+export function sendFailure(e: unknown, provider: Pick<EmailProvider, "name">): ActionError {
+  const status = e instanceof BrevoError ? e.status : null;
+  if (status === 401 || status === 403) {
+    console.error(`[auth] ${provider.name} refused our credentials. Check the API key and the verified sender.`);
+    return SETUP_ERROR;
+  }
+  if (status === 429) return { message: "Lots of emails are going out right now. Please try again in a minute.", code: "SEND_BUSY" };
+  if (status === 400) return { message: "We couldn’t send to that address. Please check it and try again.", code: "SEND_FAILED" };
+  return { message: "We couldn’t send the email just now. Please try again in a minute.", code: "SEND_FAILED" };
 }
 
 /**

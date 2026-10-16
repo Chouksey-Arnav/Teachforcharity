@@ -17,7 +17,7 @@ const TEMPLATES = [
   "tutor_pending_review", "tutor_status_changed", "hours_verified", "hours_rejected", "session_disputed",
   "incident_reported", "incident_received", "new_sign_in",
   "tutor_guardian_request", "tutor_guardian_approved", "tutor_guardian_withdrew", "waitlist_match", "weekly_digest",
-  "practice_assigned",
+  "practice_assigned", "session_expired", "session_nudge", "session_moved", "teachership_ended",
 ];
 
 describe("renderEmail", () => {
@@ -183,3 +183,29 @@ describe("every template the database queues has a renderer", () => {
     expect(missing).toEqual([]);
   });
 });
+
+describe("teachership emails", () => {
+  it("a moved lesson carries an updated calendar invite with the same event id", () => {
+    const r = renderEmail("session_moved", { ...base, outcome: "moved", from: "Thu 5:00 PM", start_iso: "2026-10-03T21:00:00Z", end_iso: "2026-10-03T21:45:00Z" })!;
+    expect(r.subject).toContain("moved");
+    const ics = Buffer.from(r.attachments![0].content, "base64").toString();
+    expect(ics).toContain("UID:00000000-0000-0000-0000-000000000001@teachforacause");
+    expect(ics).toMatch(/SEQUENCE:\d+/);
+  });
+
+  it("asking to move says the lesson stays at the old time, and attaches nothing", () => {
+    const r = renderEmail("session_moved", { ...base, outcome: "requested", from: "Thu 5:00 PM", respond_by: "Wed 5:00 PM" })!;
+    expect(r.html).toContain("stays booked at the old time");
+    expect(r.attachments ?? []).toHaveLength(0);
+  });
+
+  it("an expired request tells the family to pick another time, and the tutor that nothing is needed", () => {
+    expect(renderEmail("session_expired", { ...base, role: "family", waiting_on_you: false })!.html).toContain("try another tutor");
+    expect(renderEmail("session_expired", { ...base, role: "tutor", waiting_on_you: true })!.html).toContain("We let the family know");
+  });
+
+  it("an instant booking tells the tutor it's already on their schedule", () => {
+    expect(renderEmail("session_booked", { ...base, role: "tutor", instant: true })!.html).toContain("already on your schedule");
+  });
+});
+

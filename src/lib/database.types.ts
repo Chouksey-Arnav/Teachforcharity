@@ -1209,6 +1209,8 @@ export type Database = {
       }
       sessions: {
         Row: {
+          asked_at: string | null
+          booked_instantly: boolean
           cancel_reason: string | null
           cancelled_by: string | null
           created_at: string
@@ -1223,11 +1225,21 @@ export type Database = {
           family_responded_at: string | null
           family_response_note: string | null
           id: string
+          move_asked_at: string | null
+          move_minutes: number | null
+          move_note: string | null
+          move_nudged_at: string | null
+          move_proposed_by: string | null
+          move_respond_by: string | null
+          move_round: number
+          move_start_at: string | null
+          nudged_at: string | null
           practice_plan: string | null
           proposal_round: number
           proposed_by: string
           proposer_attested_at: string | null
           request_note: string | null
+          respond_by: string | null
           review_note: string | null
           series_id: string | null
           series_index: number | null
@@ -1246,6 +1258,8 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          asked_at?: string | null
+          booked_instantly?: boolean
           cancel_reason?: string | null
           cancelled_by?: string | null
           created_at?: string
@@ -1260,11 +1274,21 @@ export type Database = {
           family_responded_at?: string | null
           family_response_note?: string | null
           id?: string
+          move_asked_at?: string | null
+          move_minutes?: number | null
+          move_note?: string | null
+          move_nudged_at?: string | null
+          move_proposed_by?: string | null
+          move_respond_by?: string | null
+          move_round?: number
+          move_start_at?: string | null
+          nudged_at?: string | null
           practice_plan?: string | null
           proposal_round?: number
           proposed_by: string
           proposer_attested_at?: string | null
           request_note?: string | null
+          respond_by?: string | null
           review_note?: string | null
           series_id?: string | null
           series_index?: number | null
@@ -1283,6 +1307,8 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          asked_at?: string | null
+          booked_instantly?: boolean
           cancel_reason?: string | null
           cancelled_by?: string | null
           created_at?: string
@@ -1297,11 +1323,21 @@ export type Database = {
           family_responded_at?: string | null
           family_response_note?: string | null
           id?: string
+          move_asked_at?: string | null
+          move_minutes?: number | null
+          move_note?: string | null
+          move_nudged_at?: string | null
+          move_proposed_by?: string | null
+          move_respond_by?: string | null
+          move_round?: number
+          move_start_at?: string | null
+          nudged_at?: string | null
           practice_plan?: string | null
           proposal_round?: number
           proposed_by?: string
           proposer_attested_at?: string | null
           request_note?: string | null
+          respond_by?: string | null
           review_note?: string | null
           series_id?: string | null
           series_index?: number | null
@@ -1664,6 +1700,91 @@ export type Database = {
           },
         ]
       }
+      teacherships: {
+        Row: {
+          created_at: string
+          end_reason: string | null
+          ended_at: string | null
+          ended_by: string | null
+          family_id: string
+          id: string
+          instant_book: boolean
+          started_at: string
+          status: Database["public"]["Enums"]["teachership_status"]
+          student_id: string
+          subject_id: string
+          tutor_id: string
+          updated_at: string
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          family_id: string
+          id?: string
+          instant_book?: boolean
+          started_at?: string
+          status?: Database["public"]["Enums"]["teachership_status"]
+          student_id: string
+          subject_id: string
+          tutor_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          family_id?: string
+          id?: string
+          instant_book?: boolean
+          started_at?: string
+          status?: Database["public"]["Enums"]["teachership_status"]
+          student_id?: string
+          subject_id?: string
+          tutor_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacherships_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacherships_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacherships_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacherships_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacherships_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tutor_profiles: {
         Row: {
           accepting_students: boolean
@@ -1685,9 +1806,11 @@ export type Database = {
           guardian_last_invited_at: string | null
           guardian_name: string | null
           guardian_phone: string | null
+          instant_book: boolean
           interests: string[]
           max_students: number
           meet_url: string | null
+          min_notice_hours: number
           school: string | null
           session_minutes: number[]
           status: Database["public"]["Enums"]["tutor_status"]
@@ -1724,9 +1847,11 @@ export type Database = {
           guardian_last_invited_at?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
+          instant_book?: boolean
           interests?: string[]
           max_students?: number
           meet_url?: string | null
+          min_notice_hours?: number
           school?: string | null
           session_minutes?: number[]
           status?: Database["public"]["Enums"]["tutor_status"]
@@ -1763,9 +1888,11 @@ export type Database = {
           guardian_last_invited_at?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
+          instant_book?: boolean
           interests?: string[]
           max_students?: number
           meet_url?: string | null
+          min_notice_hours?: number
           school?: string | null
           session_minutes?: number[]
           status?: Database["public"]["Enums"]["tutor_status"]
@@ -1999,6 +2126,58 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      answer_move: {
+        Args: { p_accept: boolean; p_session: string }
+        Returns: string
+      }
+      book_lesson: {
+        Args: {
+          p_minutes: number
+          p_note?: string
+          p_start: string
+          p_student: string
+          p_subject: string
+          p_tutor: string
+          p_weeks?: number
+        }
+        Returns: Json
+      }
+      move_lesson: {
+        Args: {
+          p_minutes?: number
+          p_note?: string
+          p_session: string
+          p_start: string
+        }
+        Returns: string
+      }
+      my_teacherships: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          availability: string[]
+          blocked: string
+          instant: boolean
+          last_minutes: number
+          last_start_at: string
+          min_notice_hours: number
+          next_lesson_at: string
+          session_minutes: number[]
+          started_at: string
+          student_id: string
+          student_name: string
+          subject_id: string
+          subject_name: string
+          teachership_id: string
+          thread_id: string
+          tutor_avatar: string
+          tutor_id: string
+          tutor_name: string
+        }[]
+      }
+      set_teachership: {
+        Args: { p_action: string; p_id: string; p_reason?: string }
+        Returns: number
+      }
       accept_terms: { Args: { p_kind: string }; Returns: undefined }
       ack_attendance_verdicts: {
         Args: { p_sessions: string[] }
@@ -2617,6 +2796,7 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_scope?: string }
         Returns: {
           awaiting_me: boolean
+          booked_instantly: boolean
           cancel_reason: string
           created_at: string
           decline_reason: string
@@ -2629,11 +2809,18 @@ export type Database = {
           id: string
           join_closes_at: string
           join_opens_at: string
+          move_minutes: number
+          move_note: string
+          move_proposed_by: string
+          move_respond_by: string
+          move_start_at: string
           my_side: string
+          offered_minutes: number[]
           practice_plan: string
           proposal_round: number
           proposed_by: string
           request_note: string
+          respond_by: string
           review_note: string
           series_id: string
           series_index: number
@@ -2657,24 +2844,33 @@ export type Database = {
         }[]
       }
       my_students: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
+          availability: string[]
           done_tasks: number
+          ended_at: string
           first_name: string
           grade: number
-          last_lesson_at: string | null
-          last_lesson_id: string | null
-          last_lesson_status: Database["public"]["Enums"]["session_status"] | null
-          last_practice_at: string | null
+          instant_book: boolean
+          last_lesson_at: string
+          last_lesson_id: string
+          last_lesson_status: Database["public"]["Enums"]["session_status"]
+          last_practice_at: string
           lessons_done: number
+          move_waiting: number
+          subject_id: string
           needs_log: number
-          next_lesson_at: string | null
-          next_lesson_id: string | null
+          next_lesson_at: string
+          next_lesson_id: string
           open_tasks: number
+          preferred_minutes: number
           self_managed: boolean
+          started_at: string
           student_id: string
           subjects: string[]
-          thread_id: string | null
+          teachership_id: string
+          teachership_status: Database["public"]["Enums"]["teachership_status"]
+          thread_id: string
           unread: boolean
         }[]
       }
@@ -2973,6 +3169,7 @@ export type Database = {
         | "verified"
         | "rejected"
       skill_level: "beginner" | "developing" | "intermediate" | "advanced"
+      teachership_status: "active" | "ended"
       tutor_status: "pending" | "active" | "paused" | "removed"
       user_role: "tutor" | "family" | "admin" | "reviewer"
     }
@@ -3118,6 +3315,7 @@ export const Constants = {
         "rejected",
       ],
       skill_level: ["beginner", "developing", "intermediate", "advanced"],
+      teachership_status: ["active", "ended"],
       tutor_status: ["pending", "active", "paused", "removed"],
       user_role: ["tutor", "family", "admin", "reviewer"],
     },

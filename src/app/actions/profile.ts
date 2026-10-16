@@ -77,6 +77,17 @@ export async function setAccepting(accepting: boolean): Promise<ActionState> {
   return { ok: true, message: accepting ? "You’re open to new students." : "New students can’t request you right now." };
 }
 
+/** How tutors take bookings from students they already teach. */
+export async function setBookingRules(input: { instantBook: boolean; minNoticeHours: number }): Promise<ActionState> {
+  const hours = Math.round(Number(input.minNoticeHours));
+  if (!Number.isFinite(hours) || hours < 2 || hours > 72) return { ok: false, error: { message: "Pick between 2 and 72 hours." } };
+  const { supabase, uid } = await session();
+  const { error } = await supabase.from("tutor_profiles").update({ instant_book: Boolean(input.instantBook), min_notice_hours: hours }).eq("user_id", uid);
+  if (error) return { ok: false, error: toActionError(error) };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: "Saved." };
+}
+
 export async function acceptMessagingTerms(): Promise<ActionState> {
   const { supabase } = await session();
   const { error } = await supabase.rpc("accept_terms", { p_kind: "messaging" });

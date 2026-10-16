@@ -14,6 +14,7 @@ import { EXPLAIN_STYLES, GOALS, INTERESTS, NC_COUNTIES, TEACHING_STYLES } from "
 import { normalizeMeetUrl } from "@/lib/meet";
 import { saveMeetLink, saveTutorAbout, saveTutorAvailability, saveTutorInstruments, saveTutorTeaching } from "@/app/actions/onboarding";
 import type { ActionState } from "@/lib/errors";
+import { setBookingRules } from "@/app/actions/profile";
 import { cn } from "@/lib/cn";
 
 interface Initial {
@@ -32,7 +33,11 @@ interface Initial {
   availability: string[];
   meetUrl: string;
   instruments: TutorInstrumentItem[];
+  instantBook: boolean;
+  minNoticeHours: number;
 }
+
+const NOTICE_CHOICES = [2, 6, 12, 24, 48];
 
 function SaveBar({ onSave, pending, res }: { onSave: () => void; pending: boolean; res: ActionState | undefined }) {
   return (
@@ -186,6 +191,44 @@ export function TutorSettings({ subjects, initial }: { subjects: SubjectOption[]
           <SlotGrid value={v.availability} onChange={(availability) => set({ availability })} />
         </div>
         <SaveBar pending={busy === "avail"} res={results.avail} onSave={() => save("avail", () => saveTutorAvailability({ slots: v.availability }))} />
+      </Card>
+
+      <Card className="p-5 sm:p-7">
+        <h2 className="display text-3xl">
+          How students <em>book</em> you
+        </h2>
+        <p className="mt-1 text-sm text-muted">New students always send a request you answer. These are for students you already teach.</p>
+        <div className="mt-6 space-y-5">
+          <div className="flex w-full rounded-full border border-line bg-paper-2/70 p-0.5" role="radiogroup" aria-label="Students you teach">
+            {[true, false].map((on) => (
+              <button
+                key={String(on)}
+                type="button"
+                role="radio"
+                aria-checked={v.instantBook === on}
+                onClick={() => set({ instantBook: on })}
+                className={`h-10 flex-1 rounded-full px-3 text-[13.5px] font-medium transition ${v.instantBook === on ? "bg-card text-ink shadow-card ring-1 ring-line" : "text-muted hover:text-ink"}`}
+              >
+                {on ? "Book my open times instantly" : "Always ask me first"}
+              </button>
+            ))}
+          </div>
+          <p className="text-[13px] text-muted">
+            {v.instantBook
+              ? "Your students can book a time inside your usual availability straight away, and you get an email each time. You can turn this off for one student from My students."
+              : "Every lesson is a request you accept, suggest another time for, or decline."}
+          </p>
+          <Field label="Notice you need" htmlFor="tn" hint="The earliest a lesson can be booked or moved, from now.">
+            <Select id="tn" value={String(v.minNoticeHours)} onChange={(e) => set({ minNoticeHours: Number(e.target.value) })}>
+              {NOTICE_CHOICES.map((h) => (
+                <option key={h} value={h}>
+                  {h < 24 ? `${h} hours` : `${h / 24} day${h === 24 ? "" : "s"}`}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <SaveBar pending={busy === "booking"} res={results.booking} onSave={() => save("booking", () => setBookingRules({ instantBook: v.instantBook, minNoticeHours: v.minNoticeHours }))} />
       </Card>
 
       <Card className="p-5 sm:p-7">

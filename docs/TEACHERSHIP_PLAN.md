@@ -1,6 +1,13 @@
-# Teachership: plan for review
+# Teachership: plan (built)
 
-Status: **proposal, nothing built yet.** Approve, change, or reject each part. Section 9 lists the decisions I need from you.
+Status: **approved and built.** Migration `supabase/migrations/20261016000100_teacherships.sql`, tests `supabase/tests/v7_teachership_test.sql` and `tests/e2e/teachership.mjs`. Decisions taken (section 9): teachership = the tutor–student pairing; instant booking on by default, switchable per student and for everyone; 12 hours' notice for new students (tutors pick 2–72 h for their own students); pairings end after 45 idle days; sign-up codes can fall back to a backup sender.
+
+**Where the build differs from this plan, on purpose:**
+- **No "paused" state.** Fewer states is easier to understand. A teachership is active or ended; the tutor's instant-booking switch and "Accepting new students" cover the rest, and the database blocks booking while a tutor is paused or consent is withdrawn without storing a separate state.
+- **Moving a lesson moves it in place** (same lesson, so its hours, check-in and weekly series stay with it). A request to move is stored on the booked lesson rather than as a second lesson row.
+- **Weekly runs book instantly only if every week fits**; otherwise the whole run becomes one request. The picker only offers open times, so this rarely matters.
+- **Added limits** found in a security pass: at most 3 moves of one lesson a day, and at most 16 upcoming lessons with one tutor (each booking emails a teenager).
+- **Correction to section 1:** three unanswered requests did make new requests fail as "full", but the tutor did **not** vanish from the directory. My reproduction tutor had never finished onboarding, which hides any tutor. The capacity bug was real; that symptom wasn't.
 
 ---
 
