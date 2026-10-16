@@ -522,8 +522,9 @@ begin
   if s.move_start_at is not null and s.move_proposed_by = v_side then
     raise exception 'You already asked to move this lesson. Wait for an answer, or take the request back first.' using hint = 'DUPLICATE';
   end if;
-  if (select count(*) from public.session_events where session_id = s.id and created_at > now() - interval '24 hours'
-      and (note like 'Moved from%' or note like 'Asked to move to%')) >= 3 then
+  -- Each move emails the other side: three moves (or requests to move) of one lesson a day, per person.
+  if (select count(*) from public.session_events where session_id = s.id and actor_id = v_uid
+      and created_at > now() - interval '24 hours' and (note like 'Moved from%' or note like 'Asked to move to%')) >= 3 then
     raise exception 'This lesson has been moved a few times today. Send a message to sort it out.' using hint = 'TOO_MANY_MOVES';
   end if;
   if s.move_round >= 8 then

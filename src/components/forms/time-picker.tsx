@@ -65,7 +65,6 @@ export function TimePicker({
               type="button"
               disabled={!list.length}
               aria-pressed={on}
-              aria-label={`${calendarLabel(d, { weekday: "long", month: "long", day: "numeric" })}: ${list.length ? `${list.length} open time${list.length === 1 ? "" : "s"}` : "no open times"}`}
               onClick={() => setDay(d)}
               className={cn(
                 "flex min-w-0 flex-col items-center rounded-xl border py-1.5 transition",
@@ -74,6 +73,10 @@ export function TimePicker({
             >
               <span className={cn("text-[10px] font-semibold uppercase", on ? "text-white/80" : "text-muted")}>{calendarLabel(d, { weekday: "short" })}</span>
               <span className="text-[15px] font-semibold leading-tight">{calendarLabel(d, { day: "numeric" })}</span>
+              <span className="sr-only">
+                {" "}
+                {calendarLabel(d, { month: "long" })}, {list.length ? `${list.length} open time${list.length === 1 ? "" : "s"}` : "no open times"}
+              </span>
               <span className={cn("mt-0.5 size-1.5 rounded-full", !list.length ? "bg-transparent" : fits && fitsLabel ? (on ? "bg-brass-300" : "bg-pine-600") : on ? "bg-white/60" : "bg-ink-2/40")} aria-hidden />
             </button>
           );

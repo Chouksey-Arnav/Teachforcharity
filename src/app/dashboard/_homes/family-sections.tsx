@@ -104,7 +104,7 @@ export function YourTutors({ tutors, isStudent, multipleStudents }: { tutors: My
           return (
             <article key={t.teachershipId} className="flex min-w-0 animate-rise flex-col gap-3 rounded-2xl border border-line bg-card p-4 shadow-card">
               <div className="flex items-center gap-3">
-                <Link href={profile} className="shrink-0" aria-label={`${t.name}’s profile`}>
+                <Link href={profile} className="shrink-0" tabIndex={-1} aria-hidden>
                   <Avatar name={t.name} path={t.avatar} size={48} />
                 </Link>
                 <div className="min-w-0 flex-1">

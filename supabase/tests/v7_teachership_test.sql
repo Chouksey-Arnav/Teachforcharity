@@ -201,7 +201,9 @@ begin
   update public.teacherships set instant_book = true where tutor_id = t1 and student_id = st[1];
   perform set_config('request.jwt.claims', json_build_object('sub', f[1], 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  begin perform public.move_lesson(s, d6 + interval '2 hours', 45); ok := false;
+  -- The family has moved it once and asked once today: one more is fine, the next isn't.
+  if public.move_lesson(s, d6 + interval '2 hours', 45) <> 'moved' then raise exception 'FAIL third move of the day refused'; end if;
+  begin perform public.move_lesson(s, d6 + interval '3 hours', 45); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'TOO_MANY_MOVES'; end;
   if not ok then raise exception 'FAIL a fourth move in a day was allowed (hint=%)', hint; end if;
   -- And no booking far ahead past 16 lessons with one tutor.

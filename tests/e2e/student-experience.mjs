@@ -85,15 +85,25 @@ try {
     await cards.filter({ hasText: "Jordan L." }).getByRole("link", { name: "Jordan L.", exact: true }).click();
     await page.getByRole("button", { name: "Message Jordan" }).click();
     await page.waitForURL("**/dashboard/messages/**");
-    // Before a first lesson, a family talks to a new tutor with quick replies (the message gate).
-    await page.getByRole("button", { name: "Say hello" }).click();
-    await page.getByText(/excited to get started/).first().waitFor({ timeout: 15000 });
+    // The message gate: a family new to the program says hello with quick replies; one that has had
+    // lessons (after safety.mjs) can type. Either way the hello shows and is stored.
+    const hello = page.getByRole("button", { name: "Say hello" });
+    const box = page.getByRole("textbox", { name: /^Message Jordan/ });
+    await hello.or(box).first().waitFor();
+    if (await hello.isVisible()) {
+      await hello.click();
+      await page.getByText(/excited to get started/).first().waitFor({ timeout: 15000 });
+    } else {
+      await box.fill("Hi Jordan! Could we work on the concert music?");
+      await box.press("Enter");
+      await page.getByText("Hi Jordan! Could we work on the concert music?").waitFor({ timeout: 15000 });
+    }
     expect(
-      Number(await sql(`select count(*) from messages m join threads t on t.id = m.thread_id join profiles p on p.id = t.tutor_id where p.email = 'e2e-sx-jordan@tfac-e2e.test' and m.template_key = 'family_intro'`)) === 1,
+      Number(await sql(`select count(*) from messages m join threads t on t.id = m.thread_id join profiles p on p.id = t.tutor_id where p.email = 'e2e-sx-jordan@tfac-e2e.test' and m.kind <> 'system'`)) === 1,
       "hello to Jordan not stored",
     );
     await shot(page, "student-03-new-conversation");
-    step("said hello to a new tutor from their profile with a quick reply; it appeared and was stored");
+    step("said hello to a new tutor from their profile (quick reply or typed, per the message gate); it appeared and was stored");
 
     // ---------- Home: next lesson and current tutors ----------
     // Hannah accepts the request (safety.mjs may have cancelled Maya's later weeks).
@@ -147,9 +157,9 @@ try {
     await page.goto(`${BASE}/dashboard/messages`);
     await page.getByRole("link", { name: /Jordan L\./ }).first().click();
     // Before a first lesson the composer is the quick replies (the message gate); they must clear the tab bar.
-    const box = page.getByRole("button", { name: "Try another time" });
-    await box.waitFor();
-    const rect = await box.boundingBox();
+    const composer = page.getByRole("textbox", { name: /^Message Jordan/ }).or(page.getByRole("button", { name: "Try another time" })).first();
+    await composer.waitFor();
+    const rect = await composer.boundingBox();
     const tabs = await page.getByRole("navigation", { name: "Dashboard tabs" }).boundingBox();
     expect(rect && tabs && rect.y + rect.height <= tabs.y, "chat composer is hidden behind the tab bar");
     await noSideScroll("conversation");

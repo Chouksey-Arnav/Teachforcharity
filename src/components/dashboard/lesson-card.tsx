@@ -224,10 +224,33 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         )}
         {moveForMe && (
           <>
-            <Button size="sm" pending={pending && panel === null} onClick={() => run(() => answerMove({ sessionId: s.id, accept: true }))}>
+            {/* Answering moves the lesson out of "Needs you", unmounting this card, so the confirmation shows at the top of Lessons. */}
+            <Button
+              size="sm"
+              pending={pending && panel === null}
+              onClick={() =>
+                run(async () => {
+                  const r = await answerMove({ sessionId: s.id, accept: true });
+                  if (!r?.ok) return r;
+                  router.push(`/dashboard/lessons?tab=upcoming&focus=${s.id}&done=moved`);
+                  return { ok: true } as ActionState;
+                })
+              }
+            >
               <CheckCircle2 className="size-4" /> Yes, move it
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => run(() => answerMove({ sessionId: s.id, accept: false }))}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                run(async () => {
+                  const r = await answerMove({ sessionId: s.id, accept: false });
+                  if (!r?.ok) return r;
+                  router.push(`/dashboard/lessons?tab=upcoming&focus=${s.id}&done=kept`);
+                  return { ok: true } as ActionState;
+                })
+              }
+            >
               Keep the old time
             </Button>
           </>

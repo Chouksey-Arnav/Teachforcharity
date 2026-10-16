@@ -33,6 +33,7 @@ const JUST_DONE: Record<string, [string, string]> = {
   cancelled: ["Cancelled.", "We let them know. It’s listed under Past."],
   moved: ["Moved!", "The lesson is at its new time, and we let them know."],
   "move-asked": ["Asked!", "Your lesson stays at the old time until they say yes. We’ll tell you either way."],
+  kept: ["Kept the old time.", "The lesson stays where it was, and we let them know."],
 };
 
 export default async function LessonsPage({ searchParams }: PageProps<"/dashboard/lessons">) {

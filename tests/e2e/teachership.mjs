@@ -24,6 +24,19 @@ await sql(`update tutor_profiles set availability = '{${EVENINGS.join(",")}}', i
 const pair = `tutor_id = (select id from profiles where email = '${MAYA}') and family_id = (select id from profiles where email = '${mom}')`;
 expect((await sql(`select count(*) from teacherships where ${pair} and status = 'active'`)) === "1", "the journey's lessons didn't start a teachership");
 await sql(`update teacherships set instant_book = true where ${pair}`);
+// Earlier tests move lessons to odd times (journey) or cancel them (safety pauses Maya). Make the last
+// lesson a normal one, last week at 5:00 PM, so "Book again" has a usual time to suggest.
+await sql(`do $$ declare v uuid := (select id from sessions where ${pair} and status in ('completed', 'confirmed', 'verified') order by start_at desc limit 1);
+  begin
+    for d in 7..20 loop
+      begin
+        update sessions set start_at = ((current_date - d)::timestamp + time '17:00') at time zone 'America/New_York',
+                            end_at = ((current_date - d)::timestamp + time '17:45') at time zone 'America/New_York' where id = v;
+        exit;
+      exception when exclusion_violation then null; -- Maya taught someone else then; try another day
+      end;
+    end loop;
+  end $$`);
 
 const b = await browser();
 let taps = 0;
@@ -96,7 +109,7 @@ try {
   await ask.getByText(/asked to move this to/).waitFor();
   await shot(fam, "teachership-03-family-asked-to-move", false);
   await ask.getByRole("button", { name: "Yes, move it" }).click();
-  await ask.getByText("Moved! We let them know.").waitFor();
+  await fam.getByText("Moved!").first().waitFor();
   expect((await sql(`select start_at = '${asked}'::timestamptz and move_start_at is null from sessions where id = '${newest}'`)) === "t", "accepted move not applied");
   await waitForEmail("e2e-tutor@tfac-e2e.test", /^Lesson moved to/);
   step("tutor asked to move a lesson (it stayed booked meanwhile); the family said yes; Maya was told");
