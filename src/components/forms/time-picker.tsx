@@ -67,7 +67,7 @@ export function TimePicker({
               aria-pressed={on}
               onClick={() => setDay(d)}
               className={cn(
-                "flex min-w-0 flex-col items-center rounded-xl border py-1.5 transition",
+                "relative flex min-w-0 flex-col items-center rounded-xl border py-1.5 transition",
                 on ? "border-ink bg-ink text-cream" : list.length ? "border-line bg-card hover:border-pine-500" : "border-transparent text-faint",
               )}
             >

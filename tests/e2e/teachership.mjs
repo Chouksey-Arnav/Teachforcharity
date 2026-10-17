@@ -25,10 +25,10 @@ const pair = `tutor_id = (select id from profiles where email = '${MAYA}') and f
 expect((await sql(`select count(*) from teacherships where ${pair} and status = 'active'`)) === "1", "the journey's lessons didn't start a teachership");
 await sql(`update teacherships set instant_book = true where ${pair}`);
 // Earlier tests move lessons to odd times (journey) or cancel them (safety pauses Maya). Make the last
-// lesson a normal one, last week at 5:00 PM, so "Book again" has a usual time to suggest.
+// lesson a normal one, the most recent day possible at 5:00 PM, so "Book again" has a usual time to suggest.
 await sql(`do $$ declare v uuid := (select id from sessions where ${pair} and status in ('completed', 'confirmed', 'verified') order by start_at desc limit 1);
   begin
-    for d in 7..20 loop
+    for d in 1..20 loop
       begin
         update sessions set start_at = ((current_date - d)::timestamp + time '17:00') at time zone 'America/New_York',
                             end_at = ((current_date - d)::timestamp + time '17:45') at time zone 'America/New_York' where id = v;

@@ -3,8 +3,8 @@
 --
 -- Until now "who does this tutor teach" was guessed from lesson rows, so an
 -- unanswered request made a stranger "your student", three of them made a
--- tutor look full (and vanish from the directory), and a request nobody
--- answered expired without telling anyone. This makes the pairing real:
+-- tutor refuse new students as "full", and a request nobody answered expired
+-- without telling anyone. This makes the pairing real:
 --
 --   * A teachership starts the moment a first lesson is booked (a trigger, so
 --     every path that books a lesson creates it) and ends when either side
@@ -732,7 +732,9 @@ grant execute on function public.set_teachership(uuid, text, text) to authentica
 -- ---------------------------------------------------------------------------
 -- 8. Reading: lessons, the tutor's roster, the family's tutors
 -- ---------------------------------------------------------------------------
-drop function public.my_sessions(text, int, int);
+-- The return type changes, so the old function is renamed out of the way (kept, but nobody can call it).
+alter function public.my_sessions(text, int, int) rename to my_sessions_v1;
+revoke execute on function public.my_sessions_v1(text, int, int) from public, anon, authenticated;
 create function public.my_sessions(p_scope text default 'all', p_limit int default 50, p_offset int default 0)
 returns table (
   id uuid, status public.session_status, start_at timestamptz, end_at timestamptz, duration_minutes smallint,
@@ -806,7 +808,8 @@ revoke execute on function public.my_sessions(text, int, int) from public, anon;
 grant execute on function public.my_sessions(text, int, int) to authenticated, service_role;
 
 -- The tutor's roster: students they teach (and ones they taught in the last 180 days).
-drop function public.my_students();
+alter function public.my_students() rename to my_students_v1;
+revoke execute on function public.my_students_v1() from public, anon, authenticated;
 create function public.my_students()
 returns table (
   student_id uuid, first_name text, grade smallint, self_managed boolean, subjects text[], thread_id uuid, unread boolean,
