@@ -31,6 +31,9 @@ const JUST_DONE: Record<string, [string, string]> = {
   countered: ["New time sent.", "We let them know. You’ll see their answer here and in Updates."],
   declined: ["Declined.", "We let them know, so they can pick another time or tutor."],
   cancelled: ["Cancelled.", "We let them know. It’s listed under Past."],
+  moved: ["Moved!", "The lesson is at its new time, and we let them know."],
+  "move-asked": ["Asked!", "Your lesson stays at the old time until they say yes. We’ll tell you either way."],
+  kept: ["Kept the old time.", "The lesson stays where it was, and we let them know."],
 };
 
 export default async function LessonsPage({ searchParams }: PageProps<"/dashboard/lessons">) {
@@ -108,6 +111,27 @@ export default async function LessonsPage({ searchParams }: PageProps<"/dashboar
           {tab === "upcoming" && viewer.role === "family" && "Find a tutor and request a time — they’ll get an email right away."}
           {tab === "upcoming" && viewer.role === "tutor" && "When a family requests a lesson, it shows up under “Needs you” and in your email."}
         </Empty>
+      ) : tab === "upcoming" ? (
+        // Booked lessons and requests still waiting for an answer are never mixed together.
+        <div className="space-y-8">
+          {[
+            { key: "booked", title: "Booked", rows: list.filter((s) => s.status !== "pending") },
+            { key: "waiting", title: "Waiting for an answer", rows: list.filter((s) => s.status === "pending") },
+          ]
+            .filter((g) => g.rows.length)
+            .map((g) => (
+              <section key={g.key} aria-labelledby={`group-${g.key}`}>
+                <h2 id={`group-${g.key}`} className="eyebrow mb-3">
+                  {g.title} · {g.rows.length}
+                </h2>
+                <div className="grid gap-4">
+                  {g.rows.map((s) => (
+                    <LessonCard key={s.id} s={s} focus={s.id === focus} />
+                  ))}
+                </div>
+              </section>
+            ))}
+        </div>
       ) : (
         <div className="grid gap-4">
           {list.map((s) => (

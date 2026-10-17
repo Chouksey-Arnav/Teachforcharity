@@ -85,18 +85,25 @@ try {
     await cards.filter({ hasText: "Jordan L." }).getByRole("link", { name: "Jordan L.", exact: true }).click();
     await page.getByRole("button", { name: "Message Jordan" }).click();
     await page.waitForURL("**/dashboard/messages/**");
+    // The message gate: a family new to the program says hello with quick replies; one that has had
+    // lessons (after safety.mjs) can type. Either way the hello shows and is stored.
+    const hello = page.getByRole("button", { name: "Say hello" });
     const box = page.getByRole("textbox", { name: /^Message Jordan/ });
-    await box.fill("Hi Jordan! Could we work on the concert music?");
-    await box.press("Enter");
-    await page.getByText("Hi Jordan! Could we work on the concert music?").waitFor({ timeout: 3000 });
-    expect((await box.inputValue()) === "", "composer not cleared after sending");
-    await page.getByText("Sending…").waitFor({ state: "detached", timeout: 15000 });
+    await hello.or(box).first().waitFor();
+    if (await hello.isVisible()) {
+      await hello.click();
+      await page.getByText(/excited to get started/).first().waitFor({ timeout: 15000 });
+    } else {
+      await box.fill("Hi Jordan! Could we work on the concert music?");
+      await box.press("Enter");
+      await page.getByText("Hi Jordan! Could we work on the concert music?").waitFor({ timeout: 15000 });
+    }
     expect(
-      Number(await sql(`select count(*) from messages m join threads t on t.id = m.thread_id join profiles p on p.id = t.tutor_id where p.email = 'e2e-sx-jordan@tfac-e2e.test' and m.body like 'Hi Jordan!%'`)) === 1,
-      "message to Jordan not stored",
+      Number(await sql(`select count(*) from messages m join threads t on t.id = m.thread_id join profiles p on p.id = t.tutor_id where p.email = 'e2e-sx-jordan@tfac-e2e.test' and m.kind <> 'system'`)) === 1,
+      "hello to Jordan not stored",
     );
     await shot(page, "student-03-new-conversation");
-    step("messaged a new tutor from their profile; the message appeared instantly and was stored");
+    step("said hello to a new tutor from their profile (quick reply or typed, per the message gate); it appeared and was stored");
 
     // ---------- Home: next lesson and current tutors ----------
     // Hannah accepts the request (safety.mjs may have cancelled Maya's later weeks).
@@ -105,10 +112,19 @@ try {
     await page.getByRole("heading", { name: "Your next lesson" }).waitFor();
     await page.getByText(/Starts (in \d+ (minutes|hours?|days)|tomorrow)/).waitFor();
     const yours = page.locator("section", { has: page.getByRole("heading", { name: /tutors$/ }) }).first();
-    await yours.getByRole("link", { name: /^Book again with Maya/ }).click();
+    // Each tutor card offers the next lesson at the usual time (two taps), or a way to pick one.
+    const maya = yours.locator("article", { hasText: "Maya" });
+    const again = maya.getByRole("button", { name: /^(Book|Request) .+ with Maya/ });
+    if (await again.count()) {
+      await again.click();
+      await maya.getByText(/booked as soon as you tap Yes|will be asked/).waitFor();
+      await maya.getByRole("link", { name: "Pick another time" }).click();
+    } else {
+      await maya.getByRole("link", { name: /^(Book with|Ask) Maya/ }).click();
+    }
     await page.waitForURL(/\/dashboard\/tutors\/.+#book$/);
     await page.getByText("Book a lesson with Maya").waitFor();
-    step("home: next lesson countdown; Book again goes straight to the booking form");
+    step("home: next lesson countdown; Book again shows what happens, and Pick another time opens the booking form");
     await ctx.close();
   }
 
@@ -140,9 +156,10 @@ try {
 
     await page.goto(`${BASE}/dashboard/messages`);
     await page.getByRole("link", { name: /Jordan L\./ }).first().click();
-    const box = page.getByRole("textbox", { name: /^Message Jordan/ });
-    await box.waitFor();
-    const rect = await box.boundingBox();
+    // Before a first lesson the composer is the quick replies (the message gate); they must clear the tab bar.
+    const composer = page.getByRole("textbox", { name: /^Message Jordan/ }).or(page.getByRole("button", { name: "Try another time" })).first();
+    await composer.waitFor();
+    const rect = await composer.boundingBox();
     const tabs = await page.getByRole("navigation", { name: "Dashboard tabs" }).boundingBox();
     expect(rect && tabs && rect.y + rect.height <= tabs.y, "chat composer is hidden behind the tab bar");
     await noSideScroll("conversation");

@@ -27,6 +27,7 @@ The Supabase database (**Teach For Charity**, project ref `nkpdiglnyqgblqcqvbdp`
 | `BREVO_API_KEY` | *brevo only* — Brevo → **SMTP & API → API Keys** (starts `xkeysib-`) | **YES** |
 | `BREVO_SENDER_EMAIL` | a sender you verified in Brevo | no |
 | `BREVO_SENDER_NAME` | `Teach for a Cause` | no |
+| `EMAIL_FALLBACK_PROVIDER` | *optional* — `smtp` or `brevo` (not the same as `EMAIL_PROVIDER`): backup sender for sign-up and reset codes only | no |
 | `CRON_SECRET` | any long random string (e.g. `openssl rand -hex 32`) | **YES** |
 | `SUPABASE_CRON_SECRET` | the secret Supabase's scheduled jobs send (§5). Must equal the Vault secret `tfac_cron_secret` | **YES** |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | *optional, phone notifications* — from `npx web-push generate-vapid-keys` | no |

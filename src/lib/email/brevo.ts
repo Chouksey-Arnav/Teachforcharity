@@ -3,6 +3,17 @@ import type { OutgoingEmail, EmailProvider } from "./provider";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
+/** Brevo said no. `status` tells a bad key (401/403) from a bad address (400) or a busy moment (429/5xx). */
+export class BrevoError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "BrevoError";
+  }
+}
+
 /** Brevo transactional API. Selected with EMAIL_PROVIDER=brevo. */
 export const brevoProvider: EmailProvider = {
   name: "brevo",
@@ -12,7 +23,7 @@ export const brevoProvider: EmailProvider = {
     if (!process.env.BREVO_SENDER_EMAIL) missing.push("BREVO_SENDER_EMAIL");
     return missing;
   },
-  async send({ to, toName, email }: OutgoingEmail) {
+  async send({ to, toName, email, tag }: OutgoingEmail) {
     const body = {
       sender: { email: process.env.BREVO_SENDER_EMAIL, name: process.env.BREVO_SENDER_NAME || "Teach for a Cause" },
       to: [{ email: to, ...(toName ? { name: toName } : {}) }],
@@ -20,7 +31,7 @@ export const brevoProvider: EmailProvider = {
       htmlContent: email.html,
       textContent: email.text,
       ...(email.attachments?.length ? { attachment: email.attachments } : {}),
-      tags: ["transactional"],
+      tags: [tag || "transactional"],
     };
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10_000);
@@ -33,8 +44,11 @@ export const brevoProvider: EmailProvider = {
       });
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
-        throw new Error(`Brevo ${res.status}: ${detail.slice(0, 300)}`);
+        throw new BrevoError(`Brevo ${res.status}: ${detail.slice(0, 300)}`, res.status);
       }
+      // Log Brevo's id (never the address) so a delivery can be traced in Brevo's logs.
+      const json = (await res.json().catch(() => null)) as { messageId?: string } | null;
+      console.info(`[email] brevo accepted → *@${to.split("@")[1]} id=${json?.messageId ?? "?"} tag=${tag || "transactional"}`);
     } finally {
       clearTimeout(timer);
     }

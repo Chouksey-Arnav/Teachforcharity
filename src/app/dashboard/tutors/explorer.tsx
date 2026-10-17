@@ -138,14 +138,15 @@ export function TutorExplorer({ items, initial, youLabel }: { items: ExplorerIte
                 key={d.key}
                 type="button"
                 aria-pressed={on}
-                aria-label={`Open on ${d.long}`}
+                title={`Open on ${d.long}`}
                 onClick={() => toggleDay(d.key)}
                 className={cn(
-                  "h-8 min-w-11 shrink-0 rounded-full border px-2.5 text-[13px] font-medium transition",
+                  "relative h-8 min-w-11 shrink-0 rounded-full border px-2.5 text-[13px] font-medium transition",
                   on ? "border-pine-700 bg-pine-50 text-pine-800" : "border-line-2 bg-card text-ink-2 hover:border-ink/30",
                 )}
               >
                 {d.label}
+                <span className="sr-only"> (open on {d.long})</span>
               </button>
             );
           })}

@@ -1,17 +1,25 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { bestSlot, dayPart, defaultMinutes, openSlots, weeklyStarts } from "./slots";
+import { bestSlot, bookAgainSlot, dayPart, defaultMinutes, openSlots, weeklyStarts } from "./slots";
 import { easternParts, easternToUtc, validateSlot } from "./time";
 
 // Monday, October 5, 2026, 9:00 AM Eastern.
 const now = easternToUtc("2026-10-05", "09:00")!;
 
 describe("openSlots", () => {
-  it("offers half-hour starts inside the tutor's blocks, 2+ hours ahead", () => {
-    const slots = openSlots({ tutorAvailability: ["mon_afternoon"], studentAvailability: [], busy: [], minutes: 45, now, days: 1 });
+  it("offers half-hour starts inside the tutor's blocks, with the tutor's notice", () => {
+    // A tutor the student already has, who asks for 2 hours' notice.
+    const slots = openSlots({ tutorAvailability: ["mon_afternoon"], studentAvailability: [], busy: [], minutes: 45, now, days: 1, leadHours: 2 });
     // After school is 3–5 PM: 3:00, 3:30, 4:00 fit a 45-minute lesson; 4:30 would end after 5.
     expect(slots.map((s) => s.time)).toEqual(["15:00", "15:30", "16:00"]);
     expect(slots.every((s) => s.date === "2026-10-05")).toBe(true);
+  });
+
+  it("gives a new tutor 12 hours to answer by default", () => {
+    const slots = openSlots({ tutorAvailability: ["mon_afternoon", "tue_afternoon"], studentAvailability: [], busy: [], minutes: 45, now, days: 2 });
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.every((s) => Date.parse(s.start) >= now.getTime() + 12 * 3600_000)).toBe(true);
+    expect(slots.some((s) => s.date === "2026-10-05")).toBe(false);
   });
 
   it("skips times that overlap busy lessons and flags times the student is also free", () => {
@@ -92,5 +100,20 @@ describe("calendar labels", () => {
     expect(friendlyDay("2026-10-08", late)).toBe("Thu, Oct 8");
     expect(weekdayIndex("2026-10-05")).toBe(0);
     expect(weekdayIndex("2026-10-11")).toBe(6);
+  });
+});
+
+describe("bookAgainSlot", () => {
+  const slots = openSlots({ tutorAvailability: ["thu_evening", "fri_evening"], studentAvailability: [], busy: [], minutes: 45, now, days: 21, leadHours: 2 });
+  const lastThu = easternToUtc("2026-10-01", "19:00")!.toISOString();
+
+  it("suggests the same weekday and time, after anything already booked", () => {
+    expect(bookAgainSlot(lastThu, slots)).toMatchObject({ date: "2026-10-08", time: "19:00" });
+    expect(bookAgainSlot(lastThu, slots, easternToUtc("2026-10-08", "19:00")!.toISOString())).toMatchObject({ date: "2026-10-15", time: "19:00" });
+  });
+
+  it("suggests nothing when that time isn't open", () => {
+    expect(bookAgainSlot(easternToUtc("2026-10-01", "19:15")!.toISOString(), slots)).toBeNull();
+    expect(bookAgainSlot(easternToUtc("2026-09-29", "19:00")!.toISOString(), slots)).toBeNull(); // a Tuesday
   });
 });

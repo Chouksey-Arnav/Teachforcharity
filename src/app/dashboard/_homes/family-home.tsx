@@ -3,10 +3,11 @@ import { ArrowRight, HandHeart, ShieldAlert, Sparkles } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMyPractice, getMySessions, getMyThreads, getMyUpdates, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMyPractice, getMySessions, getMyTeacherships, getMyUpdates, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { bookAgainSlot, defaultMinutes, openSlots } from "@/lib/slots";
 import { UpdatesPreview } from "@/components/dashboard/updates-preview";
 import { PracticeBoard } from "@/components/dashboard/practice-board";
-import { NextLessonSection, YourTutors, myTutors } from "./family-sections";
+import { NextLessonSection, YourTutors, type MyTutor } from "./family-sections";
 import { matchTutors } from "@/lib/matching";
 import { LEVEL_INFO } from "@/lib/constants";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -27,19 +28,19 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const supabase = await createClient();
   const config = await getPublicConfig();
   const isStudent = viewer.profile.account_kind === "student";
-  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, threads, practice, updates] = await Promise.all([
+  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, practice, updates, teacherships] = await Promise.all([
     getFamilyStudents(supabase, viewer.id, config),
     getMySessions(supabase, "action"),
-    getMySessions(supabase, "upcoming", 20),
+    getMySessions(supabase, "upcoming", 100),
     getMySessions(supabase, "all", 50),
     supabase.from("subjects").select("id, slug"),
     getMyOffers(supabase),
     isStudent
       ? supabase.from("guardians").select("name, email, last_invited_at").eq("account_id", viewer.id).maybeSingle()
       : Promise.resolve({ data: null }),
-    getMyThreads(supabase),
     getMyPractice(supabase),
     getMyUpdates(supabase, { role: "family", isStudent }, 20),
+    getMyTeacherships(supabase),
   ]);
   // The board on Home: groups that still have something to do (notes show with their tasks).
   const openGroups = new Set(practice.filter((p) => p.kind === "task" && !p.done_at).map((p) => `${p.tutor_id}:${p.student_id}`));
@@ -69,9 +70,46 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const awaitingParent = isStudent && students.some((s) => !s.consent);
   const deleteOn = formatDate(new Date(new Date(viewer.profile.created_at).getTime() + 14 * 86400000));
   const first = viewer.profile.full_name.split(" ")[0] || "there";
-  // A paused tutor drops out of the directory, so only offer one-tap actions for tutors still teaching.
-  const paused = new Set(threads.filter((t) => t.tutor_status !== "active").map((t) => t.tutor_id));
-  const tutors = myTutors([...history, ...upcoming]).filter((t) => !paused.has(t.tutorId));
+  // Each tutor a student works with, and the next lesson to suggest: same weekday and time, if it's open.
+  const from = new Date();
+  const tutors: MyTutor[] = await Promise.all(
+    teacherships.map(async (th) => {
+      const minutes = th.last_minutes ?? defaultMinutes(th.session_minutes, students.find((s) => s.id === th.student_id)?.preferred_minutes);
+      let again: MyTutor["again"] = null;
+      if (!th.blocked && th.last_start_at) {
+        // Look from the last lesson already booked (a weekly run can reach weeks ahead) for four more weeks.
+        const latest = upcoming.filter((u) => u.tutor_id === th.tutor_id && u.student_id === th.student_id && u.status === "scheduled").map((u) => u.start_at).sort().pop();
+        const searchFrom = new Date(Math.max(from.getTime(), latest ? Date.parse(latest) : 0));
+        const { data: tb } = await supabase.rpc("tutor_busy_times", { p_tutor: th.tutor_id, p_from: searchFrom.toISOString(), p_to: new Date(searchFrom.getTime() + 30 * 86400000).toISOString() });
+        const slots = openSlots({
+          tutorAvailability: th.availability,
+          studentAvailability: [],
+          busy: [...(tb ?? []).map((b) => ({ start: b.start_at, end: b.end_at })), ...studentBusy(upcoming, th.student_id)],
+          minutes,
+          days: Math.min(89, Math.ceil((searchFrom.getTime() - from.getTime()) / 86400000) + 29),
+          leadHours: th.min_notice_hours,
+        });
+        const pick = bookAgainSlot(th.last_start_at, slots, latest);
+        again = pick ? { date: pick.date, time: pick.time, start: pick.start } : null;
+      }
+      return {
+        teachershipId: th.teachership_id,
+        tutorId: th.tutor_id,
+        name: th.tutor_name,
+        avatar: th.tutor_avatar,
+        studentId: th.student_id,
+        studentName: th.student_name,
+        subjectId: th.subject_id,
+        subjectName: th.subject_name,
+        threadId: th.thread_id,
+        nextLessonAt: th.next_lesson_at,
+        instant: th.instant,
+        blocked: th.blocked === "consent" || th.blocked === "tutor_unavailable" ? th.blocked : null,
+        again,
+        minutes,
+      };
+    }),
+  );
   const consented = students.length > 0 && students.every((s) => s.consent);
   const verified = students.length > 0 && students.every((s) => s.consentActive);
   const requested = history.length > 0;

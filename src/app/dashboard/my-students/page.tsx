@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, ListChecks, MessageCircle, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, ListChecks, MessageCircle, Users, Zap } from "lucide-react";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getMyStudents } from "@/lib/data";
-import { formatRelative, formatWhen } from "@/lib/time";
+import { getMySessions, getMyStudents, type MyStudent } from "@/lib/data";
+import { formatDate, formatRelative, formatWhen } from "@/lib/time";
+import { RosterActions } from "@/components/dashboard/roster-actions";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +15,14 @@ import { LinkButton } from "@/components/ui/button";
 export const metadata: Metadata = { title: "My students" };
 
 export default async function MyStudentsPage() {
-  await requireViewer(["tutor"]);
+  const viewer = await requireViewer(["tutor"]);
   const supabase = await createClient();
-  const students = await getMyStudents(supabase);
+  const [all, action] = await Promise.all([getMyStudents(supabase), getMySessions(supabase, "action")]);
+  const students = all.filter((s) => s.teachership_status === "active");
+  const past = all.filter((s) => s.teachership_status !== "active");
+  // New students asking for a lesson: answered in Lessons, never mixed into the roster.
+  const requests = action.filter((s) => s.status === "pending" && !all.some((a) => a.teachership_status === "active" && a.student_id === s.student_id)).length;
+  const tutorInstant = viewer.tutor?.instant_book ?? true;
 
   return (
     <>
@@ -29,9 +35,16 @@ export default async function MyStudentsPage() {
         }
         description="Everyone you teach: the next lesson, lessons to log, and how their practice is going."
       />
+      {requests > 0 && (
+        <Link href="/dashboard/lessons?tab=action" className="mb-6 flex animate-rise items-center gap-3 rounded-2xl border border-brass-300 bg-brass-100/50 px-4 py-3 text-[14px] font-medium hover:shadow-card">
+          <span className="flex size-8 items-center justify-center rounded-full bg-glow text-[13px] font-bold text-pine-950">{requests}</span>
+          <span className="flex-1">{requests === 1 ? "A new student is asking for a lesson" : `${requests} new students are asking for lessons`}</span>
+          <ArrowRight className="size-4" aria-hidden />
+        </Link>
+      )}
       {students.length === 0 ? (
         <Empty icon={<Users className="size-5" />} title="No students yet" action={<LinkButton href="/dashboard/find-students" size="sm">Find students</LinkButton>}>
-          When you have a lesson booked with a student, they show up here.
+          A student shows up here as soon as your first lesson together is booked.
         </Empty>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -50,6 +63,12 @@ export default async function MyStudentsPage() {
                 </Link>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {st.needs_log > 0 && <Badge tone="brass">{st.needs_log === 1 ? "1 lesson to log" : `${st.needs_log} lessons to log`}</Badge>}
+                  {st.move_waiting > 0 && <Badge tone="brass">Wants to move a lesson</Badge>}
+                  {tutorInstant && st.instant_book && (
+                    <Badge tone="pine">
+                      <Zap className="size-3" aria-hidden /> Instant booking
+                    </Badge>
+                  )}
                   {st.unread && <Badge tone="sky">New message</Badge>}
                   <Badge>{st.lessons_done === 1 ? "1 lesson together" : `${st.lessons_done} lessons together`}</Badge>
                 </div>
@@ -90,17 +109,58 @@ export default async function MyStudentsPage() {
                       <MessageCircle className="size-4" /> Message
                     </LinkButton>
                   )}
-                  {st.needs_log > 0 && (
+                  {(st.needs_log > 0 || st.move_waiting > 0) && (
                     <LinkButton href="/dashboard/lessons?tab=action" size="sm" variant="ghost">
-                      Log lesson
+                      {st.needs_log > 0 ? "Log lesson" : "Answer"}
                     </LinkButton>
                   )}
                 </div>
+                <RosterActions
+                  teachershipId={st.teachership_id}
+                  studentId={st.student_id}
+                  studentName={st.first_name}
+                  subjectId={st.subject_id}
+                  instantBook={st.instant_book}
+                  tutorInstantBook={tutorInstant}
+                  active
+                />
               </article>
             );
           })}
         </div>
       )}
+      {past.length > 0 && <PastStudents rows={past} />}
     </>
+  );
+}
+
+/** Students you taught before. Booking again with them starts fresh (as a new request). */
+function PastStudents({ rows }: { rows: MyStudent[] }) {
+  return (
+    <details className="mt-10 rounded-2xl border border-line bg-card/70 px-5 py-4">
+      <summary className="cursor-pointer text-[14px] font-semibold">Past students · {rows.length}</summary>
+      <ul className="mt-3 divide-y divide-line">
+        {rows.map((st) => (
+          <li key={st.teachership_id} className="flex items-center gap-3 py-2.5 text-[14px]">
+            <Avatar name={st.first_name} size={32} />
+            <span className="min-w-0 flex-1 truncate">
+              <Link href={`/dashboard/my-students/${st.student_id}`} className="font-medium hover:underline">
+                {st.first_name}
+              </Link>
+              <span className="text-muted">
+                {" "}
+                · {st.lessons_done} lesson{st.lessons_done === 1 ? "" : "s"}
+                {st.ended_at ? ` · until ${formatDate(st.ended_at)}` : ""}
+              </span>
+            </span>
+            {st.thread_id && (
+              <Link href={`/dashboard/messages/${st.thread_id}`} className="text-[13px] text-muted hover:text-ink" aria-label={`Message ${st.first_name}`}>
+                <MessageCircle className="size-4" aria-hidden />
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

@@ -2,23 +2,25 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { ArrowRightLeft, BadgeCheck, CheckCircle2, ChevronRight, Clock, ListChecks, MessageCircle, Repeat, Video, X, XCircle } from "lucide-react";
+import { ArrowRightLeft, BadgeCheck, CalendarClock, CheckCircle2, ChevronRight, Clock, ListChecks, MessageCircle, Repeat, Video, X, XCircle, Zap } from "lucide-react";
 import type { MySession } from "@/lib/data";
-import { SESSION_STATUS_LABEL } from "@/lib/constants";
-import { formatDate, formatDay, formatTime, easternDateOffset, easternParts } from "@/lib/time";
-import { Badge, sessionTone } from "@/components/ui/badge";
+import { formatDate, formatDay, formatTime, formatWhen, easternDateOffset, easternParts } from "@/lib/time";
+import { lessonBadge } from "@/lib/lesson-state";
+import type { OpenSlot } from "@/lib/slots";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Notice } from "@/components/ui/notice";
 import { Textarea } from "@/components/ui/field";
 import { DateTimeFields, type DateTimeValue } from "@/components/forms/date-time-fields";
+import { TimePicker } from "@/components/forms/time-picker";
 import { PracticeComposer, PracticeFields, draftHasContent, emptyDraft, type PracticeDraft } from "@/components/dashboard/practice-fields";
 import { draftProblem } from "@/lib/practice";
-import { answerAttendance, cancelLesson, logLesson, respondLesson } from "@/app/actions/lessons";
+import { answerAttendance, answerMove, cancelLesson, getLessonSlots, logLesson, moveLesson, respondLesson, type LessonSlots } from "@/app/actions/lessons";
 import type { ActionState } from "@/lib/errors";
 import { cn } from "@/lib/cn";
 
-type Panel = null | "counter" | "decline" | "cancel" | "log-yes" | "log-no" | "answer-yes" | "answer-no" | "join" | "practice";
+type Panel = null | "counter" | "move" | "decline" | "cancel" | "log-yes" | "log-no" | "answer-yes" | "answer-no" | "join" | "practice";
 
 function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(() => Date.now());
@@ -33,10 +35,6 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   const now = useNow();
   const [panel, setPanel] = useState<Panel>(null);
   const [note, setNote] = useState("");
-  const [dt, setDt] = useState<DateTimeValue>(() => {
-    const p = easternParts(new Date(s.start_at));
-    return { date: p.date, time: p.time, minutes: s.duration_minutes };
-  });
   const [result, setResult] = useState<ActionState>(null);
   const [attest, setAttest] = useState(false);
   const router = useRouter();
@@ -79,14 +77,19 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
   // Practice can be added to a lesson that happened (logged, or confirmed by the student).
   const canAddPractice = isTutor && ["completed", "confirmed", "verified"].includes(s.status);
 
+  const otherFirst = isTutor ? s.student_name : s.tutor_name.split(" ")[0];
   let statusLine: string | null = null;
   if (s.status === "pending") {
+    const by = s.respond_by ? formatWhen(s.respond_by) : null;
     statusLine = s.awaiting_me
-      ? s.proposed_by === "family"
-        ? `${s.student_name} requested this time.`
-        : `${s.tutor_name} suggested this time.`
-      : `Waiting for ${isTutor ? s.student_name : s.tutor_name} to respond.`;
+      ? `${s.proposed_by === "family" ? `${s.student_name} asked for this time` : `${s.tutor_name} suggested this time`}.${by ? ` Please answer by ${by}.` : ""}`
+      : `${otherFirst} has until ${by ?? "the lesson time"} to answer. We’ll tell you either way.`;
   }
+  const moveAsked = s.status === "scheduled" && Boolean(s.move_start_at);
+  const moveForMe = moveAsked && s.move_proposed_by !== s.my_side;
+  // Moving is for lessons at least 2 hours away (after that, a message or cancelling is clearer).
+  const canMove = s.status === "scheduled" && start_ - now > 2 * 3600000;
+  const badge = lessonBadge(s, now);
 
   return (
     <article
@@ -105,8 +108,8 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={sessionTone(s.status)} dot>
-              {SESSION_STATUS_LABEL[s.status] ?? s.status}
+            <Badge tone={badge.tone} dot>
+              {badge.label}
             </Badge>
             {s.awaiting_me && <Badge tone="brass">Needs you</Badge>}
             {isWeekly && (
@@ -134,6 +137,19 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             </p>
           )}
           {statusLine && <p className="mt-2 text-[13.5px] text-ink-2">{statusLine}</p>}
+          {moveAsked && s.move_start_at && (
+            <p className={cn("mt-2 flex items-start gap-1.5 rounded-lg px-3 py-2 text-[13.5px]", moveForMe ? "bg-brass-100/70 text-ink" : "bg-paper-2 text-ink-2")}>
+              <CalendarClock className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                {moveForMe ? `${otherFirst} asked to move this to ` : "You asked to move this to "}
+                <strong className="font-semibold">{formatWhen(s.move_start_at)}</strong>.{" "}
+                {moveForMe
+                  ? `It stays at the old time unless you say yes${s.move_respond_by ? ` by ${formatWhen(s.move_respond_by)}` : ""}.`
+                  : `It stays at the old time until ${otherFirst} says yes.`}
+                {s.move_note && <span className="mt-1 block text-muted">“{s.move_note}”</span>}
+              </span>
+            </p>
+          )}
           {s.request_note && s.status === "pending" && <p className="mt-1.5 rounded-lg bg-paper-2 px-3 py-2 text-[13px] text-ink-2">“{s.request_note}”</p>}
           {s.status === "declined" && s.decline_reason && <p className="mt-1.5 text-[13px] text-muted">Note: “{s.decline_reason}”</p>}
           {s.status === "cancelled" && s.cancel_reason && <p className="mt-1.5 text-[13px] text-muted">Reason: “{s.cancel_reason}”</p>}
@@ -206,6 +222,44 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             Withdraw request
           </Button>
         )}
+        {moveForMe && (
+          <>
+            {/* Answering moves the lesson out of "Needs you", unmounting this card, so the confirmation shows at the top of Lessons. */}
+            <Button
+              size="sm"
+              pending={pending && panel === null}
+              onClick={() =>
+                run(async () => {
+                  const r = await answerMove({ sessionId: s.id, accept: true });
+                  if (!r?.ok) return r;
+                  router.push(`/dashboard/lessons?tab=upcoming&focus=${s.id}&done=moved`);
+                  return { ok: true } as ActionState;
+                })
+              }
+            >
+              <CheckCircle2 className="size-4" /> Yes, move it
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                run(async () => {
+                  const r = await answerMove({ sessionId: s.id, accept: false });
+                  if (!r?.ok) return r;
+                  router.push(`/dashboard/lessons?tab=upcoming&focus=${s.id}&done=kept`);
+                  return { ok: true } as ActionState;
+                })
+              }
+            >
+              Keep the old time
+            </Button>
+          </>
+        )}
+        {moveAsked && !moveForMe && (
+          <Button size="sm" variant="ghost" onClick={() => run(() => answerMove({ sessionId: s.id, accept: false }))}>
+            Take back the move
+          </Button>
+        )}
         {s.status === "scheduled" && (
           <>
             {canJoin ? (
@@ -228,6 +282,11 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
                   It didn’t happen
                 </Button>
               </>
+            )}
+            {canMove && !moveAsked && (
+              <Button size="sm" variant="secondary" onClick={() => setPanel(panel === "move" ? null : "move")} aria-expanded={panel === "move"}>
+                <ArrowRightLeft className="size-4" /> Move
+              </Button>
             )}
             {!started && (
               <Button size="sm" variant="ghost" onClick={() => setPanel(panel === "cancel" ? null : "cancel")}>
@@ -265,6 +324,19 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         </span>
       </div>
 
+      {(panel === "counter" || panel === "move") && (
+        <NewTimePanel
+          key={panel}
+          s={s}
+          purpose={panel}
+          isWeekly={isWeekly}
+          weeks={weeksPending}
+          otherFirst={otherFirst}
+          onClose={() => setPanel(null)}
+          onDone={(code) => router.push(`/dashboard/lessons?focus=${s.id}&done=${code}`)}
+        />
+      )}
+
       {panel === "join" && <JoinPanel sessionId={s.id} isTutor={isTutor} studentName={s.student_name} onClose={() => setPanel(null)} />}
 
       {panel === "practice" && (
@@ -279,11 +351,10 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
         </div>
       )}
 
-      {panel && panel !== "join" && panel !== "practice" && (
+      {panel && panel !== "join" && panel !== "practice" && panel !== "counter" && panel !== "move" && (
         <div className="animate-fade border-t border-line px-4 py-4 sm:px-5">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">
-              {panel === "counter" && (isWeekly ? `Suggest a different weekly time (all ${weeksPending} weeks move)` : "Suggest a different time")}
               {panel === "decline" && (isWeekly ? `Decline all ${weeksPending} weekly lessons` : "Decline this request")}
               {panel === "cancel" && (s.status === "pending" ? (isWeekly ? `Withdraw the request for ${weeksPending} weekly lessons` : "Withdraw this request") : "Cancel this lesson")}
               {panel === "log-yes" && "Log this lesson"}
@@ -295,7 +366,6 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
               <X className="size-4" />
             </button>
           </div>
-          {panel === "counter" && <DateTimeFields value={dt} onChange={setDt} min={easternDateOffset(0)} max={easternDateOffset(89)} />}
           {panel === "cancel" && s.status === "scheduled" && start_ - now < 24 * 3600000 && (
             <Notice tone="warning" className="mb-3">
               This lesson is less than 24 hours away. Please also send a quick message so they aren’t waiting.
@@ -343,7 +413,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
             </Button>
             <Button
               size="sm"
-              variant={panel === "counter" || panel === "log-yes" || panel === "answer-yes" ? "primary" : "danger"}
+              variant={panel === "log-yes" || panel === "answer-yes" ? "primary" : "danger"}
               pending={pending}
               disabled={(needsAttest && !attest) || (panel === "log-yes" && Boolean(draftIssue))}
               onClick={() =>
@@ -355,7 +425,6 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
                     router.push(`/dashboard/lessons?focus=${s.id}&done=${code}`);
                     return { ok: true } as ActionState;
                   };
-                  if (panel === "counter") return respondLesson({ sessionId: s.id, action: "counter", ...dt, note }).then(moved("countered"));
                   if (panel === "decline") return respondLesson({ sessionId: s.id, action: "decline", note }).then(moved("declined"));
                   if (panel === "cancel")
                     return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" }).then(moved("cancelled"));
@@ -366,7 +435,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
                 })
               }
             >
-              {panel === "counter" ? "Send new time" : panel === "log-yes" ? (draftHasContent(draft) ? "Log lesson & send practice" : "Log lesson") : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : panel === "answer-yes" ? "Verify lesson" : "Submit"}
+              {panel === "log-yes" ? (draftHasContent(draft) ? "Log lesson & send practice" : "Log lesson") : panel === "decline" ? "Decline" : panel === "cancel" ? "Confirm cancel" : panel === "answer-yes" ? "Verify lesson" : "Submit"}
             </Button>
           </div>
         </div>
@@ -383,6 +452,162 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
       )}
       <span className="sr-only">{formatDay(s.start_at)}</span>
     </article>
+  );
+}
+
+/**
+ * Pick a new time for a lesson: to suggest another time for a request, or to
+ * move a booked one. Shows only times that really work (the tutor's open
+ * times, nothing that clashes, enough notice), says before you tap whether it
+ * happens straight away or gets asked, and keeps "any time" as a fallback.
+ */
+function NewTimePanel({
+  s,
+  purpose,
+  isWeekly,
+  weeks,
+  otherFirst,
+  onClose,
+  onDone,
+}: {
+  s: MySession;
+  purpose: "counter" | "move";
+  isWeekly: boolean;
+  weeks: number;
+  otherFirst: string;
+  onClose: () => void;
+  onDone: (code: string) => void;
+}) {
+  const offered = s.offered_minutes?.length ? s.offered_minutes : [s.duration_minutes];
+  const [data, setData] = useState<LessonSlots | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [minutes, setMinutes] = useState(offered.includes(s.duration_minutes) ? s.duration_minutes : offered[0]);
+  const [picked, setPicked] = useState<OpenSlot | null>(null);
+  const [manual, setManual] = useState(false);
+  const [dt, setDt] = useState<DateTimeValue>(() => {
+    const p = easternParts(new Date(s.start_at));
+    return { date: p.date, time: "", minutes };
+  });
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  useEffect(() => {
+    let live = true;
+    getLessonSlots({ sessionId: s.id, purpose }).then((r) => {
+      if (!live) return;
+      if (r?.ok && r.data) setData(r.data);
+      else setLoadError(r && !r.ok ? r.error.message : "Couldn’t load open times.");
+    });
+    return () => {
+      live = false;
+    };
+  }, [s.id, purpose]);
+
+  const slots = data?.byMinutes[minutes] ?? [];
+  const choice = manual ? (dt.date && dt.time ? { date: dt.date, time: dt.time, minutes: dt.minutes } : null) : picked ? { date: picked.date, time: picked.time, minutes } : null;
+  // Moving one of the tutor's open times, as the family, with a tutor who allows it: it just happens.
+  const instant = purpose === "move" && !manual && Boolean(picked) && Boolean(data?.instant) && s.my_side === "family";
+  const title =
+    purpose === "move"
+      ? "Move this lesson"
+      : isWeekly
+        ? `Suggest a different weekly time (all ${weeks} weeks move)`
+        : "Suggest a different time";
+
+  return (
+    <div className="animate-fade border-t border-line px-4 py-4 sm:px-5">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm font-semibold">{title}</p>
+        <button type="button" onClick={onClose} className="rounded-full p-1 text-muted hover:bg-paper-2" aria-label="Close">
+          <X className="size-4" />
+        </button>
+      </div>
+      {offered.length > 1 && (
+        <div className="mb-3 flex w-full rounded-full border border-line bg-paper-2/70 p-0.5" role="radiogroup" aria-label="Lesson length">
+          {offered.map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={minutes === m}
+              onClick={() => {
+                setMinutes(m);
+                setPicked(null);
+                setDt((v) => ({ ...v, minutes: m }));
+              }}
+              className={cn(
+                "h-8 flex-1 whitespace-nowrap rounded-full px-3 text-[13px] font-medium tabular-nums transition",
+                minutes === m ? "bg-card text-ink shadow-card ring-1 ring-line" : "text-muted hover:text-ink",
+              )}
+            >
+              {m} minutes
+            </button>
+          ))}
+        </div>
+      )}
+      {manual ? (
+        <div className="rounded-xl bg-paper-2/50 p-3">
+          <p className="mb-3 text-[13px] text-muted">{otherFirst} will be asked whether this time works.</p>
+          <DateTimeFields value={dt} onChange={setDt} min={easternDateOffset(0)} max={easternDateOffset(89)} durations={offered} />
+        </div>
+      ) : loadError ? (
+        <Notice tone="warning">{loadError}</Notice>
+      ) : !data ? (
+        <p className="py-6 text-center text-[13px] text-muted" role="status">
+          Finding open times…
+        </p>
+      ) : slots.length === 0 ? (
+        <p className="rounded-xl bg-paper-2/60 px-4 py-4 text-[13px] text-muted">No open times in the next three weeks. Pick any time below instead.</p>
+      ) : (
+        <TimePicker slots={slots} value={picked} onChange={setPicked} fitsLabel={s.my_side === "family" ? "your" : `${s.student_name}’s`} days={21} />
+      )}
+      <button type="button" onClick={() => setManual(!manual)} className="mt-3 text-[12.5px] font-semibold text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink">
+        {manual ? "Back to open times" : "Pick any time instead"}
+      </button>
+      <Textarea className="mt-3 min-h-14" placeholder="Optional note (no contact info)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={2} />
+      {choice && (
+        <p className="mt-3 rounded-xl border border-pine-200 bg-pine-50/60 px-3.5 py-2.5 text-[13.5px] text-ink-2" aria-live="polite">
+          {instant ? (
+            <>
+              <Zap className="mr-1 inline size-3.5 text-pine-700" aria-hidden />
+              Moves right away. {otherFirst} gets an email.
+            </>
+          ) : purpose === "move" ? (
+            `${otherFirst} will be asked. Your lesson stays at the old time until they say yes.`
+          ) : (
+            `${otherFirst} will be asked whether this new time works.`
+          )}
+        </p>
+      )}
+      {error && <Notice tone="danger" className="mt-3">{error}</Notice>}
+      <div className="mt-3 flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Never mind
+        </Button>
+        <Button
+          size="sm"
+          pending={pending}
+          disabled={!choice}
+          onClick={() =>
+            choice &&
+            start(async () => {
+              setError(null);
+              if (purpose === "move") {
+                const r = await moveLesson({ sessionId: s.id, ...choice, note });
+                if (!r?.ok) return setError(r?.error.message ?? "Something went wrong.");
+                return onDone(r.data?.outcome === "moved" ? "moved" : "move-asked");
+              }
+              const r = await respondLesson({ sessionId: s.id, action: "counter", ...choice, note });
+              if (!r?.ok) return setError(r?.error.message ?? "Something went wrong.");
+              onDone("countered");
+            })
+          }
+        >
+          {instant ? "Move it" : purpose === "move" ? "Ask to move" : "Send new time"}
+        </Button>
+      </div>
+    </div>
   );
 }
 

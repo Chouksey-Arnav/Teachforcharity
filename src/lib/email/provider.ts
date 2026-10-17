@@ -7,6 +7,8 @@ export interface OutgoingEmail {
   to: string;
   toName?: string | null;
   email: RenderedEmail;
+  /** A label for the provider's logs ("otp" for sign-in codes). */
+  tag?: string;
 }
 
 export interface EmailProvider {
@@ -25,3 +27,18 @@ export interface EmailProvider {
 export function emailProvider(): EmailProvider {
   return (process.env.EMAIL_PROVIDER ?? "brevo").trim().toLowerCase() === "smtp" ? smtpProvider : brevoProvider;
 }
+
+/**
+ * A second sender for sign-up and reset codes only (EMAIL_FALLBACK_PROVIDER,
+ * "smtp" or "brevo", different from EMAIL_PROVIDER), used when the main one
+ * fails. Resending the same code is harmless, unlike resending a lesson email,
+ * so codes may go twice rather than not at all. Null when unset or not ready.
+ */
+export function fallbackProvider(): EmailProvider | null {
+  const name = (process.env.EMAIL_FALLBACK_PROVIDER ?? "").trim().toLowerCase();
+  if (!name) return null;
+  const p = name === "smtp" ? smtpProvider : name === "brevo" ? brevoProvider : null;
+  if (!p || p.name === emailProvider().name || p.missingConfig().length) return null;
+  return p;
+}
+

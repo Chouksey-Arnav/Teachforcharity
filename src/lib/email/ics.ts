@@ -21,6 +21,8 @@ export interface IcsEvent {
   uid: string;
   start: string;
   end: string;
+  /** Higher than before when an event changes (a moved lesson), so calendars update it instead of adding a copy. */
+  sequence?: number;
 }
 
 export function buildIcs(opts: {
@@ -42,6 +44,7 @@ export function buildIcs(opts: {
     ...opts.events.flatMap((e) => [
       "BEGIN:VEVENT",
       `UID:${e.uid}@teachforacause`,
+      ...(e.sequence ? [`SEQUENCE:${e.sequence}`] : []),
       `DTSTAMP:${stamp}`,
       `DTSTART:${icsDate(e.start)}`,
       `DTEND:${icsDate(e.end)}`,

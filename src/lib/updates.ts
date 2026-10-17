@@ -161,12 +161,52 @@ export function describeUpdate(row: UpdateRow, viewer: Viewer): UpdateView {
       };
     case "session_booked":
       return {
-        title: weekly(p) ? `Booked: weekly ${subject} lessons` : `Booked: ${subject} lesson`,
+        title:
+          p.instant && viewer.role === "tutor"
+            ? `${student} booked ${weekly(p) ? "weekly lessons" : "a lesson"} with you`
+            : weekly(p)
+              ? `Booked: weekly ${subject} lessons`
+              : `Booked: ${subject} lesson`,
         detail: joinDot(viewer.role === "tutor" ? `With ${student}` : other ? `With ${other}` : "", when),
         href: lessonHref(p),
         cta: "See lesson",
         icon: "check",
         tone: "good",
+      };
+    case "session_expired":
+      return {
+        title: p.waiting_on_you ? "A request ran out of time" : `No answer from ${other || "them"} in time`,
+        detail: joinDot(subject, when, viewer.role === "tutor" ? "Nothing was booked" : "Nothing was booked. Pick another time"),
+        href: viewer.role === "tutor" ? "/dashboard/lessons?tab=history" : "/dashboard/tutors",
+        cta: viewer.role === "tutor" ? "See lessons" : "Find a time",
+        icon: "clock",
+        tone: "bad",
+      };
+    case "session_nudge":
+      return {
+        title: p.move ? `${other || "They"} asked to move a lesson` : `${other || "Someone"} is waiting for your answer`,
+        detail: joinDot(subject, when, s(p.respond_by) ? `Answer by ${s(p.respond_by)}` : ""),
+        href: ACTION,
+        cta: "Answer",
+        icon: "clock",
+        tone: "action",
+      };
+    case "session_moved": {
+      const outcome = s(p.outcome);
+      return outcome === "requested"
+        ? { title: `${other || "They"} asked to move a lesson`, detail: joinDot(subject, `To ${when}`, "It stays at the old time unless you say yes"), href: ACTION, cta: "Answer", icon: "calendar", tone: "action" }
+        : outcome === "declined" || outcome === "expired"
+          ? { title: "Lesson time stays the same", detail: joinDot(subject, s(p.from) ? `Still ${s(p.from)}` : ""), href: lessonHref(p), cta: "See lesson", icon: "calendar", tone: "neutral" }
+          : { title: `Lesson moved to ${when}`, detail: joinDot(subject, s(p.from) ? `Was ${s(p.from)}` : ""), href: lessonHref(p), cta: "See lesson", icon: "check", tone: "good" };
+    }
+    case "teachership_ended":
+      return {
+        title: viewer.role === "tutor" ? `Lessons with ${student} stopped` : `${other || "Your tutor"} stopped lessons`,
+        detail: joinDot(n(p.cancelled) ? `${plural(n(p.cancelled), "upcoming lesson")} cancelled` : "", s(p.reason) ? `“${s(p.reason)}”` : ""),
+        href: viewer.role === "tutor" ? "/dashboard/my-students" : "/dashboard/tutors",
+        cta: viewer.role === "tutor" ? "My students" : "Find a tutor",
+        icon: "x",
+        tone: "neutral",
       };
     case "session_reminder":
       return {

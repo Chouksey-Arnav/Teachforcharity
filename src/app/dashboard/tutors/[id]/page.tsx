@@ -4,7 +4,7 @@ import { CalendarClock, Info, MapPin, Music2, School } from "lucide-react";
 import { BackLink } from "@/components/dashboard/back-link";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { OPEN_SLOT_DAYS, consentState, getCurrentTutorIds, getFamilyStudents, getMySessions, getMyThreads, getTutor, studentBusy, toStudentProfile } from "@/lib/data";
+import { OPEN_SLOT_DAYS, consentState, getCurrentTutorIds, getFamilyStudents, getMySessions, getMyTeacherships, getMyThreads, getRequestedTutorIds, getTutor, studentBusy, toStudentProfile } from "@/lib/data";
 import { TIER_LABEL, WEIGHTS, matchTutors } from "@/lib/matching";
 import { EXPLAIN_STYLES, LEVEL_INFO, TEACHING_STYLES, ensembleLabel, goalLabel, interestLabel } from "@/lib/constants";
 import { bestSlot, defaultMinutes, friendlyDay, openSlots } from "@/lib/slots";
@@ -35,8 +35,10 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
   const student = students.find((s) => s.id === sp.student) ?? students[0];
   const from = new Date();
   const to = new Date(from.getTime() + (OPEN_SLOT_DAYS + 1) * 86400000);
-  const [current, { data: tutorBusy }, mine, threads] = await Promise.all([
+  const [current, requested, teacherships, { data: tutorBusy }, mine, threads] = await Promise.all([
     student ? getCurrentTutorIds(supabase, student.id) : Promise.resolve([]),
+    student ? getRequestedTutorIds(supabase, student.id) : Promise.resolve([]),
+    getMyTeacherships(supabase),
     // Open times: the tutor's existing lessons/requests (times only) and each student's own.
     supabase.rpc("tutor_busy_times", { p_tutor: tutor.tutorId, p_from: from.toISOString(), p_to: to.toISOString() }),
     getMySessions(supabase, "upcoming", 200),
@@ -61,6 +63,13 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
     }),
   );
   const nextLabel = next ? `${friendlyDay(next.date)} at ${formatTime(next.start)}` : null;
+  // "Best" when it fits the student's own free times, otherwise just the earliest: the same words mean the same thing everywhere.
+  const nextWord = next?.both ? `Best time for ${isStudent ? "you" : student?.first_name}` : "Earliest open time";
+  const isYours = current.includes(tutor.tutorId);
+  const statusBadge = isYours ? "Your tutor" : requested.includes(tutor.tutorId) ? "Request sent" : null;
+  const booking = Object.fromEntries(
+    teacherships.filter((t) => t.tutor_id === tutor.tutorId).map((t) => [t.student_id, { instant: t.instant, minNoticeHours: t.min_notice_hours }]),
+  );
   const studentInterests = student?.interests ?? [];
   const breakdown = match
     ? ([
@@ -77,15 +86,15 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
     <>
       <BackLink href={`/dashboard/tutors${student ? `?student=${student.id}` : ""}`} label="All tutors" />
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="min-w-0 space-y-6">
-          <header className="rounded-3xl border border-line bg-card p-5 shadow-card sm:p-7">
+      {/* Phones: who the tutor is, then the booking form, then the details. Wide screens: booking on the right. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-x-8">
+          <header className="min-w-0 rounded-3xl border border-line bg-card p-5 shadow-card sm:p-7 lg:col-start-1 lg:row-start-1">
             <div className="flex items-start gap-4 sm:gap-6">
               <Avatar name={tutor.displayName} path={tutor.avatarPath} size={88} className="hidden sm:inline-flex" />
               <Avatar name={tutor.displayName} path={tutor.avatarPath} size={64} className="sm:hidden" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  {match && <Badge tone={match.tier === "ideal" ? "pine" : match.tier === "full" ? "neutral" : "brass"}>{current.includes(tutor.tutorId) ? "Your tutor" : TIER_LABEL[match.tier]}</Badge>}
+                  {match && <Badge tone={match.tier === "ideal" ? "pine" : match.tier === "full" ? "neutral" : "brass"}>{statusBadge ?? TIER_LABEL[match.tier]}</Badge>}
                   {!tutor.acceptingStudents && <Badge tone="brass">Not taking new students</Badge>}
                 </div>
                 <h1 className="display mt-1.5 text-4xl sm:text-5xl">{tutor.displayName}</h1>
@@ -129,7 +138,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
                 <CalendarClock className="size-4 text-pine-700" aria-hidden />
                 {nextLabel ? (
                   <>
-                    Next open time: <strong className="font-semibold text-ink">{nextLabel}</strong>
+                    {nextWord}: <strong className="font-semibold text-ink">{nextLabel}</strong>
                   </>
                 ) : (
                   "No open times in the next two weeks — you can suggest one."
@@ -153,6 +162,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
             </div>
           </header>
 
+        <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-2">
           {tutor.bio && (
             <section aria-labelledby="about" className="px-1">
               <h2 id="about" className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-muted">
@@ -223,8 +233,8 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
             </ul>
           </Card>
 
-          <div className="grid gap-6">
-            <Card className="p-5 sm:p-6">
+          <div className="grid min-w-0 gap-6">
+            <Card className="min-w-0 p-5 sm:p-6">
               <h2 className="text-[15px] font-semibold">Teaching style</h2>
               <dl className="mt-3 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
                 <div>
@@ -261,7 +271,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
                 )}
               </dl>
             </Card>
-            <Card className="p-5 sm:p-6">
+            <Card className="min-w-0 p-5 sm:p-6">
               <h2 className="text-[15px] font-semibold">Usually free</h2>
               <p className="mb-3 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                 {student ? (
@@ -280,12 +290,14 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
                   "Eastern time"
                 )}
               </p>
-              <SlotGrid value={tutor.availability} highlight={student?.availability} readOnly compact />
+              <div className="overflow-x-auto">
+                <SlotGrid value={tutor.availability} highlight={student?.availability} readOnly compact />
+              </div>
             </Card>
           </div>
         </div>
 
-        <aside id="book" className="scroll-mt-20 lg:sticky lg:top-8 lg:self-start">
+        <aside id="book" className="min-w-0 scroll-mt-20 lg:sticky lg:top-8 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
           {students.length === 0 ? (
             <Card className="p-6">
               <p className="text-sm text-muted">{isStudent ? "Add your instrument to your music profile to book lessons." : "Add a student with an instrument to request lessons."}</p>
@@ -312,7 +324,8 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
               initialStudentId={student?.id}
               initialSubjectId={target?.subject_id}
               initialStart={typeof sp.slot === "string" ? sp.slot : undefined}
-              canRequest={canRequest}
+              canRequest={canRequest || isYours}
+              booking={booking}
               isStudent={isStudent}
               threadHref={threadHref}
             />
@@ -324,7 +337,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
           </p>
         </aside>
       </div>
-      {canRequest && students.length > 0 && <StickyBookBar label={`Book with ${first}`} sub={nextLabel ? `Next open: ${nextLabel}` : "Suggest a time that works"} />}
+      {canRequest && students.length > 0 && <StickyBookBar label={`Book with ${first}`} sub={nextLabel ? `${nextWord}: ${nextLabel}` : "Suggest a time that works"} />}
     </>
   );
 }

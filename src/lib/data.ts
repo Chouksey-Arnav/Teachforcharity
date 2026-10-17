@@ -208,16 +208,29 @@ export async function searchTutors(supabase: Supa, opts: { subjectIds?: string[]
   return { tutors: rows.map(toDirectoryTutor), total: rows[0] ? Number(rows[0].total_count) : 0 };
 }
 
-/** Tutors a student currently has a lesson relationship with (keeps them requestable even when full). */
+/** Tutors a student is working with (a teachership): shown as "Your tutor" and requestable even when full. */
 export async function getCurrentTutorIds(supabase: Supa, studentId: string): Promise<string[]> {
-  const since = new Date(Date.now() - 45 * 86400000).toISOString();
+  const { data } = await supabase.from("teacherships").select("tutor_id").eq("student_id", studentId).eq("status", "active");
+  return [...new Set((data ?? []).map((r) => r.tutor_id))];
+}
+
+/** Tutors a student has asked for a lesson and is still waiting on (not "Your tutor" yet). */
+export async function getRequestedTutorIds(supabase: Supa, studentId: string): Promise<string[]> {
   const { data } = await supabase
     .from("sessions")
     .select("tutor_id")
     .eq("student_id", studentId)
-    .in("status", ["pending", "scheduled", "completed", "confirmed", "verified"])
-    .gt("start_at", since);
+    .eq("status", "pending")
+    .gt("start_at", new Date().toISOString());
   return [...new Set((data ?? []).map((r) => r.tutor_id))];
+}
+
+export type MyTeachership = Database["public"]["Functions"]["my_teacherships"]["Returns"][number];
+
+/** A family's tutors: one row per student and tutor working together. */
+export async function getMyTeacherships(supabase: Supa): Promise<MyTeachership[]> {
+  const { data } = await supabase.rpc("my_teacherships");
+  return data ?? [];
 }
 
 /** How far ahead open times are offered (and looked up). */
@@ -309,6 +322,17 @@ export type MySession = {
   family_attendance: "present" | "absent" | null;
   /** Tutor's own lessons only: whether they opened it from the site. */
   tutor_joined: boolean | null;
+  /** Pending requests: when the person whose turn it is must answer by. */
+  respond_by: string | null;
+  booked_instantly: boolean;
+  /** The lesson lengths this tutor offers (for suggesting or moving to another time). */
+  offered_minutes: number[];
+  /** A booked lesson someone asked to move: the new time, waiting for the other side. */
+  move_start_at: string | null;
+  move_minutes: number | null;
+  move_proposed_by: "family" | "tutor" | null;
+  move_note: string | null;
+  move_respond_by: string | null;
 };
 
 export async function getMySessions(supabase: Supa, scope: "all" | "upcoming" | "action" | "history", limit = 100): Promise<MySession[]> {

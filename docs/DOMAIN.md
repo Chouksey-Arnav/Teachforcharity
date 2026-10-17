@@ -15,12 +15,20 @@ Do this once you’ve bought a domain. Nothing in the code needs to change; only
 - Supabase → Authentication → URL configuration → **Site URL** → new domain; add `https://yourdomain.org/**` to Redirect URLs (keep the old one until you’re sure).
 - Supabase SQL Editor → re-run the `cron.schedule('tfac-email-drain', …)` statement from `SETUP.md` with the new URL.
 
-## 3. Email from your domain (big deliverability win)
-Emails from a free address (Gmail etc.) often land in spam. With your own domain:
-1. Brevo → **Senders, Domains & Dedicated IPs → Domains** → add your domain. Brevo gives you DKIM and SPF (and a Brevo code) records.
-2. Add those records in Cloudflare DNS (DNS only).
-3. Add a DMARC record: `TXT`, name `_dmarc`, value `v=DMARC1; p=none; rua=mailto:you@yourdomain.org`.
-4. Create a sender like `lessons@yourdomain.org`, then update `BREVO_SENDER_EMAIL` in Vercel and the sender in Supabase’s SMTP settings.
+## 3. Switch email (codes and everything else) to Brevo on your domain
+The code is already Brevo-ready: sign-up and reset codes, lesson emails and digests all go through one switch, `EMAIL_PROVIDER`. **Don't switch before you have the domain.** A Brevo sender on a free address (Gmail etc.) gets rejected or spam-foldered by Gmail and Yahoo. About 30 minutes:
+
+1. Brevo → **Senders, Domains & Dedicated IPs → Domains** → add your domain. Add every record Brevo shows (the Brevo code, DKIM and the SPF it asks for) in Cloudflare DNS, **DNS only** (grey cloud). Wait for Brevo to show the domain as authenticated.
+2. Add DMARC: `TXT`, name `_dmarc`, value `v=DMARC1; p=none; rua=mailto:you@yourdomain.org`. After about two weeks of clean reports, change `p=none` to `p=quarantine`.
+3. Brevo → **Senders** → add `lessons@yourdomain.org`.
+4. Brevo → transactional settings → **turn off open and click tracking**. Click tracking rewrites links through Brevo's redirect domain, which can break the single-use links in parent-approval emails (mail scanners open them first), and it tracks children's families for no benefit. Where this setting lives moves around; look for "tracking" under the transactional/SMTP settings.
+5. Vercel → environment variables: `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL=lessons@yourdomain.org`, `BREVO_SENDER_NAME=Teach for a Cause`. Keep the Gmail SMTP variables and add `EMAIL_FALLBACK_PROVIDER=smtp`: if Brevo ever fails, a sign-up code still arrives (from Gmail). Redeploy.
+6. Admin → Emails → **Send test email**. Then sign up for real with a **Gmail, Outlook, Yahoo, iCloud and an NC school-district address** (tutors often use school email, and school filters are the strictest). Check inbox vs spam and how fast the code arrives.
+7. After a quiet week, remove `EMAIL_FALLBACK_PROVIDER` and the Gmail app password if you no longer want Gmail as the backup.
+
+The app never uses Supabase's own mailer, so nothing changes in Supabase's SMTP settings.
+
+**Daily limits.** Codes, lesson emails, reminders and digests all count against your Brevo plan's daily cap (the free plan's is low; check yours in Brevo). The Brevo log shows codes tagged `otp` and everything else `transactional`.
 
 ## 4. Optional
 - Cloudflare Email Routing can forward `hello@yourdomain.org` to your inbox for free — use it as `NEXT_PUBLIC_CONTACT_EMAIL`.

@@ -26,9 +26,13 @@ export function MobileNav({ account, nav }: { account: SiteAccount | null; nav: 
         <Link
           href={account.href}
           className="lm-account-dot inline-flex size-10 items-center justify-center rounded-full md:hidden"
-          aria-label={`${account.cta} (signed in as ${account.name})`}
         >
-          <Avatar name={account.name} path={account.avatarPath} size={32} />
+          <span aria-hidden>
+            <Avatar name={account.name} path={account.avatarPath} size={32} />
+          </span>
+          <span className="sr-only">
+            {account.cta} (signed in as {account.name})
+          </span>
         </Link>
       ) : (
         <Link href="/login" className="rounded-full px-3 py-2 text-[15px] font-medium text-ink md:hidden">

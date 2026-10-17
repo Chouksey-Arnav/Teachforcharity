@@ -43,6 +43,8 @@ export default async function ProfilePage() {
           acceptingStudents: t.accepting_students,
           availability: t.availability,
           meetUrl: t.meet_url ?? "",
+          instantBook: t.instant_book,
+          minNoticeHours: t.min_notice_hours,
           instruments: (ts ?? []).map((x) => ({
             subjectId: x.subject_id,
             name: x.subjects?.name ?? "",
