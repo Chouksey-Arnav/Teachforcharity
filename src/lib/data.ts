@@ -5,7 +5,7 @@ import type { PracticeItem } from "./practice";
 import type { Level } from "./constants";
 import type { PublicConfig } from "./viewer";
 import { RELATED_GROUPS, type StudentProfile, type TutorCandidate, type TutorSubject } from "./matching";
-import { defaultMinutes, openSlots, type BusyInterval, type OpenSlot } from "./slots";
+import { MAX_UPCOMING, defaultMinutes, openSlots, type BusyInterval, type OpenSlot } from "./slots";
 import { describeUpdate, safeUpdateHref, type UpdateItem, type UpdateRow, type Viewer as UpdateViewer } from "./updates";
 import { formatRelative } from "./time";
 
@@ -488,6 +488,18 @@ export async function getMyPractice(supabase: Supa, opts: { studentId?: string; 
   const { data } = await supabase.rpc("my_practice", { p_student: opts.studentId, p_session: opts.sessionId });
   return (data ?? []) as PracticeItem[];
 }
+
+/**
+ * How many more lessons can be booked ahead, per tutor and student the viewer works with
+ * ("tutorId:studentId" → 0–3). A pair with nothing upcoming isn't listed: it has all 3.
+ */
+export async function getBookingRoom(supabase: Supa): Promise<Map<string, number>> {
+  const { data } = await supabase.rpc("my_booking_room");
+  return new Map((data ?? []).map((r) => [`${r.tutor_id}:${r.student_id}`, r.room]));
+}
+
+/** Places left with one tutor (MAX_UPCOMING when nothing is booked). */
+export const roomWith = (room: Map<string, number>, tutorId: string, studentId: string) => room.get(`${tutorId}:${studentId}`) ?? MAX_UPCOMING;
 
 export type MyStudent = Database["public"]["Functions"]["my_students"]["Returns"][number];
 

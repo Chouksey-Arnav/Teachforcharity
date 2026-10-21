@@ -3,6 +3,8 @@ import { easternDateOffset, easternParts, easternToUtc } from "./time";
 
 /** A new student's request needs this much notice: tutors are in class all day (the database's private.min_lead). */
 export const NEW_STUDENT_NOTICE_HOURS = 12;
+/** Lessons a student can have booked or asked for ahead with one tutor at once (the database enforces it). */
+export const MAX_UPCOMING = 3;
 
 export interface BusyInterval {
   start: string;

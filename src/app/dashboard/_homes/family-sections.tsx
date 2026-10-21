@@ -5,6 +5,7 @@ import { LessonCard } from "@/components/dashboard/lesson-card";
 import { BookAgain } from "@/components/dashboard/book-again";
 import { Avatar } from "@/components/ui/avatar";
 import { formatTime, formatWhen, startsIn } from "@/lib/time";
+import { MAX_UPCOMING } from "@/lib/slots";
 
 /** The next booked lesson, full size (so Join works from here), then a compact list of the ones after it. */
 export function NextLessonSection({ upcoming, isStudent }: { upcoming: MySession[]; isStudent: boolean }) {
@@ -83,7 +84,8 @@ export interface MyTutor {
   nextLessonAt: string | null;
   instant: boolean;
   /** Why booking isn't possible right now, if it isn't. */
-  blocked: "tutor_unavailable" | "consent" | null;
+  /** "full": MAX_UPCOMING lessons already booked or asked for with this tutor. */
+  blocked: "tutor_unavailable" | "consent" | "full" | null;
   /** The suggested next lesson: same weekday and time as the last one, if it's open. */
   again: { date: string; time: string; start: string } | null;
   minutes: number;
@@ -141,7 +143,9 @@ export function YourTutors({ tutors, isStudent, multipleStudents }: { tutors: My
                     ? isStudent
                       ? "Booking opens again once your parent approves."
                       : `Sign the consent form for ${t.studentName} to book again.`
-                    : `${first} isn’t taking lessons right now. You can still read your messages.`}
+                    : t.blocked === "full"
+                      ? `${MAX_UPCOMING} lessons are booked ahead with ${first}, the most at once. You can book the next one after the next lesson.`
+                      : `${first} isn’t taking lessons right now. You can still read your messages.`}
                 </p>
               ) : t.again ? (
                 <BookAgain

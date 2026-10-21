@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { toActionError, type ActionState } from "@/lib/errors";
 import { kickEmails } from "@/lib/email/kick";
 import { kickSafetyScan } from "@/lib/safety/scanner";
-import { NOTE_MAX, cleanTasks, draftProblem, practiceProblem } from "@/lib/practice";
+import { NOTE_MAX, cleanDraftTasks, draftProblem, practiceProblem } from "@/lib/practice";
 
 const uuid = z.string().uuid();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -14,6 +14,8 @@ const assignSchema = z.object({
   studentId: uuid,
   sessionId: uuid.optional(),
   tasks: z.array(z.string().max(4000)).max(40).default([]),
+  /** Lined up with `tasks`: true = practise every day until it's due; null/missing = follow the wording. */
+  daily: z.array(z.boolean().nullable()).max(40).default([]),
   note: z.string().max(NOTE_MAX + 200).default(""),
   due: date.optional(),
 });
@@ -30,7 +32,8 @@ type GateResult = { added?: number; updated?: number; blocked?: string } | null;
 export async function assignPractice(input: AssignInput): Promise<ActionState<{ added: number }>> {
   const p = assignSchema.safeParse(input);
   if (!p.success) return { ok: false, error: { message: "Please check the practice notes." } };
-  const tasks = cleanTasks(p.data.tasks);
+  const cleaned = cleanDraftTasks(p.data.tasks, p.data.daily);
+  const tasks = cleaned.map((t) => t.text);
   const note = p.data.note.trim();
   const problem = draftProblem(tasks, note);
   // A gate problem still goes to the database so the attempt is recorded; anything else is just fixed here.
@@ -42,6 +45,7 @@ export async function assignPractice(input: AssignInput): Promise<ActionState<{ 
     p_tasks: tasks,
     p_note: note || undefined,
     p_due: p.data.due,
+    p_daily: cleaned.map((t) => t.daily),
   });
   if (error) return { ok: false, error: toActionError(error) };
   const r = data as GateResult;

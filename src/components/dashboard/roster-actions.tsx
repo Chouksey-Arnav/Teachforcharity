@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { formatWhen } from "@/lib/time";
-import type { OpenSlot } from "@/lib/slots";
+import { MAX_UPCOMING, type OpenSlot } from "@/lib/slots";
 import { cn } from "@/lib/cn";
 
 type Panel = null | "propose" | "settings" | "end";
@@ -131,7 +131,7 @@ export function EndPanel({ name, onClose, onConfirm, pending, error }: { name: s
   );
 }
 
-const WEEKS = [1, 4, 8, 12];
+const WEEKS = Array.from({ length: MAX_UPCOMING }, (_, i) => i + 1);
 
 export function ProposePanel({ studentId, studentName, subjectId, onClose, onDone }: { studentId: string; studentName: string; subjectId: string; onClose: () => void; onDone: (m: string) => void }) {
   const [data, setData] = useState<LessonSlots | null>(null);
@@ -201,13 +201,24 @@ export function ProposePanel({ studentId, studentName, subjectId, onClose, onDon
               No open times in the next three weeks. Add more free times in your <Link href="/dashboard/profile" className="underline underline-offset-2">profile</Link>.
             </p>
           )}
-          <Select aria-label="How many weeks" className="mt-3" value={String(weeks)} onChange={(e) => setWeeks(Number(e.target.value))}>
-            {WEEKS.map((w) => (
-              <option key={w} value={w}>
-                {w === 1 ? "Just this lesson" : `Every week, ${w} weeks`}
-              </option>
-            ))}
-          </Select>
+          {(data.room ?? MAX_UPCOMING) === 0 ? (
+            <Notice tone="info" className="mt-3">
+              {studentName} already has {MAX_UPCOMING} lessons booked or asked for with you, the most at once. Propose the next one after a lesson happens.
+            </Notice>
+          ) : (
+            <>
+              <Select aria-label="How many weeks" className="mt-3" value={String(Math.min(weeks, data.room ?? MAX_UPCOMING))} onChange={(e) => setWeeks(Number(e.target.value))}>
+                {WEEKS.filter((w) => w <= (data.room ?? MAX_UPCOMING)).map((w) => (
+                  <option key={w} value={w}>
+                    {w === 1 ? "Just this lesson" : `Every week, ${w} weeks`}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Up to {MAX_UPCOMING} lessons ahead with each student{(data.room ?? MAX_UPCOMING) < MAX_UPCOMING ? ` (${data.room} more for now)` : ""}.
+              </p>
+            </>
+          )}
           <Textarea className="mt-3 min-h-14" placeholder="Optional note (no contact info)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={2} />
           <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl bg-paper-2/60 p-3 text-[12.5px] leading-snug text-ink-2">
             <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} className="mt-0.5 size-4 accent-pine-700" />
@@ -216,7 +227,7 @@ export function ProposePanel({ studentId, studentName, subjectId, onClose, onDon
           {picked && (
             <p className="mt-3 text-[13px] text-ink-2" aria-live="polite">
               {studentName}’s family is asked about <strong>{formatWhen(picked.start)}</strong>
-              {weeks > 1 ? ` and the ${weeks - 1} weeks after` : ""}. Nothing is booked until they say yes.
+              {Math.min(weeks, data.room ?? MAX_UPCOMING) > 1 ? ` and the ${Math.min(weeks, data.room ?? MAX_UPCOMING) - 1} weeks after` : ""}. Nothing is booked until they say yes.
             </p>
           )}
           {error && <Notice tone="danger" className="mt-3">{error}</Notice>}
@@ -227,13 +238,13 @@ export function ProposePanel({ studentId, studentName, subjectId, onClose, onDon
             <Button
               size="sm"
               pending={pending}
-              disabled={!picked || !attest || !minutes}
+              disabled={!picked || !attest || !minutes || (data.room ?? MAX_UPCOMING) === 0}
               onClick={() =>
                 picked &&
                 minutes &&
                 start(async () => {
                   setError(null);
-                  const r = await proposeLesson({ studentId, subjectId, date: picked.date, time: picked.time, minutes, weeks, note, attest: true });
+                  const r = await proposeLesson({ studentId, subjectId, date: picked.date, time: picked.time, minutes, weeks: Math.min(weeks, data.room ?? MAX_UPCOMING), note, attest: true });
                   if (r?.ok) onDone(r.message ?? "Proposed!");
                   else setError(r && !r.ok ? r.error.message : "Something went wrong.");
                 })

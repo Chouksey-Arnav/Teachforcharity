@@ -3,7 +3,7 @@ import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 import { PRIVATE_PATHS, PUBLIC_PAGES } from "@/lib/seo/pages";
 import { llmsFullTxt, llmsTxt } from "@/lib/seo/llms";
-import { JsonLd, faqJsonLd } from "@/lib/seo/json-ld";
+import { JsonLd, faqJsonLd, siteGraph } from "@/lib/seo/json-ld";
 import { renderToStaticMarkup } from "react-dom/server";
 
 describe("seo", () => {
@@ -38,6 +38,13 @@ describe("seo", () => {
     expect(llmsFullTxt()).toContain("Does it really cost nothing?");
   });
 
+  it("describes the lessons as a free, online service in the program's state", () => {
+    const graph = siteGraph()["@graph"] as Record<string, unknown>[];
+    const service = graph.find((n) => n["@type"] === "Service") as Record<string, Record<string, unknown>>;
+    expect(service.offers.price).toBe(0);
+    expect(service.areaServed.name).toBe("North Carolina");
+    expect(service.provider["@id"]).toBe(graph.find((n) => n["@type"] === "Organization")!["@id"]);
+  });
   it("JSON-LD cannot break out of its script tag", () => {
     const html = renderToStaticMarkup(JsonLd({ data: faqJsonLd([{ q: "</script><b>x", a: "y" }]) }));
     expect(html.match(/<\/script>/g)).toHaveLength(1);

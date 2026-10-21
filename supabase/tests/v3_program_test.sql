@@ -413,40 +413,39 @@ I really want to learn trumpet. ') <> 'sent' then raise exception 'FAIL invite w
   -- next Thursday at least 8 days out, 5 PM Eastern
   thu := ((current_date + 8 + ((4 - extract(dow from current_date + 8)::int + 7) % 7))::timestamp + time '17:00') at time zone 'America/New_York';
 
+  -- A clash in week 2 is refused up front.
+  insert into public.sessions (tutor_id, student_id, family_id, subject_id, start_at, duration_minutes, end_at, status, proposed_by)
+    values (tut, stu, mom, clar, private.weekly_start(thu + interval '1 day', 1), 45, private.weekly_start(thu + interval '1 day', 1) + interval '45 minutes', 'scheduled', 'family')
+    returning id into sess;
   perform pg_temp.act_as(mom);
-  first_id := public.request_session(stu, tut, clar, thu, 45, 'Concert prep', 4);
+  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 45, null, 2)', stu, tut, clar, thu + interval '1 day')) <> 'SLOT_TAKEN' then
+    raise exception 'FAIL clash in week 2 not caught'; end if;
+  execute 'reset role';
+  delete from public.sessions where id = sess;
+
+  perform pg_temp.act_as(mom);
+  first_id := public.request_session(stu, tut, clar, thu, 45, 'Concert prep', 3);
   execute 'reset role';
   select series_id into ser from public.sessions where id = first_id;
-  if ser is null or (select count(*) from public.sessions where series_id = ser and status = 'pending') <> 4 then
-    raise exception 'FAIL weekly request didn''t create 4 pending lessons'; end if;
+  if ser is null or (select count(*) from public.sessions where series_id = ser and status = 'pending') <> 3 then
+    raise exception 'FAIL weekly request didn''t create 3 pending lessons'; end if;
   if exists (select 1 from public.sessions where series_id = ser
              and ((start_at at time zone 'America/New_York')::time <> time '17:00' or extract(dow from start_at at time zone 'America/New_York') <> 4)) then
     raise exception 'FAIL weekly lessons not all Thursdays at 5 PM ET'; end if;
   if pg_temp.mail_count('session_requested', 'v3-tutor@example.test') <> 1
-     or (pg_temp.mail('session_requested', 'v3-tutor@example.test') ->> 'weeks')::int <> 4 then
+     or (pg_temp.mail('session_requested', 'v3-tutor@example.test') ->> 'weeks')::int <> 3 then
     raise exception 'FAIL expected one email for the whole series'; end if;
 
-  -- A series counts as one open request.
+  -- Three lessons ahead with one tutor at most: the series used them all, and a run longer than three is refused.
   perform pg_temp.act_as(mom);
-  for n in 1..4 loop perform public.request_session(stu, tut, clar, thu + make_interval(days => 1, hours => n - 5), 30); end loop;
-  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 30)', stu, tut, clar, thu + interval '2 days 3 hours')) <> 'TOO_MANY_PENDING' then
-    raise exception 'FAIL open-request limit ignored'; end if;
+  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 30)', stu, tut, clar, thu + interval '1 day')) <> 'TOO_MANY_BOOKED' then
+    raise exception 'FAIL a fourth lesson ahead was accepted'; end if;
+  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 45, null, 4)', stu, tut, clar, thu + interval '1 day')) <> 'BAD_INPUT' then
+    raise exception 'FAIL a 4-week run was accepted'; end if;
+  -- Too far out is refused up front.
+  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 45, null, 3)', stu, tut, clar, thu + interval '80 days')) <> 'TOO_FAR' then
+    raise exception 'FAIL weeks past the 90-day window accepted'; end if;
   execute 'reset role';
-  update public.sessions set status = 'cancelled' where student_id = stu and status = 'pending' and series_id is null;
-
-  -- Too far out, or a clash in week 3, is refused up front.
-  perform pg_temp.act_as(mom);
-  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 45, null, 12)', stu, tut, clar, thu + interval '35 days')) <> 'TOO_FAR' then
-    raise exception 'FAIL 12 weeks past the 90-day window accepted'; end if;
-  execute 'reset role';
-  insert into public.sessions (tutor_id, student_id, family_id, subject_id, start_at, duration_minutes, end_at, status, proposed_by)
-    values (tut, stu, mom, clar, private.weekly_start(thu + interval '1 day', 2), 45, private.weekly_start(thu + interval '1 day', 2) + interval '45 minutes', 'scheduled', 'family')
-    returning id into sess;
-  perform pg_temp.act_as(mom);
-  if pg_temp.hint_of(format('select public.request_session(%L, %L, %L, %L, 45, null, 4)', stu, tut, clar, thu + interval '1 day')) <> 'SLOT_TAKEN' then
-    raise exception 'FAIL clash in week 3 not caught'; end if;
-  execute 'reset role';
-  delete from public.sessions where id = sess;
 
   -- The tutor suggests Saturdays at 10 AM instead: every week moves.
   perform pg_temp.act_as(tut);
@@ -462,24 +461,24 @@ I really want to learn trumpet. ') <> 'sent' then raise exception 'FAIL invite w
   if pg_temp.hint_of(format('select public.respond_session(%L, ''accept'')', (select id from public.sessions where series_id = ser and series_index = 3))) <> 'NOT_YOUR_TURN' then
     raise exception 'FAIL tutor accepted their own suggestion'; end if;
 
-  -- The family accepts once: all four are booked.
+  -- The family accepts once: all three are booked.
   perform pg_temp.act_as(mom);
   perform public.respond_session((select id from public.sessions where series_id = ser and series_index = 2), 'accept');
   execute 'reset role';
-  if (select count(*) from public.sessions where series_id = ser and status = 'scheduled') <> 4 then raise exception 'FAIL series not fully booked'; end if;
-  if jsonb_array_length(pg_temp.mail('session_booked', 'v3-mom@example.test') -> 'dates') <> 4
+  if (select count(*) from public.sessions where series_id = ser and status = 'scheduled') <> 3 then raise exception 'FAIL series not fully booked'; end if;
+  if jsonb_array_length(pg_temp.mail('session_booked', 'v3-mom@example.test') -> 'dates') <> 3
      or pg_temp.mail_count('session_booked', 'v3-tutor@example.test') <> 1 then
     raise exception 'FAIL booking email doesn''t cover the whole series'; end if;
   perform pg_temp.act_as(mom);
-  if (select series_size from public.my_sessions('upcoming') where id = first_id) <> 4 then raise exception 'FAIL my_sessions series size'; end if;
+  if (select series_size from public.my_sessions('upcoming') where id = first_id) <> 3 then raise exception 'FAIL my_sessions series size'; end if;
 
   -- Cancel one week, then "this and all later weeks".
   if public.cancel_session((select id from public.sessions where series_id = ser and series_index = 2), 'Recital', 'one') <> 1 then
     raise exception 'FAIL single cancel'; end if;
-  if public.cancel_session((select id from public.sessions where series_id = ser and series_index = 3), 'Done for the season', 'rest') <> 2 then
+  if public.cancel_session((select id from public.sessions where series_id = ser and series_index = 3), 'Done for the season', 'rest') <> 1 then
     raise exception 'FAIL cancel rest of series'; end if;
   execute 'reset role';
-  if (select string_agg(status::text, ',' order by series_index) from public.sessions where series_id = ser) <> 'scheduled,cancelled,cancelled,cancelled' then
+  if (select string_agg(status::text, ',' order by series_index) from public.sessions where series_id = ser) <> 'scheduled,cancelled,cancelled' then
     raise exception 'FAIL series statuses after cancelling: %', (select string_agg(status::text, ',' order by series_index) from public.sessions where series_id = ser); end if;
 
   -- Open times: families who could book see busy blocks (no details); others see nothing.

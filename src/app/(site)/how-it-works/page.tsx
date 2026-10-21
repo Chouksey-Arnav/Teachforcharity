@@ -70,7 +70,7 @@ const FIRST_LESSON: { icon: typeof Eye; t: string; d: string }[] = [
 const QUICK: [string, string][] = [
   ["How long is a lesson?", "30, 45 or 60 minutes, any quarter hour from 8 AM to 10 PM Eastern."],
   ["Can we try just one?", "Yes. Weekly is optional, and any upcoming lesson can be cancelled from your dashboard."],
-  ["Is there a limit?", "No cap on lessons. A weekly booking covers up to 12 weeks, and you can book again."],
+  ["Is there a limit?", "No cap on lessons over time. Up to 3 can be booked ahead with one tutor at once; after each lesson, book the next."],
   ["What if the tutor doesn’t show?", "Report it as a missed lesson. It never counts toward their hours, and the team follows up."],
   ["Can we switch tutors?", "Any time, no explanation needed. Your other matches stay on your dashboard."],
 ];

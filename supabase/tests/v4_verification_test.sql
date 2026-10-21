@@ -317,9 +317,9 @@ begin
     raise exception 'FAIL proposed an instrument the student doesn''t play: %', pg_temp.hint_of(format('select public.tutor_propose_session(%L, %L, %L, 45, null, 1, true)', stu, flute, now() + interval '3 days')); end if;
   if pg_temp.hint_of(format('select public.tutor_propose_session(%L, %L, %L, 45, ''text me 919 555 0123'', 1, true)', stu, clar, now() + interval '3 days')) <> 'MESSAGE_BLOCKED' then
     raise exception 'FAIL contact info in a proposal note'; end if;
-  p1 := public.tutor_propose_session(stu, clar, date_trunc('day', now() + interval '3 days') + interval '21 hours', 45, 'Long tones?', 4, true);
+  p1 := public.tutor_propose_session(stu, clar, date_trunc('day', now() + interval '3 days') + interval '21 hours', 45, 'Long tones?', 2, true);
   execute 'reset role';
-  if (select count(*) from public.sessions where series_id = (select series_id from public.sessions where id = p1) and status = 'pending' and proposed_by = 'tutor') <> 4 then
+  if (select count(*) from public.sessions where series_id = (select series_id from public.sessions where id = p1) and status = 'pending' and proposed_by = 'tutor') <> 2 then
     raise exception 'FAIL weekly proposal not created'; end if;
   if pg_temp.mail('session_proposed', 'v4-family@example.test') is null then raise exception 'FAIL family not emailed the proposal'; end if;
   perform pg_temp.act_as(tut);
@@ -331,7 +331,7 @@ begin
     raise exception 'FAIL a family called tutor_propose_session'; end if;
   if public.respond_session(p1, 'accept') <> 'scheduled' then raise exception 'FAIL family couldn''t accept the proposal'; end if;
   execute 'reset role';
-  if (select count(*) from public.sessions where series_id = (select series_id from public.sessions where id = p1) and status = 'scheduled') <> 4 then
+  if (select count(*) from public.sessions where series_id = (select series_id from public.sessions where id = p1) and status = 'scheduled') <> 2 then
     raise exception 'FAIL accepting booked only part of the series'; end if;
   perform pg_temp.act_as(tut2);
   if pg_temp.hint_of(format('select public.tutor_propose_session(%L, %L, %L, 45, null, 1, true)', stu, clar, now() + interval '3 days')) <> 'FORBIDDEN' then

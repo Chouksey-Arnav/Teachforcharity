@@ -91,18 +91,18 @@ try {
   await times.getByRole("radio").first().waitFor();
   await times.getByRole("radio").first().click();
   await fam.getByRole("radio", { name: "Every week" }).click();
-  await fam.getByRole("radiogroup", { name: "Number of weeks" }).getByRole("radio", { name: "4", exact: true }).click();
-  await fam.getByText(/^4 lessons:/).waitFor();
+  await fam.getByRole("radiogroup", { name: "Number of weeks" }).getByRole("radio", { name: "3", exact: true }).click();
+  await fam.getByText(/^3 lessons:/).waitFor();
   await shot(fam, "journey-01-request-weekly");
-  await fam.getByRole("button", { name: "Request 4 weekly lessons" }).click();
+  await fam.getByRole("button", { name: "Request 3 weekly lessons" }).click();
   await fam.getByRole("heading", { name: "Request sent" }).waitFor();
-  expect(Number(await sql(`select count(*) from sessions s join profiles p on p.id = s.family_id where p.email = '${mom}' and s.status = 'pending' and s.series_id is not null`)) === 4, "4 pending weekly lessons not created");
-  step("family requested 4 weekly lessons from an open time");
+  expect(Number(await sql(`select count(*) from sessions s join profiles p on p.id = s.family_id where p.email = '${mom}' and s.status = 'pending' and s.series_id is not null`)) === 3, "3 pending weekly lessons not created");
+  step("family requested 3 weekly lessons from an open time");
 
   // Tutor suggests a different weekly time (the same weekday, one hour later).
   const { ctx: tctx, page: tutor } = await login(b, "e2e-tutor@tfac-e2e.test");
   await tutor.goto(`${BASE}/dashboard/lessons?tab=action`);
-  const req = tutor.locator("article", { hasText: "4 weekly lessons" });
+  const req = tutor.locator("article", { hasText: "3 weekly lessons" });
   await req.waitFor();
   await shot(tutor, "journey-02-tutor-sees-weekly");
   await req.getByRole("button", { name: "Suggest another time" }).click();
@@ -120,13 +120,13 @@ try {
   step("tutor suggested a new weekly time from their open times");
 
   await fam.goto(`${BASE}/dashboard/lessons?tab=action`);
-  const offer = fam.locator("article", { hasText: "4 weekly lessons" });
+  const offer = fam.locator("article", { hasText: "3 weekly lessons" });
   await offer.getByRole("button", { name: "Accept" }).click();
   await fam.getByText("Booked!").waitFor();
-  expect(Number(await sql(`select count(*) from sessions s join profiles p on p.id = s.family_id where p.email = '${mom}' and s.status = 'scheduled'`)) === 4, "series not booked");
-  const booked = await waitForEmail(mom, /Booked: 4 weekly Clarinet lessons/);
+  expect(Number(await sql(`select count(*) from sessions s join profiles p on p.id = s.family_id where p.email = '${mom}' and s.status = 'scheduled'`)) === 3, "series not booked");
+  const booked = await waitForEmail(mom, /Booked: 3 weekly Clarinet lessons/);
   expect(!/meet\.google\.com/.test(booked.html), "booking email contains the Meet link");
-  step("family accepted: 4 lessons booked, one email, no Meet link in it");
+  step("family accepted: 3 lessons booked, one email, no Meet link in it");
 
   // ---------- Joining only in the window ----------
   await fam.goto(`${BASE}/dashboard/lessons?tab=upcoming`);

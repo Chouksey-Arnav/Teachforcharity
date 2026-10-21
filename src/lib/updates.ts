@@ -102,7 +102,7 @@ export function describeUpdate(row: UpdateRow, viewer: Viewer): UpdateView {
       const what = [tasks ? plural(tasks, "task") : "", p.note ? "a note" : ""].filter(Boolean).join(" and ") || "practice notes";
       return {
         title: p.self ? `${tutor} gave you new practice` : `${tutor} gave ${student} new practice`,
-        detail: `${what[0].toUpperCase()}${what.slice(1)} on the Practice board.`,
+        detail: `${what[0].toUpperCase()}${what.slice(1)} on the Practice board.${n(p.daily) ? " Some are for every day: one tick a day." : ""}`,
         href: "/dashboard/practice",
         cta: "See practice",
         icon: "practice",

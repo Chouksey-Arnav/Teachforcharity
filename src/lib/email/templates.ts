@@ -406,13 +406,20 @@ export function renderEmail(template: string, p: P): RenderedEmail | null {
     case "practice_assigned": {
       const tasks = Number(p.tasks) || 0;
       const what = [tasks ? `${tasks} practice task${tasks === 1 ? "" : "s"}` : "", p.note ? "a note" : ""].filter(Boolean).join(" and ") || "practice notes";
+      const daily = Number(p.daily) || 0;
+      // Daily tasks get one tick a day; say so, and when they run until.
+      const rhythm = daily
+        ? ` ${daily === tasks ? (daily === 1 ? "It’s" : "They’re") : `${daily} of them ${daily === 1 ? "is" : "are"}`} for every day${p.due ? ` until ${esc(p.due)}` : ""}: ${p.self ? "tick it each day you practise" : "a tick each day they practise"}, and the tutor sees every day.`
+        : p.due
+          ? ` Due ${esc(p.due)}.`
+          : "";
       return make(`${str(p.tutor_name)} added ${what} for ${str(p.student_name)}`, {
         heading: p.self ? "New practice from your tutor" : `New practice for ${str(p.student_name)}`,
         paragraphs: [
           hi(p),
           p.self
-            ? `<strong>${esc(p.tutor_name)}</strong> added ${esc(what)} to your Practice board. Tick each task off as you do it — your tutor sees your progress.`
-            : `<strong>${esc(p.tutor_name)}</strong> added ${esc(what)} to ${esc(p.student_name)}’s Practice board. ${esc(p.student_name)} can tick each task off as they go, and the tutor sees the progress.`,
+            ? `<strong>${esc(p.tutor_name)}</strong> added ${esc(what)} to your Practice board.${rhythm} Tick each task off as you do it — your tutor sees your progress.`
+            : `<strong>${esc(p.tutor_name)}</strong> added ${esc(what)} to ${esc(p.student_name)}’s Practice board.${rhythm} ${esc(p.student_name)} can tick each task off as they go, and the tutor sees the progress.`,
         ],
         cta: { label: "Open the Practice board", href: link("/dashboard/practice") },
         note: "For privacy, what the tutor wrote is only shown on the site.",

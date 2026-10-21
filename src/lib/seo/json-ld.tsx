@@ -30,6 +30,21 @@ export function siteGraph(): JsonLdNode {
         ...(SITE.contactEmail ? { email: SITE.contactEmail } : {}),
       },
       {
+        // What families get: free one-on-one lessons, online, in North Carolina, for middle schoolers.
+        "@type": "Service",
+        "@id": `${SITE.url}/#lessons`,
+        name: "Free one-on-one band and orchestra lessons",
+        serviceType: "Music lessons",
+        description:
+          "Free one-on-one lessons for middle schoolers (grades 6–8) on band and orchestra instruments, taught over Google Meet by high school volunteer musicians, with parent consent and practice tasks between lessons.",
+        provider: { "@id": ORG_ID },
+        areaServed: { "@type": "State", name: SITE.region },
+        availableChannel: { "@type": "ServiceChannel", serviceUrl: `${SITE.url}/signup`, name: "Online, over Google Meet" },
+        audience: { "@type": "PeopleAudience", audienceType: "Middle school students and their parents", suggestedMinAge: 11, suggestedMaxAge: 14 },
+        offers: { "@type": "Offer", price: 0, priceCurrency: "USD", availability: "https://schema.org/InStock", url: `${SITE.url}/signup` },
+        isAccessibleForFree: true,
+      },
+      {
         "@type": "WebSite",
         "@id": SITE_ID,
         url: SITE.url,

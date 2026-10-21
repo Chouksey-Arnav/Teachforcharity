@@ -38,7 +38,11 @@ export const FAQ_GROUPS: { id: FaqAudience; label: string; title: string; items:
       },
       {
         q: "How long are lessons, and how many can my child have?",
-        a: "You choose 30, 45 or 60 minutes. Lessons can be booked for any quarter hour between 8 AM and 10 PM Eastern, at least two hours ahead. There’s no limit on how many lessons a student can have. A weekly booking covers up to 12 weeks at a time, and you can always book more.",
+        a: "You choose 30, 45 or 60 minutes, any quarter hour between 8 AM and 10 PM Eastern. A first request to a new tutor needs 12 hours’ notice (tutors are in class all day); once you’re working together, the tutor’s own notice applies, as little as 2 hours. There’s no limit on how many lessons a student can have over time, but up to 3 can be booked ahead with one tutor at once, one at a time or as a weekly run. After each lesson, book the next.",
+      },
+      {
+        q: "Does my child get practice homework?",
+        a: "Usually, yes. After a lesson the tutor can leave a few practice tasks and a note on your child’s Practice board, normally due before the next lesson. Some tasks are done once (“learn measures 20–40”); others are for every day (“long tones, 5 minutes a day”), and your child ticks those once a day. The tutor sees each day your child practised, and you can see everything too. What the tutor writes is checked by the same safety filter as messages.",
       },
       {
         q: "Can we try one lesson first?",
@@ -92,6 +96,10 @@ export const FAQ_GROUPS: { id: FaqAudience; label: string; title: string; items:
         a: "Your instrument and its stuff (reeds, rosin, valve oil, sticks), the music you’re working on, a pencil, and a laptop or tablet with a camera. Set it up so your tutor can see your hands and how you’re sitting. A quiet room helps a lot.",
       },
       {
+        q: "Will I get practice homework?",
+        a: "Your tutor can leave a few things to practise on your Practice board, usually for before your next lesson. Tick a task when it’s done. For the “every day” ones, tick them each day you practise. Your tutor sees your ticks, and you’ll see a little streak for the days in a row you practise.",
+      },
+      {
         q: "Do I need a Google account?",
         a: "No. Lessons are on Google Meet, but you can join without an account: open the link, type your first name, and tap “Ask to join.” Your tutor lets you in. On a phone or tablet you’ll need the free Google Meet app.",
       },
@@ -129,6 +137,10 @@ export const FAQ_GROUPS: { id: FaqAudience; label: string; title: string; items:
       {
         q: "How many students do I have to take?",
         a: "As many as you want, from 1 to 8. You choose your instruments, the levels you want to teach and when you’re free, and you can pause taking new students any time.",
+      },
+      {
+        q: "How do I give homework and know if my student practised?",
+        a: "After a lesson (or while you log it) add practice tasks and a note; they land on your student’s Practice board at once. Mark a task “Daily” for everyday practice and your student ticks it once a day. Your Home page and My students show each student’s week day by day, and a student’s page shows the last two weeks task by task, so you can start the next lesson knowing what got practised.",
       },
       {
         q: "Do I need teaching experience?",

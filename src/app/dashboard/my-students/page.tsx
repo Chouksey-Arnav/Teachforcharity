@@ -3,8 +3,11 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, ListChecks, MessageCircle, Users, Zap } from "lucide-react";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getMySessions, getMyStudents, type MyStudent } from "@/lib/data";
-import { formatDate, formatRelative, formatWhen } from "@/lib/time";
+import { getMyPractice, getMySessions, getMyStudents, type MyStudent } from "@/lib/data";
+import { practiceByStudent } from "@/lib/practice";
+import { PracticeLegend, PracticeWeek } from "@/components/dashboard/practice-week";
+import { todayLine } from "@/components/dashboard/practice-overview";
+import { formatDate, formatWhen } from "@/lib/time";
 import { RosterActions } from "@/components/dashboard/roster-actions";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Avatar } from "@/components/ui/avatar";
@@ -17,7 +20,8 @@ export const metadata: Metadata = { title: "My students" };
 export default async function MyStudentsPage() {
   const viewer = await requireViewer(["tutor"]);
   const supabase = await createClient();
-  const [all, action] = await Promise.all([getMyStudents(supabase), getMySessions(supabase, "action")]);
+  const [all, action, practice] = await Promise.all([getMyStudents(supabase), getMySessions(supabase, "action"), getMyPractice(supabase)]);
+  const byStudent = practiceByStudent(practice);
   const students = all.filter((s) => s.teachership_status === "active");
   const past = all.filter((s) => s.teachership_status !== "active");
   // New students asking for a lesson: answered in Lessons, never mixed into the roster.
@@ -33,7 +37,7 @@ export default async function MyStudentsPage() {
             My <em>students</em>
           </>
         }
-        description="Everyone you teach: the next lesson, lessons to log, and how their practice is going."
+        description="Everyone you teach: the next lesson, lessons to log, and how they’ve practised each day this week."
       />
       {requests > 0 && (
         <Link href="/dashboard/lessons?tab=action" className="mb-6 flex animate-rise items-center gap-3 rounded-2xl border border-brass-300 bg-brass-100/50 px-4 py-3 text-[14px] font-medium hover:shadow-card">
@@ -47,9 +51,12 @@ export default async function MyStudentsPage() {
           A student shows up here as soon as your first lesson together is booked.
         </Empty>
       ) : (
+        <>
+        <PracticeLegend className="mb-3" />
         <div className="grid gap-4 md:grid-cols-2">
           {students.map((st) => {
             const total = st.open_tasks + st.done_tasks;
+            const p = byStudent.get(st.student_id);
             return (
               <article key={st.student_id} className="flex animate-rise flex-col rounded-[22px] border border-line bg-card p-5 shadow-card transition hover:shadow-lift">
                 <Link href={`/dashboard/my-students/${st.student_id}`} className="flex items-center gap-3">
@@ -82,12 +89,15 @@ export default async function MyStudentsPage() {
                     <ListChecks className="size-4 shrink-0 text-muted" aria-hidden />
                     <dt className="sr-only">Practice</dt>
                     <dd className="min-w-0 flex-1">
-                      {total ? (
-                        <span className="flex items-center gap-2">
-                          <span>
-                            {st.done_tasks} of {total} practice tasks done
-                            {st.last_practice_at && <span className="text-muted"> · last ticked {formatRelative(st.last_practice_at)}</span>}
-                          </span>
+                      {p?.hasTasks ? (
+                        <span>
+                          {todayLine(p)}
+                          {p.overdue > 0 && <span className="text-clay-700"> · {p.overdue} overdue</span>}
+                          {p.streak > 1 && <span className="text-muted"> · {p.streak} days in a row</span>}
+                        </span>
+                      ) : total ? (
+                        <span>
+                          {st.done_tasks} of {total} practice tasks done
                         </span>
                       ) : (
                         <span className="text-muted">No practice assigned yet</span>
@@ -95,11 +105,7 @@ export default async function MyStudentsPage() {
                     </dd>
                   </div>
                 </dl>
-                {total > 0 && (
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-paper-2" aria-hidden>
-                    <div className="h-full rounded-full bg-pine-700" style={{ width: `${Math.round((st.done_tasks / total) * 100)}%` }} />
-                  </div>
-                )}
+                {p?.hasTasks && <PracticeWeek days={p.days} className="mt-3" label={`${st.first_name}'s practice, last 7 days`} />}
                 <div className="mt-auto flex flex-wrap gap-2 pt-4">
                   <LinkButton href={`/dashboard/my-students/${st.student_id}#practice`} size="sm">
                     <ListChecks className="size-4" /> Practice
@@ -128,6 +134,7 @@ export default async function MyStudentsPage() {
             );
           })}
         </div>
+        </>
       )}
       {past.length > 0 && <PastStudents rows={past} />}
     </>

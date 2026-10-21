@@ -22,10 +22,10 @@ function isoDate(text: string): string | undefined {
 // /cause is left out: it only exists once a confirmed partner has a donation page (lib/cause.ts), and the nav links it then.
 export const PUBLIC_PAGES: PublicPage[] = [
   { path: "/", title: "Home", summary: "What Teach for a Cause is, who it is for, and how to start.", priority: 1, changeFrequency: "weekly" },
-  { path: "/how-it-works", title: "How it works", summary: "How students and tutors are matched, how lessons are scheduled, and how volunteer hours are verified.", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/how-it-works", title: "How it works", summary: "How students and tutors are matched, how lessons are scheduled, and how volunteer hours are verified.", priority: 0.9, changeFrequency: "monthly", lastModified: "2026-10-21" },
   { path: "/safety", title: "Safety & consent", summary: "Parent consent, message filtering, the Google Meet window and how concerns are handled.", priority: 0.9, changeFrequency: "monthly" },
   { path: "/volunteer", title: "Become a tutor", summary: "High school musicians: teach middle schoolers for free and earn verified volunteer hours.", priority: 0.9, changeFrequency: "monthly" },
-  { path: "/faq", title: "Questions & answers", summary: "Answers for parents, students and tutors: cost, eligibility, what a lesson needs, switching tutors and volunteer hours.", priority: 0.8, changeFrequency: "monthly" },
+  { path: "/faq", title: "Questions & answers", summary: "Answers for parents, students and tutors: cost, eligibility, what a lesson needs, switching tutors and volunteer hours.", priority: 0.8, changeFrequency: "monthly", lastModified: "2026-10-21" },
   { path: "/about", title: "About", summary: "Who runs Teach for a Cause, why it exists, and how to reach the program team.", priority: 0.7, changeFrequency: "monthly" },
   { path: "/contact", title: "Contact", summary: "Ask a question or report a concern to the program team, no account needed.", priority: 0.6, changeFrequency: "yearly" },
   { path: "/waitlist", title: "Join the waitlist", summary: "Get one email when a tutor for your instrument joins, or when the program reaches your state or grade.", priority: 0.5, changeFrequency: "yearly" },
