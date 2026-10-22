@@ -4,7 +4,7 @@ import { CalendarClock, Info, MapPin, Music2, School } from "lucide-react";
 import { BackLink } from "@/components/dashboard/back-link";
 import { requireViewer, getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { OPEN_SLOT_DAYS, consentState, getCurrentTutorIds, getFamilyStudents, getMySessions, getMyTeacherships, getMyThreads, getRequestedTutorIds, getTutor, studentBusy, toStudentProfile } from "@/lib/data";
+import { OPEN_SLOT_DAYS, consentState, getBookingRoom, getCurrentTutorIds, getFamilyStudents, getMySessions, getMyTeacherships, getMyThreads, getRequestedTutorIds, getTutor, roomWith, studentBusy, toStudentProfile } from "@/lib/data";
 import { TIER_LABEL, WEIGHTS, matchTutors } from "@/lib/matching";
 import { EXPLAIN_STYLES, LEVEL_INFO, TEACHING_STYLES, ensembleLabel, goalLabel, interestLabel } from "@/lib/constants";
 import { bestSlot, defaultMinutes, friendlyDay, openSlots } from "@/lib/slots";
@@ -35,7 +35,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
   const student = students.find((s) => s.id === sp.student) ?? students[0];
   const from = new Date();
   const to = new Date(from.getTime() + (OPEN_SLOT_DAYS + 1) * 86400000);
-  const [current, requested, teacherships, { data: tutorBusy }, mine, threads] = await Promise.all([
+  const [current, requested, teacherships, { data: tutorBusy }, mine, threads, room] = await Promise.all([
     student ? getCurrentTutorIds(supabase, student.id) : Promise.resolve([]),
     student ? getRequestedTutorIds(supabase, student.id) : Promise.resolve([]),
     getMyTeacherships(supabase),
@@ -43,6 +43,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
     supabase.rpc("tutor_busy_times", { p_tutor: tutor.tutorId, p_from: from.toISOString(), p_to: to.toISOString() }),
     getMySessions(supabase, "upcoming", 200),
     getMyThreads(supabase),
+    getBookingRoom(supabase),
   ]);
   const target = student?.subjects.find((x) => x.subject_id === sp.subject) ?? student?.subjects[0];
   const match = student && target ? matchTutors(toStudentProfile(student, current), target.subject_id, [tutor], { includeRelated: "always" })[0] : undefined;
@@ -319,6 +320,7 @@ export default async function TutorProfilePage({ params, searchParams }: PagePro
                 preferredMinutes: s.preferred_minutes,
                 availability: s.availability,
                 busy: studentBusy(mine, s.id),
+                room: roomWith(room, tutor.tutorId, s.id),
                 subjects: s.subjects.map((x) => ({ id: x.subject_id, slug: x.slug, name: x.name })),
               }))}
               initialStudentId={student?.id}

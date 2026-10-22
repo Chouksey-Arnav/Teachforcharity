@@ -429,7 +429,7 @@ export function LessonCard({ s, focus }: { s: MySession; focus?: boolean }) {
                   if (panel === "cancel")
                     return cancelLesson({ sessionId: s.id, reason: note, scope: cancelRest || (s.status === "pending" && isWeekly) ? "rest" : "one" }).then(moved("cancelled"));
                   if (panel === "log-yes")
-                    return logLesson({ sessionId: s.id, happened: true, note, attest, studentId: s.student_id, tasks: draft.tasks, practiceNote: draft.note, due: draft.due || undefined });
+                    return logLesson({ sessionId: s.id, happened: true, note, attest, studentId: s.student_id, tasks: draft.tasks, daily: draft.daily, practiceNote: draft.note, due: draft.due || undefined });
                   if (panel === "log-no") return logLesson({ sessionId: s.id, happened: false, note, attest });
                   return answerAttendance({ sessionId: s.id, present: panel === "answer-yes", note, attest });
                 })

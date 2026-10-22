@@ -2,7 +2,9 @@ import Link from "next/link";
 import { ArrowUpRight, CalendarDays, Clock3, Hourglass, PauseCircle, Users } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getMySessions, getMyUpdates } from "@/lib/data";
+import { getMyPractice, getMySessions, getMyStudents, getMyUpdates } from "@/lib/data";
+import { practiceByStudent } from "@/lib/practice";
+import { PracticeOverview } from "@/components/dashboard/practice-overview";
 import { UpdatesPreview } from "@/components/dashboard/updates-preview";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { LessonCard } from "@/components/dashboard/lesson-card";
@@ -32,13 +34,19 @@ const hrs = (m: number) => (m / 60).toFixed(1).replace(/\.0$/, "");
 
 export async function TutorHome({ viewer, passwordUpdated, welcome }: { viewer: Viewer; passwordUpdated?: boolean; welcome?: boolean }) {
   const supabase = await createClient();
-  const [action, upcoming, all, { data: checkData }, updates] = await Promise.all([
+  const [action, upcoming, all, { data: checkData }, updates, roster, practice] = await Promise.all([
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming", 5),
     getMySessions(supabase, "all", 500),
     supabase.rpc("my_account_check"),
     getMyUpdates(supabase, { role: "tutor", isStudent: false }, 20),
+    getMyStudents(supabase),
+    getMyPractice(supabase),
   ]);
+  const byStudent = practiceByStudent(practice);
+  const practiceRows = roster
+    .filter((r) => r.teachership_status === "active")
+    .map((r) => ({ id: r.student_id, name: r.first_name, practice: byStudent.get(r.student_id) }));
   const check = checkData as { status: string; checked_at: string | null; hints: string[] } | null;
   const hints = check?.hints ?? [];
   const t = viewer.tutor!;
@@ -84,7 +92,7 @@ export async function TutorHome({ viewer, passwordUpdated, welcome }: { viewer: 
       <PageHeader
         eyebrow={greeting()}
         title={`Hi, ${first}`}
-        description="Your requests, lessons, and hours."
+        description="Your requests, lessons, your students’ practice, and your hours."
         actions={t.status === "active" ? <AcceptingToggle accepting={t.accepting_students} /> : undefined}
       />
       {passwordUpdated && <Notice tone="success" className="mb-6">Your password was updated.</Notice>}
@@ -132,6 +140,8 @@ export async function TutorHome({ viewer, passwordUpdated, welcome }: { viewer: 
         <Stat href="/dashboard/my-students" icon={Users} label="Active students" value={`${activeStudents}/${t.max_students}`} hint="Change your limit in Profile" />
         <Stat href="/dashboard/lessons?tab=upcoming" icon={CalendarDays} label="Upcoming lessons" value={String(upcoming.filter((u) => u.status === "scheduled").length)} hint="See your schedule" />
       </div>
+
+      <PracticeOverview students={practiceRows} />
 
       {t.status === "active" && (
         <section className="mb-10 flex flex-col gap-4 rounded-2xl border border-pine-200 bg-pine-50 p-5 sm:flex-row sm:items-center sm:justify-between">

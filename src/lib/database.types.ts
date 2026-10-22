@@ -60,6 +60,7 @@ export type Database = {
           kind: string
           position: number
           removed_at: string | null
+          repeat: string
           session_id: string | null
           student_id: string
           subject_id: string | null
@@ -78,6 +79,7 @@ export type Database = {
           kind: string
           position?: number
           removed_at?: string | null
+          repeat?: string
           session_id?: string | null
           student_id: string
           subject_id?: string | null
@@ -96,6 +98,7 @@ export type Database = {
           kind?: string
           position?: number
           removed_at?: string | null
+          repeat?: string
           session_id?: string | null
           student_id?: string
           subject_id?: string | null
@@ -1046,6 +1049,62 @@ export type Database = {
           website_url?: string | null
         }
         Relationships: []
+      }
+      practice_checks: {
+        Row: {
+          assignment_id: string
+          checked_at: string
+          day: string
+          family_id: string
+          student_id: string
+          tutor_id: string
+        }
+        Insert: {
+          assignment_id: string
+          checked_at?: string
+          day: string
+          family_id: string
+          student_id: string
+          tutor_id: string
+        }
+        Update: {
+          assignment_id?: string
+          checked_at?: string
+          day?: string
+          family_id?: string
+          student_id?: string
+          tutor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_checks_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_checks_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_checks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_checks_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -2142,6 +2201,7 @@ export type Database = {
         }
         Returns: Json
       }
+      health_check: { Args: Record<PropertyKey, never>; Returns: Json }
       move_lesson: {
         Args: {
           p_minutes?: number
@@ -2457,7 +2517,7 @@ export type Database = {
       }
       attest_guardian: { Args: never; Returns: undefined }
       assign_practice: {
-        Args: { p_due?: string; p_note?: string; p_session: string | null; p_student: string; p_tasks: string[] }
+        Args: { p_daily?: boolean[]; p_due?: string; p_note?: string; p_session: string | null; p_student: string; p_tasks: string[] }
         Returns: Json
       }
       auth_user_by_email: {
@@ -2754,6 +2814,15 @@ export type Database = {
           tutor_joined: boolean
         }[]
       }
+      my_booking_room: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          room: number
+          student_id: string
+          tutor_id: string
+          upcoming: number
+        }[]
+      }
       my_offers: {
         Args: never
         Returns: {
@@ -2774,12 +2843,15 @@ export type Database = {
         Args: { p_limit?: number; p_session?: string; p_student?: string }
         Returns: {
           body: string
+          checks: string[] | null
           created_at: string
+          created_on: string
           done_at: string | null
           due_on: string | null
           id: string
           kind: string
           my_side: string
+          repeat: string
           session_id: string | null
           session_start: string | null
           student_id: string

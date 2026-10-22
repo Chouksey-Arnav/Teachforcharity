@@ -1,8 +1,8 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import { Plus, Send, X } from "lucide-react";
+import { Plus, Repeat, Send, X } from "lucide-react";
 import { assignPractice } from "@/app/actions/practice";
-import { NOTE_MAX, QUICK_TASKS, TASK_MAX, TASKS_PER_SEND, cleanTasks, draftProblem, easternDate, formatDue, practiceProblem } from "@/lib/practice";
+import { NOTE_MAX, QUICK_TASKS, TASK_MAX, TASKS_PER_SEND, cleanTasks, draftProblem, easternDate, formatDue, looksDaily, practiceProblem } from "@/lib/practice";
 import type { ActionState } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
@@ -11,12 +11,22 @@ import { cn } from "@/lib/cn";
 
 export interface PracticeDraft {
   tasks: string[];
+  /** Lined up with `tasks`: practise it every day until it's due. null = follow the wording ("5 minutes a day"). */
+  daily: (boolean | null)[];
   note: string;
   /** "YYYY-MM-DD" or "" for no date. */
   due: string;
 }
 
-export const emptyDraft = (): PracticeDraft => ({ tasks: [""], note: "", due: "" });
+/** A fresh draft, due by the next lesson when there is one: homework is for before you meet again. */
+export const emptyDraft = (nextLesson?: string | null): PracticeDraft => ({
+  tasks: [""],
+  daily: [null],
+  note: "",
+  due: nextLesson && nextLesson >= easternDate(0) ? nextLesson : "",
+});
+
+const isDaily = (d: PracticeDraft, i: number) => d.daily[i] ?? looksDaily(d.tasks[i] ?? "");
 
 /** True when the tutor has written anything worth sending. */
 export const draftHasContent = (d: PracticeDraft) => cleanTasks(d.tasks).length > 0 || d.note.trim().length > 0;
@@ -48,15 +58,21 @@ export function PracticeFields({
       el.focus();
       if (end) el.setSelectionRange(el.value.length, el.value.length);
     });
-  const setTasks = (tasks: string[]) => onChange({ ...value, tasks: tasks.length ? tasks : [""] });
-  const setTask = (i: number, text: string) => setTasks(value.tasks.map((t, j) => (j === i ? text : t)));
+  // Tasks and their daily flags always change together, so they stay lined up.
+  const setRows = (rows: { text: string; daily: boolean | null }[]) => {
+    const r = rows.length ? rows : [{ text: "", daily: null }];
+    onChange({ ...value, tasks: r.map((x) => x.text), daily: r.map((x) => x.daily) });
+  };
+  const rows = value.tasks.map((text, i) => ({ text, daily: value.daily[i] ?? null }));
+  const setTask = (i: number, text: string) => setRows(rows.map((r, j) => (j === i ? { ...r, text } : r)));
+  const toggleDaily = (i: number) => setRows(rows.map((r, j) => (j === i ? { ...r, daily: !isDaily(value, i) } : r)));
   const insertAfter = (i: number, text = "") => {
     if (value.tasks.length >= TASKS_PER_SEND) return;
-    setTasks([...value.tasks.slice(0, i + 1), text, ...value.tasks.slice(i + 1)]);
+    setRows([...rows.slice(0, i + 1), { text, daily: null }, ...rows.slice(i + 1)]);
     focus(i + 1);
   };
   const remove = (i: number) => {
-    setTasks(value.tasks.filter((_, j) => j !== i));
+    setRows(rows.filter((_, j) => j !== i));
     focus(Math.max(0, i - 1));
   };
   const quick = (text: string) => {
@@ -70,17 +86,18 @@ export function PracticeFields({
   const weekOut = easternDate(7);
   const dues: { label: string; value: string }[] = [
     { label: "No due date", value: "" },
-    ...(nextLesson && nextLesson >= easternDate(0) ? [{ label: `By next lesson · ${formatDue(nextLesson)}`, value: nextLesson }] : []),
+    ...(nextLesson && nextLesson >= easternDate(0) ? [{ label: `Before next lesson · ${formatDue(nextLesson)}`, value: nextLesson }] : []),
     ...(weekOut !== nextLesson ? [{ label: `In a week · ${formatDue(weekOut)}`, value: weekOut }] : []),
   ];
   const noteProblem = value.note.trim() ? practiceProblem(value.note) : null;
+  const anyDaily = value.tasks.some((t, i) => t.trim() && isDaily(value, i));
 
   return (
     <div className="space-y-4">
       <div>
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-[14px] font-semibold">Practice tasks</p>
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-faint">Enter for the next one</p>
+          <p className="hidden font-mono text-[10.5px] uppercase tracking-[0.12em] text-faint sm:block">Enter for the next one</p>
         </div>
         <ol className="mt-2 space-y-2">
           {value.tasks.map((t, i) => {
@@ -119,13 +136,27 @@ export function PracticeFields({
                       const text = e.clipboardData.getData("text");
                       if (!text.includes("\n")) return;
                       e.preventDefault();
-                      const lines = cleanTasks([text]);
-                      const merged = [...value.tasks.slice(0, i), ...(t.trim() ? [t] : []), ...lines, ...value.tasks.slice(i + 1)].slice(0, TASKS_PER_SEND);
-                      setTasks(merged);
+                      const lines = cleanTasks([text]).map((l) => ({ text: l, daily: null }));
+                      const merged = [...rows.slice(0, i), ...(t.trim() ? [rows[i]] : []), ...lines, ...rows.slice(i + 1)].slice(0, TASKS_PER_SEND);
+                      setRows(merged);
                       focus(Math.min(merged.length - 1, i + lines.length));
                     }}
                     className="h-11 min-w-0 flex-1 rounded-xl border border-ink/14 bg-white/85 px-3.5 text-[15px] text-ink placeholder:text-faint transition-[border-color,box-shadow] hover:border-ink/25 focus:border-ink/40 focus:bg-white focus:outline-none focus:ring-4 focus:ring-glow/50 aria-[invalid=true]:border-clay-500"
                   />
+                  <button
+                    type="button"
+                    aria-pressed={isDaily(value, i)}
+                    aria-label={`Daily: task ${i + 1}`}
+                    onClick={() => toggleDaily(i)}
+                    title={isDaily(value, i) ? "Practise every day (ticked once a day)" : "Done once"}
+                    className={cn(
+                      "inline-flex h-9 shrink-0 items-center gap-1 rounded-full border px-2.5 text-[12.5px] font-semibold transition-[background,border-color,color,transform] duration-200 ease-[cubic-bezier(0.3,1.4,0.5,1)] active:scale-[0.95]",
+                      isDaily(value, i) ? "border-pine-700 bg-pine-700 text-cream" : "border-line-2 bg-white/70 text-muted hover:border-ink/30 hover:text-ink",
+                    )}
+                  >
+                    <Repeat className="size-3.5" aria-hidden />
+                    <span>Daily</span>
+                  </button>
                   {value.tasks.length > 1 && (
                     <button type="button" onClick={() => remove(i)} className="shrink-0 rounded-full p-1.5 text-faint hover:bg-ink/5 hover:text-ink" aria-label={`Remove task ${i + 1}`}>
                       <X className="size-4" />
@@ -165,7 +196,7 @@ export function PracticeFields({
       </div>
 
       <fieldset>
-        <legend className="text-[14px] font-semibold">Due</legend>
+        <legend className="text-[14px] font-semibold">{anyDaily ? "Due (daily tasks run until then)" : "Due"}</legend>
         <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup">
           {dues.map((d) => (
             <button
@@ -183,6 +214,13 @@ export function PracticeFields({
             </button>
           ))}
         </div>
+        {anyDaily && (
+          <p className="mt-1.5 text-[12.5px] text-muted">
+            {value.due
+              ? `${studentName} ticks each daily task once a day through ${formatDue(value.due)}, and you see every day they practised.`
+              : `With no due date, daily tasks keep going until you remove them.`}
+          </p>
+        )}
       </fieldset>
 
       <div>
@@ -230,7 +268,7 @@ export function PracticeComposer({
   onDone?: () => void;
   idPrefix: string;
 }) {
-  const [draft, setDraft] = useState<PracticeDraft>(emptyDraft);
+  const [draft, setDraft] = useState<PracticeDraft>(() => emptyDraft(nextLesson));
   const [result, setResult] = useState<ActionState<{ added: number }>>(null);
   const [pending, start] = useTransition();
   const problem = draftHasContent(draft) ? draftProblem(draft.tasks, draft.note) : null;
@@ -240,10 +278,10 @@ export function PracticeComposer({
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const r = await assignPractice({ studentId, sessionId, tasks: draft.tasks, note: draft.note, due: draft.due || undefined });
+          const r = await assignPractice({ studentId, sessionId, tasks: draft.tasks, daily: draft.daily, note: draft.note, due: draft.due || undefined });
           setResult(r);
           if (r?.ok) {
-            setDraft(emptyDraft());
+            setDraft(emptyDraft(nextLesson));
             onDone?.();
           }
         });

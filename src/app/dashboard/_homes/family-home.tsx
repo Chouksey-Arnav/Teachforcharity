@@ -3,7 +3,8 @@ import { ArrowRight, HandHeart, ShieldAlert, Sparkles } from "lucide-react";
 import type { Viewer } from "@/lib/viewer";
 import { getPublicConfig } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMyPractice, getMySessions, getMyTeacherships, getMyUpdates, getOpenSlotsByTutor, relatedSubjectIds, studentBusy, toStudentProfile } from "@/lib/data";
+import { getBookingRoom, getCandidates, getCurrentTutorIds, getFamilyStudents, getMyOffers, getMyPractice, getMySessions, getMyTeacherships, getMyUpdates, getOpenSlotsByTutor, relatedSubjectIds, roomWith, studentBusy, toStudentProfile } from "@/lib/data";
+import { dailyEnded } from "@/lib/practice";
 import { bookAgainSlot, defaultMinutes, openSlots } from "@/lib/slots";
 import { UpdatesPreview } from "@/components/dashboard/updates-preview";
 import { PracticeBoard } from "@/components/dashboard/practice-board";
@@ -28,7 +29,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
   const supabase = await createClient();
   const config = await getPublicConfig();
   const isStudent = viewer.profile.account_kind === "student";
-  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, practice, updates, teacherships] = await Promise.all([
+  const [students, action, upcoming, history, { data: subjects }, offers, { data: guardian }, practice, updates, teacherships, room] = await Promise.all([
     getFamilyStudents(supabase, viewer.id, config),
     getMySessions(supabase, "action"),
     getMySessions(supabase, "upcoming", 100),
@@ -41,9 +42,12 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
     getMyPractice(supabase),
     getMyUpdates(supabase, { role: "family", isStudent }, 20),
     getMyTeacherships(supabase),
+    getBookingRoom(supabase),
   ]);
   // The board on Home: groups that still have something to do (notes show with their tasks).
-  const openGroups = new Set(practice.filter((p) => p.kind === "task" && !p.done_at).map((p) => `${p.tutor_id}:${p.student_id}`));
+  const openGroups = new Set(
+    practice.filter((p) => p.kind === "task" && (p.repeat === "daily" ? !dailyEnded(p) : !p.done_at)).map((p) => `${p.tutor_id}:${p.student_id}`),
+  );
   const homePractice = practice.filter((p) => openGroups.has(`${p.tutor_id}:${p.student_id}`));
 
   // Top matches for each student's first instrument.
@@ -76,7 +80,9 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
     teacherships.map(async (th) => {
       const minutes = th.last_minutes ?? defaultMinutes(th.session_minutes, students.find((s) => s.id === th.student_id)?.preferred_minutes);
       let again: MyTutor["again"] = null;
-      if (!th.blocked && th.last_start_at) {
+      // Three lessons ahead already: nothing to suggest until one happens.
+      const full = roomWith(room, th.tutor_id, th.student_id) === 0;
+      if (!th.blocked && !full && th.last_start_at) {
         // Look from the last lesson already booked (a weekly run can reach weeks ahead) for four more weeks.
         const latest = upcoming.filter((u) => u.tutor_id === th.tutor_id && u.student_id === th.student_id && u.status === "scheduled").map((u) => u.start_at).sort().pop();
         const searchFrom = new Date(Math.max(from.getTime(), latest ? Date.parse(latest) : 0));
@@ -104,7 +110,7 @@ export async function FamilyHome({ viewer, welcome }: { viewer: Viewer; welcome?
         threadId: th.thread_id,
         nextLessonAt: th.next_lesson_at,
         instant: th.instant,
-        blocked: th.blocked === "consent" || th.blocked === "tutor_unavailable" ? th.blocked : null,
+        blocked: th.blocked === "consent" || th.blocked === "tutor_unavailable" ? th.blocked : full ? "full" : null,
         again,
         minutes,
       };

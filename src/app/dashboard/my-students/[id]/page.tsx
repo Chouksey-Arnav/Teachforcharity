@@ -6,7 +6,8 @@ import { BackLink } from "@/components/dashboard/back-link";
 import { requireViewer } from "@/lib/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { getMyPractice, getMySessions, getStudentKinds } from "@/lib/data";
-import { easternDate } from "@/lib/practice";
+import { easternDate, lastDays, practiceByStudent, practiceMatrix } from "@/lib/practice";
+import { PracticeLegend, PracticeMatrix, PracticeWeek } from "@/components/dashboard/practice-week";
 import { SESSION_STATUS_LABEL } from "@/lib/constants";
 import { formatWhen } from "@/lib/time";
 import { PracticeBoard } from "@/components/dashboard/practice-board";
@@ -55,6 +56,10 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
   const nowIso = new Date().toISOString();
   const next = together.filter((x) => x.status === "scheduled" && x.end_at > nowIso).sort((a, b) => a.start_at.localeCompare(b.start_at))[0];
   const canAssign = together.some((x) => ["scheduled", "completed", "confirmed", "verified"].includes(x.status));
+  // Two weeks, day by day: the student's whole practice, then task by task.
+  const fortnight = lastDays(14);
+  const progress = practiceByStudent(practice, 14).get(id);
+  const matrix = practiceMatrix(practice, fortnight);
 
   return (
     <>
@@ -74,7 +79,7 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
           </Link>
         )}
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-6">
           <h2 className="font-semibold">Instruments</h2>
           <ul className="mt-3 space-y-3">
@@ -117,7 +122,31 @@ export default async function TutorStudentPage({ params }: PageProps<"/dashboard
           <h2 id="practice-title" className="display mb-3 text-[28px]">
             {s.first_name}’s <em>practice</em>
           </h2>
-          <div className="grid gap-4 lg:grid-cols-2">
+          {progress?.hasTasks && (
+            <Card className="mb-4 animate-rise p-5 sm:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <p className="eyebrow">Day by day · last 14 days</p>
+                  <p className="mt-1 text-[14px] text-ink-2">
+                    Practised on <strong className="font-semibold text-ink">{progress.activeDays}</strong> of 14 days
+                    {progress.streak > 1 && <> · {progress.streak} days in a row</>}
+                    {progress.overdue > 0 && <span className="text-clay-700"> · {progress.overdue} overdue</span>}
+                  </p>
+                </div>
+                <PracticeLegend />
+              </div>
+              <PracticeWeek days={progress.days} className="mt-4" label={`${s.first_name}'s practice, last 14 days`} />
+              {matrix.length > 0 && (
+                <details className="mt-4" open={matrix.length <= 6}>
+                  <summary className="cursor-pointer text-[13px] font-semibold text-muted hover:text-ink">Task by task</summary>
+                  <div className="mt-3 animate-fade">
+                    <PracticeMatrix rows={matrix} days={fortnight} />
+                  </div>
+                </details>
+              )}
+            </Card>
+          )}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card className="h-fit p-5 sm:p-6">
               <p className="eyebrow mb-3">Send to {s.first_name}’s board</p>
               {canAssign ? (

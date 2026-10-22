@@ -9,7 +9,7 @@ import { kickEmails } from "@/lib/email/kick";
 import { cleanTasks } from "@/lib/practice";
 import { assignPractice } from "./practice";
 import { getMyTeacherships } from "@/lib/data";
-import { NEW_STUDENT_NOTICE_HOURS, openSlots, type BusyInterval, type OpenSlot } from "@/lib/slots";
+import { MAX_UPCOMING, NEW_STUDENT_NOTICE_HOURS, openSlots, type BusyInterval, type OpenSlot } from "@/lib/slots";
 
 const uuid = z.string().uuid();
 const note = z.string().trim().max(300).optional();
@@ -41,8 +41,8 @@ const requestSchema = z.object({
   time: z.string(),
   minutes: z.coerce.number(),
   note,
-  /** 1 = a single lesson; 2–12 = that many weekly lessons at the same time. */
-  weeks: z.coerce.number().int().min(1).max(12).default(1),
+  /** 1 = a single lesson; 2–MAX_UPCOMING = that many weekly lessons at the same time. */
+  weeks: z.coerce.number().int().min(1).max(MAX_UPCOMING).default(1),
 });
 
 export async function requestLesson(
@@ -139,6 +139,7 @@ export async function logLesson(input: {
   attest: boolean;
   studentId?: string;
   tasks?: string[];
+  daily?: (boolean | null)[];
   practiceNote?: string;
   due?: string;
 }): Promise<ActionState> {
@@ -150,7 +151,7 @@ export async function logLesson(input: {
   const hasPractice = input.happened && (cleanTasks(input.tasks ?? []).length > 0 || Boolean(input.practiceNote?.trim()));
   if (hasPractice) {
     if (!input.studentId) return { ok: false, error: { message: "Lesson not found." } };
-    const r = await assignPractice({ studentId: input.studentId, sessionId: input.sessionId, tasks: input.tasks ?? [], note: input.practiceNote ?? "", due: input.due });
+    const r = await assignPractice({ studentId: input.studentId, sessionId: input.sessionId, tasks: input.tasks ?? [], daily: input.daily ?? [], note: input.practiceNote ?? "", due: input.due });
     if (!r?.ok) return { ok: false, error: r?.error ?? { message: "Couldn’t save the practice notes." } };
     added = r.data?.added ?? 0;
   }
@@ -220,7 +221,7 @@ const proposeSchema = z.object({
   time: z.string(),
   minutes: z.coerce.number(),
   note,
-  weeks: z.coerce.number().int().min(1).max(12).default(1),
+  weeks: z.coerce.number().int().min(1).max(MAX_UPCOMING).default(1),
   attest: z.literal(true, { message: "Please confirm you’ll follow the lesson rules." }),
 });
 
@@ -291,6 +292,8 @@ export interface LessonSlots {
   /** Picking one of these books (or moves) it straight away, no waiting. */
   instant: boolean;
   leadHours: number;
+  /** More lessons that can be booked ahead with this student (proposals only). */
+  room?: number;
 }
 
 const PICK_DAYS = 21;
@@ -421,11 +424,12 @@ export async function getProposeSlots(input: { studentId: string }): Promise<Act
   const me = auth.user?.id;
   if (!me) return { ok: false, error: { message: "Please sign in." } };
   const from = new Date();
-  const [{ data: tp }, { data: th }, { data: profile }, { data: mine }] = await Promise.all([
+  const [{ data: tp }, { data: th }, { data: profile }, { data: mine }, { data: room }] = await Promise.all([
     supabase.from("tutor_profiles").select("availability, session_minutes, min_notice_hours").eq("user_id", me).maybeSingle(),
     supabase.from("teacherships").select("id").eq("tutor_id", me).eq("student_id", input.studentId).eq("status", "active").maybeSingle(),
     supabase.rpc("student_profile_for_tutor", { p_student: input.studentId }),
     supabase.from("sessions").select("start_at, end_at, move_start_at, move_minutes").eq("tutor_id", me).in("status", ["pending", "scheduled"]).gt("end_at", from.toISOString()),
+    supabase.rpc("my_booking_room"),
   ]);
   if (!tp || !profile) return { ok: false, error: { message: "Student not found." } };
   const leadHours = th ? tp.min_notice_hours : NEW_STUDENT_NOTICE_HOURS;
@@ -438,5 +442,6 @@ export async function getProposeSlots(input: { studentId: string }): Promise<Act
   for (const m of tp.session_minutes) {
     byMinutes[m] = openSlots({ tutorAvailability: tp.availability, studentAvailability, busy, minutes: m, days: PICK_DAYS, leadHours });
   }
-  return { ok: true, data: { byMinutes, minutes: tp.session_minutes, instant: false, leadHours } };
+  const left = (room ?? []).find((r) => r.tutor_id === me && r.student_id === input.studentId)?.room ?? MAX_UPCOMING;
+  return { ok: true, data: { byMinutes, minutes: tp.session_minutes, instant: false, leadHours, room: left } };
 }

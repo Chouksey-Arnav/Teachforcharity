@@ -10,7 +10,7 @@ import { Notice } from "@/components/ui/notice";
 import { easternDateOffset, easternToUtc, formatDate, formatTime, formatWhen, validateSlot } from "@/lib/time";
 import { messageViolation } from "@/lib/moderation";
 import { RELATED_GROUPS } from "@/lib/matching";
-import { NEW_STUDENT_NOTICE_HOURS, defaultMinutes, friendlyDay, openSlots, weeklyStarts, type BusyInterval, type OpenSlot } from "@/lib/slots";
+import { MAX_UPCOMING, NEW_STUDENT_NOTICE_HOURS, defaultMinutes, friendlyDay, openSlots, weeklyStarts, type BusyInterval, type OpenSlot } from "@/lib/slots";
 import type { ActionState } from "@/lib/errors";
 import type { ConsentState } from "@/lib/data";
 import { cn } from "@/lib/cn";
@@ -34,6 +34,8 @@ interface Props {
     availability: string[];
     /** This student's own booked or requested lessons. */
     busy: BusyInterval[];
+    /** How many more lessons this student can book ahead with this tutor (MAX_UPCOMING at most). */
+    room: number;
     subjects: { id: string; slug: string; name: string }[];
   }[];
   initialStudentId?: string;
@@ -49,7 +51,7 @@ interface Props {
 }
 
 const related = (a: string, b: string) => a === b || RELATED_GROUPS.some((g) => g.includes(a) && g.includes(b));
-const WEEK_CHOICES = [2, 4, 6, 8, 10, 12];
+const WEEK_CHOICES = Array.from({ length: MAX_UPCOMING - 1 }, (_, i) => i + 2);
 const DAYS_SHOWN = 14;
 const weekdayLong = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(d);
 const short = (d: Date | string) => formatDate(d).replace(/, \d{4}$/, "");
@@ -98,7 +100,7 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
   const [manual, setManual] = useState(false);
   const [dt, setDt] = useState<DateTimeValue>({ date: easternDateOffset(2), time: "", minutes });
   const [repeat, setRepeat] = useState(false);
-  const [weeks, setWeeks] = useState(4);
+  const [weeks, setWeeks] = useState(MAX_UPCOMING);
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState("");
   const [result, setResult] = useState<ActionState<{ id: string; booked: boolean; respondBy: string | null }>>(null);
@@ -116,7 +118,10 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
         : null));
   // Booked straight away: an open time (inside the tutor's free times) with a tutor who allows it.
   const instant = Boolean(together?.instant) && !manual && Boolean(picked);
-  const nWeeks = repeat ? weeks : 1;
+  // Up to MAX_UPCOMING lessons ahead with one tutor: a weekly run only offers what still fits.
+  const room = Math.max(0, Math.min(MAX_UPCOMING, student?.room ?? MAX_UPCOMING));
+  const weekChoices = WEEK_CHOICES.filter((w) => w <= room);
+  const nWeeks = repeat && weekChoices.length ? Math.min(weeks, room) : 1;
   const series = chosen && !slotIssue ? weeklyStarts(chosen.date, chosen.time, nWeeks) : [];
   const tooFar = series.length > 1 && series[series.length - 1].getTime() > Date.now() + 90 * 86400000;
   const noteIssue = note ? messageViolation(note) : null;
@@ -131,7 +136,9 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
           ? isStudent
             ? "You can book once your parent approves your account."
             : `Sign the consent form for ${student?.name} to book.`
-          : null;
+          : room === 0
+            ? `${isStudent ? "You have" : `${student?.name} has`} ${MAX_UPCOMING} lessons booked ahead with ${tutorFirst}, the most at once. Book the next one after ${isStudent ? "your" : "their"} next lesson.`
+            : null;
   const subjectName = teachable.find((t) => t.id === subjectId)?.name ?? "";
 
   if (result?.ok && result.data?.booked) {
@@ -307,7 +314,11 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
           )}
         </Step>
 
-        <Step n={3} title="How often">
+        <Step
+          n={3}
+          title="How often"
+          aside={<span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-faint">{room < MAX_UPCOMING ? `${room} of ${MAX_UPCOMING} left` : `Up to ${MAX_UPCOMING} ahead`}</span>}
+        >
           <div className="inline-flex w-full rounded-full border border-line bg-paper-2/70 p-0.5" role="radiogroup" aria-label="How often">
             {[false, true].map((r) => (
               <button
@@ -315,9 +326,10 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
                 type="button"
                 role="radio"
                 aria-checked={repeat === r}
+                disabled={r && weekChoices.length === 0}
                 onClick={() => setRepeat(r)}
                 className={cn(
-                  "inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition",
+                  "inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40",
                   repeat === r ? "bg-card text-ink shadow-card ring-1 ring-line" : "text-muted hover:text-ink",
                 )}
               >
@@ -326,19 +338,19 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
               </button>
             ))}
           </div>
-          {repeat && (
+          {repeat && weekChoices.length > 0 && (
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Number of weeks">
               <span className="mr-1 text-[13px] text-muted">For</span>
-              {WEEK_CHOICES.map((w) => (
+              {weekChoices.map((w) => (
                 <button
                   key={w}
                   type="button"
                   role="radio"
-                  aria-checked={weeks === w}
+                  aria-checked={nWeeks === w}
                   onClick={() => setWeeks(w)}
                   className={cn(
                     "h-8 min-w-10 rounded-full border px-2.5 text-[13px] font-medium tabular-nums transition",
-                    weeks === w ? "border-pine-700 bg-pine-50 text-pine-800" : "border-line-2 bg-card text-ink-2 hover:border-ink/30",
+                    nWeeks === w ? "border-pine-700 bg-pine-50 text-pine-800" : "border-line-2 bg-card text-ink-2 hover:border-ink/30",
                   )}
                 >
                   {w}
@@ -347,6 +359,11 @@ export function RequestLessonForm({ tutor, students, initialStudentId, initialSu
               <span className="ml-1 text-[13px] text-muted">weeks</span>
             </div>
           )}
+          <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
+            {room === 0
+              ? "Booking opens again as soon as a lesson happens."
+              : `You can have up to ${MAX_UPCOMING} lessons booked ahead with one tutor${room < MAX_UPCOMING ? `, so ${room} more for now` : ""}. After each lesson, book the next.`}
+          </p>
         </Step>
 
         {showNote ? (

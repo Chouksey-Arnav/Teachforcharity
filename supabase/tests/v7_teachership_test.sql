@@ -125,17 +125,48 @@ begin
   j := public.book_lesson(st[1], t1, clar, d6, 45, null);
   if not (j ->> 'booked')::boolean then raise exception 'FAIL open-time booking with own tutor was not instant'; end if;
   s := (j ->> 'id')::uuid;
-  j := public.book_lesson(st[1], t1, clar, morning8, 45, null);
-  if (j ->> 'booked')::boolean then raise exception 'FAIL booked instantly outside the tutor''s free times'; end if;
-  j := public.book_lesson(st[1], t1, clar, d10, 45, null, 3);
-  if not (j ->> 'booked')::boolean then raise exception 'FAIL weekly series inside open times was not instant'; end if;
-  if (select count(*) from public.sessions where series_id = (select series_id from public.sessions where id = (j ->> 'id')::uuid) and status = 'scheduled') <> 3 then
-    raise exception 'FAIL weekly instant series incomplete';
-  end if;
   begin perform public.book_lesson(st[1], t1, clar, d6, 45, null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'SLOT_TAKEN'; end;
   if not ok then raise exception 'FAIL double booking the same time (hint=%)', hint; end if;
+  j := public.book_lesson(st[1], t1, clar, morning8, 45, null);
+  if (j ->> 'booked')::boolean then raise exception 'FAIL booked instantly outside the tutor''s free times'; end if;
+  b := (j ->> 'id')::uuid;
+  -- Three lessons ahead (booked or asked for) is the most: a fourth is refused by every path.
+  begin perform public.book_lesson(st[1], t1, clar, d10, 45, null); ok := false;
+  exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'TOO_MANY_BOOKED'; end;
+  if not ok then raise exception 'FAIL a fourth lesson ahead was booked (hint=%)', hint; end if;
+  begin perform public.book_lesson(st[1], t1, clar, d10, 45, null, 4); ok := false;
+  exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'BAD_INPUT'; end;
+  if not ok then raise exception 'FAIL a 4-week run was accepted (hint=%)', hint; end if;
   execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', t1, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  begin perform public.tutor_propose_session(st[1], clar, d10, 45, null, 1, true); ok := false;
+  exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'TOO_MANY_BOOKED'; end;
+  if not ok then raise exception 'FAIL tutor proposed a fourth lesson ahead (hint=%)', hint; end if;
+  execute 'reset role';
+  -- Even a direct insert that skips the booking functions is held to it.
+  begin
+    insert into public.sessions (tutor_id, student_id, family_id, subject_id, start_at, duration_minutes, end_at, status, proposed_by)
+    values (t1, st[1], f[1], clar, d11, 45, d11 + interval '45 minutes', 'scheduled', 'family');
+    ok := false;
+  exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'TOO_MANY_BOOKED'; end;
+  if not ok then raise exception 'FAIL direct insert past three ahead (hint=%)', hint; end if;
+  -- A cancelled lesson frees its place.
+  update public.sessions set status = 'cancelled' where id in (a, b);
+  perform set_config('request.jwt.claims', json_build_object('sub', f[1], 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.my_booking_room() where tutor_id = t1 and student_id = st[1] and room = 2;
+  if n <> 1 then raise exception 'FAIL booking room not reported'; end if;
+  j := public.book_lesson(st[1], t1, clar, d10, 45, null, 2);
+  if not (j ->> 'booked')::boolean then raise exception 'FAIL weekly series inside open times was not instant'; end if;
+  if (select count(*) from public.sessions where series_id = (select series_id from public.sessions where id = (j ->> 'id')::uuid) and status = 'scheduled') <> 2 then
+    raise exception 'FAIL weekly instant series incomplete';
+  end if;
+  execute 'reset role';
+  -- Free a place for the next check.
+  update public.sessions set status = 'cancelled'
+  where series_id = (select series_id from public.sessions where id = (j ->> 'id')::uuid) and series_index = 2;
   if not exists (select 1 from public.email_outbox where template = 'session_booked' and to_email = 'v7-t1@example.test'
                  and (payload ->> 'instant')::boolean and payload ->> 'session_id' = s::text) then
     raise exception 'FAIL tutor not told about the instant booking';
@@ -206,8 +237,8 @@ begin
   begin perform public.move_lesson(s, d6 + interval '3 hours', 45); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'TOO_MANY_MOVES'; end;
   if not ok then raise exception 'FAIL a fourth move in a day was allowed (hint=%)', hint; end if;
-  -- And no booking far ahead past 16 lessons with one tutor.
-  begin perform public.book_lesson(st[1], t1, clar, d11 + interval '2 hours', 30, null, 12); ok := false;
+  -- Moving never adds a lesson, so it works at three ahead; booking a fourth doesn't.
+  begin perform public.book_lesson(st[1], t1, clar, d11 + interval '2 hours', 30, null); ok := false;
   exception when others then get stacked diagnostics hint = pg_exception_hint; ok := hint = 'TOO_MANY_BOOKED'; end;
   if not ok then raise exception 'FAIL booking cap missing (hint=%)', hint; end if;
   execute 'reset role';
@@ -248,7 +279,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', f[1], 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   n := public.set_teachership(th, 'end', 'We''re taking a break');
-  if n < 4 then raise exception 'FAIL ending cancelled only % lessons', n; end if;
+  if n < 3 then raise exception 'FAIL ending cancelled only % lessons', n; end if;
   if exists (select 1 from public.sessions where tutor_id = t1 and student_id = st[1] and status in ('pending', 'scheduled') and start_at > now()) then
     raise exception 'FAIL lessons left after ending';
   end if;

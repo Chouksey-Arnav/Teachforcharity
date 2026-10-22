@@ -1,9 +1,25 @@
 "use client";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Check, MessageCircle, Pencil, PartyPopper, Trash2 } from "lucide-react";
+import { Check, Flame, MessageCircle, Pencil, PartyPopper, Repeat, Trash2 } from "lucide-react";
 import { removePractice, setPracticeDone, updatePractice } from "@/app/actions/practice";
-import { dueState, formatDue, groupBoard, practiceProblem, TASK_MAX, NOTE_MAX, type BoardGroup, type PracticeItem } from "@/lib/practice";
+import {
+  dailyEnded,
+  dueState,
+  easternDate,
+  formatDue,
+  groupBoard,
+  lastDays,
+  practiceDays,
+  practiceStreak,
+  practiceProblem,
+  tickedOn,
+  TASK_MAX,
+  NOTE_MAX,
+  type BoardGroup,
+  type PracticeItem,
+} from "@/lib/practice";
+import { PracticeWeek } from "@/components/dashboard/practice-week";
 import { formatDate, formatRelative } from "@/lib/time";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -30,18 +46,36 @@ function DueBadge({ due }: { due: string }) {
 export function PracticeBoard({ items, view, limit, showStudent }: { items: PracticeItem[]; view: "family" | "tutor"; limit?: number; showStudent?: boolean }) {
   // Ticks show at once; the server confirms (or we put it back and say why).
   const [done, setDone] = useState<Record<string, string | null>>({});
+  // A daily task's tick for today: true/false while the server catches up.
+  const [today, setToday] = useState<Record<string, boolean>>({});
   const [gone, setGone] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
+  const day = easternDate(0);
   const live = items
     .filter((i) => !gone.includes(i.id))
-    .map((i) => (i.id in done ? { ...i, done_at: done[i.id] } : i));
-  const groups = groupBoard(live);
+    .map((i) => (i.id in done ? { ...i, done_at: done[i.id] } : i))
+    .map((i) =>
+      i.id in today ? { ...i, checks: today[i.id] ? [...new Set([...(i.checks ?? []), day])].sort() : (i.checks ?? []).filter((c) => c !== day) } : i,
+    );
+  const groups = groupBoard(live, day);
 
   const toggle = (it: PracticeItem) => {
+    setError(null);
+    if (it.repeat === "daily") {
+      const next = !tickedOn(it, day);
+      setToday((t) => ({ ...t, [it.id]: next }));
+      start(async () => {
+        const r = await setPracticeDone(it.id, next);
+        if (!r?.ok) {
+          setToday((t) => ({ ...t, [it.id]: !next }));
+          setError(r?.error.message ?? "Couldn’t save that. Please try again.");
+        }
+      });
+      return;
+    }
     const next = it.done_at ? null : new Date().toISOString();
     setDone((d) => ({ ...d, [it.id]: next }));
-    setError(null);
     start(async () => {
       const r = await setPracticeDone(it.id, Boolean(next));
       if (!r?.ok) {
@@ -90,7 +124,16 @@ function Group({
   onRemove: (it: PracticeItem) => void;
 }) {
   const total = g.open.length + g.done.length;
-  const pct = total ? Math.round((g.done.length / total) * 100) : 0;
+  // Today's share: one-off tasks done, plus daily tasks ticked today.
+  const todo = g.onceTotal + g.dailyToday;
+  const pct = todo ? Math.round(((g.onceDone + g.dailyTicked) / todo) * 100) : 0;
+  const tasks = [...g.open, ...g.done];
+  const streak = practiceStreak(tasks);
+  const dailyDone = g.dailyToday > 0 && g.dailyTicked >= g.dailyToday;
+  const summary = [
+    g.dailyToday > 0 && `${g.dailyTicked} of ${g.dailyToday} daily done today`,
+    g.onceTotal > 0 && `${g.onceDone} of ${g.onceTotal} ${g.onceTotal === 1 ? "task" : "tasks"} done`,
+  ].filter(Boolean);
   const open = limit ? g.open.slice(0, limit) : g.open;
   const [latest, ...older] = g.notes;
   const title = view === "tutor" ? g.studentName : `${g.subjectName ?? "Lessons"} with ${g.tutorName}`;
@@ -102,10 +145,17 @@ function Group({
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-[15px] font-semibold">{title}</h3>
           <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
-            {total ? `${g.done.length} of ${total} done` : "Notes"}
+            {summary.length ? summary.join(" · ") : "Notes"}
             {showStudent && view === "family" && ` · ${g.studentName}`}
           </p>
         </div>
+        {streak > 1 && (
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-brass-100 px-2.5 py-1 font-mono text-[11px] font-semibold text-brass-800" title={`Practised ${streak} days in a row`}>
+            <Flame className="size-3.5" aria-hidden />
+            {streak}
+            <span className="sr-only"> days in a row</span>
+          </span>
+        )}
         {g.threadId && (
           <Link
             href={`/dashboard/messages/${g.threadId}`}
@@ -117,7 +167,7 @@ function Group({
           </Link>
         )}
       </header>
-      {total > 0 && (
+      {todo > 0 && (
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-paper-2" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Practice done">
           <div className="h-full rounded-full bg-pine-700 transition-[width] duration-500 ease-[cubic-bezier(0.3,1.4,0.5,1)]" style={{ width: `${pct}%` }} />
         </div>
@@ -145,6 +195,15 @@ function Group({
         </div>
       )}
 
+      {tasks.length > 0 && !limit && (
+        <PracticeWeek days={practiceDays(tasks, lastDays(7))} className="mt-3" label={`${g.studentName}'s practice this week`} />
+      )}
+      {dailyDone && (
+        <p className="mt-3 flex animate-fade items-center gap-2 rounded-2xl bg-mint/50 px-4 py-2.5 text-[13.5px] text-pine-900">
+          <PartyPopper className="size-4 shrink-0" aria-hidden />
+          {view === "tutor" ? `${g.studentName} has practised everything for today.` : "Today’s practice is done. See you tomorrow!"}
+        </p>
+      )}
       {g.open.length > 0 ? (
         <ul className="mt-3 divide-y divide-line">
           {open.map((it) => (
@@ -174,6 +233,7 @@ function Group({
 }
 
 function TaskRow({ it, view, onToggle, onRemove }: { it: PracticeItem; view: "family" | "tutor"; onToggle: (it: PracticeItem) => void; onRemove: (it: PracticeItem) => void }) {
+  if (it.repeat === "daily") return <DailyRow it={it} view={view} onToggle={onToggle} onRemove={onRemove} />;
   const isDone = Boolean(it.done_at);
   return (
     <li className="flex items-start gap-3 py-2.5">
@@ -211,6 +271,72 @@ function TaskRow({ it, view, onToggle, onRemove }: { it: PracticeItem; view: "fa
           )}
         </p>
       </div>
+    </li>
+  );
+}
+
+/** A task practised every day: today's tick, and the last week of ticks. */
+function DailyRow({ it, view, onToggle, onRemove }: { it: PracticeItem; view: "family" | "tutor"; onToggle: (it: PracticeItem) => void; onRemove: (it: PracticeItem) => void }) {
+  const today = easternDate(0);
+  const ended = dailyEnded(it, today);
+  const ticked = tickedOn(it, today);
+  const week = practiceDays([it], lastDays(7, today));
+  const ran = week.filter((d) => d.daily > 0);
+  const practised = ran.filter((d) => d.ticked > 0).length;
+  const total = (it.checks ?? []).length;
+  return (
+    <li className="py-3">
+      <div className="flex items-start gap-3">
+        {view === "family" && !ended ? (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={ticked}
+            aria-label={`${ticked ? "Not practised today" : "Practised today"}: ${it.body}`}
+            onClick={() => onToggle(it)}
+            className={cn(
+              "mt-0.5 grid size-6 shrink-0 place-items-center rounded-lg border-2 transition-[background,border-color,transform] duration-200 ease-[cubic-bezier(0.3,1.4,0.5,1)] active:scale-[0.9]",
+              ticked ? "border-pine-700 bg-pine-700 text-white" : "border-ink/25 bg-white hover:border-pine-700",
+            )}
+          >
+            {ticked && <Check className="size-3.5" strokeWidth={3} aria-hidden />}
+          </button>
+        ) : (
+          <span
+            className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-lg border-2", ticked ? "border-pine-700 bg-pine-700 text-white" : "border-ink/20")}
+            aria-label={ended ? "Finished" : ticked ? "Practised today" : "Not practised yet today"}
+            role="img"
+          >
+            {ticked && <Check className="size-3.5" strokeWidth={3} aria-hidden />}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <ItemBody it={it} view={view} onRemove={onRemove} className="text-[14.5px] leading-snug" />
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
+            <Badge tone="pine">
+              <Repeat className="size-3" aria-hidden /> Every day
+            </Badge>
+            {ended ? (
+              <span>
+                Finished {formatDue(it.due_on!)} · practised on {total} {total === 1 ? "day" : "days"}
+              </span>
+            ) : (
+              <>
+                {it.due_on && <span>until {it.due_on === today ? "today" : formatDue(it.due_on)}</span>}
+                {view === "family" && !ticked && <span className="text-ink-2">Tick it once you’ve practised today</span>}
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+      {!ended && ran.length > 1 && (
+        <div className="ml-9 mt-2 flex items-center gap-2.5">
+          <PracticeWeek days={week} today={today} size="sm" label={`${it.body}: the last 7 days`} />
+          <span className="text-[12px] text-muted">
+            {practised} of {ran.length} days
+          </span>
+        </div>
+      )}
     </li>
   );
 }
