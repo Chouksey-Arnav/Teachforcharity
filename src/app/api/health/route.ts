@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { cronAuthorized } from "@/lib/cron-auth";
+import { emailProvider } from "@/lib/email/provider";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,9 @@ const OPTIONAL = ["NEXT_PUBLIC_CONTACT_EMAIL", "NEXT_PUBLIC_VAPID_PUBLIC_KEY", "
  * Is the deploy wired up? Anyone gets up/down: the database answers (through
  * the service key, like the email worker), and its schema has the newest
  * migration this code needs, so a deploy that ran ahead of its migration
- * shows up at once. With the cron secret it also lists which settings are missing.
+ * shows up at once, and the email provider has its settings, since sign-up
+ * codes, password resets and parent links all fail without it. With the cron
+ * secret it also lists which settings are missing.
  */
 export async function GET(req: NextRequest) {
   const db = createServiceClient();
@@ -39,12 +42,15 @@ export async function GET(req: NextRequest) {
       schema = "behind";
     } else database = "unreachable";
   }
-  const ok = database === "ok" && schema === "current";
-  const body: Record<string, unknown> = { ok, database, schema, time: new Date().toISOString() };
+  const provider = emailProvider();
+  const emailMissing = provider.missingConfig();
+  const email = emailMissing.length ? "not_configured" : "ok";
+  const ok = database === "ok" && schema === "current" && email === "ok";
+  const body: Record<string, unknown> = { ok, database, schema, email, time: new Date().toISOString() };
   if (cronAuthorized(req.headers.get("authorization"))) {
-    body.missing = REQUIRED.filter((k) => !process.env[k]);
+    body.missing = [...REQUIRED.filter((k) => !process.env[k]), ...emailMissing];
     body.optionalMissing = OPTIONAL.filter((k) => !process.env[k]);
-    body.email = process.env.EMAIL_PROVIDER || "brevo";
+    body.emailProvider = provider.name;
   }
   return NextResponse.json(body, { status: ok ? 200 : 503, headers: { "Cache-Control": "no-store" } });
 }
