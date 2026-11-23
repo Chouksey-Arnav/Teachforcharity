@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { adminDb } from "@/lib/admin/session";
-import { AdminPage, Empty, PersonLink, Tabs, ago, when } from "@/components/admin/ui";
+import { AdminPage, Empty, PersonLink, ago, when } from "@/components/admin/ui";
 import { ContactStatusButton } from "@/components/admin/contact-actions";
 import { Badge } from "@/components/ui/badge";
 import { CONTACT_ROLES, CONTACT_TOPICS } from "@/lib/public-forms";
 
-export const metadata: Metadata = { title: "Inbox" };
+export const metadata: Metadata = { title: "Contact form inbox" };
 
 /** Messages from the public contact form, including concerns from people without an account. */
 export default async function InboxPage({ searchParams }: PageProps<"/admin/inbox">) {
@@ -19,19 +20,22 @@ export default async function InboxPage({ searchParams }: PageProps<"/admin/inbo
 
   return (
     <AdminPage
-      title="Inbox"
-      description="Messages from the public contact form. Reply by email. A concern here does not pause anyone automatically: if it’s about a tutor, open their profile and act."
+      title="Contact form inbox"
+      description="Submissions from the public contact form, including concerns from people without an account. This is not a connected email mailbox; replies open your email app and aren’t tracked here. A concern does not pause anyone automatically: if it’s about a tutor, open their profile and act."
     >
-      <Tabs
-        active={view}
-        items={[
+      <nav aria-label="Contact message status" className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1">
+        {[
           { key: "new", label: "New", href: "/admin/inbox" },
           { key: "handled", label: "Handled", href: "/admin/inbox?view=handled" },
           { key: "all", label: "All", href: "/admin/inbox?view=all" },
-        ]}
-      />
+        ].map((tab) => (
+          <Link key={tab.key} href={tab.href} aria-current={tab.key === view ? "page" : undefined} className={`shrink-0 rounded-full px-3.5 py-2 text-[13px] font-medium transition ${tab.key === view ? "bg-ink text-cream" : "bg-white/75 text-ink-2 ring-1 ring-ink/10 hover:bg-white"}`}>
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
       {error ? (
-        <Empty>The inbox isn’t set up yet. Apply the database migration 20261007000200_public_waitlist_contact.sql.</Empty>
+        <Empty>Contact submissions could not be loaded. Try refreshing or check the database configuration.</Empty>
       ) : !rows.length ? (
         <Empty>{view === "new" ? "Nothing new." : "No messages."}</Empty>
       ) : (
@@ -49,11 +53,11 @@ export default async function InboxPage({ searchParams }: PageProps<"/admin/inbo
                       {when(m.created_at)} ({ago(m.created_at)})
                     </span>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm text-ink">{m.message}</p>
-                  <p className="text-[13px] text-muted">
+                  <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.message}</p>
+                  <p className="break-words text-[13px] text-muted">
                     From: <span className="font-medium text-ink">{m.name}</span>
                     {role && <> · {role}</>} ·{" "}
-                    <a className="text-ink underline underline-offset-2" href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: your message to Teach for a Cause`)}`}>
+                    <a className="text-ink underline underline-offset-2" href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: your message to Teach for a Cause`)}`} aria-label={`Reply to ${m.name} at ${m.email} in your email app`}>
                       {m.email}
                     </a>
                     {m.user_id && (

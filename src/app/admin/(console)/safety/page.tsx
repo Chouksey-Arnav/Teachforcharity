@@ -24,11 +24,16 @@ export default async function SafetyPage({ searchParams }: PageProps<"/admin/saf
     db.from("moderation_runs").select("*").order("id", { ascending: false }).limit(8),
   ]);
   const flags = data ?? [];
+  const staffFlagIds = flags.filter((f) => f.source_type === "staff_message").map((f) => f.id);
+  const { data: staffThreads } = staffFlagIds.length
+    ? await db.rpc("admin_staff_flag_threads", { p_flag_ids: staffFlagIds })
+    : { data: [] };
+  const staffThreadByFlag = new Map((staffThreads ?? []).map((t) => [t.flag_id, t.staff_thread_id]));
 
   return (
     <AdminPage
       title="Safety scan"
-      description="Our own text-analysis software (no AI services) checks every message right after it's sent and again hourly, looking at single messages and whole conversations. Critical items hide the message and pause the tutor automatically; everything is logged here for a person to review."
+      description="The safety scanner checks delivered messages after sending and on scheduled runs. Tutor conversations also receive conversation-pattern checks; staff conversations receive local per-message checks for human review, without automatic hiding or tutor actions."
       actions={<RunScanButton />}
     >
       <Tabs
@@ -65,7 +70,7 @@ export default async function SafetyPage({ searchParams }: PageProps<"/admin/saf
                   </div>
                   {f.category === "self_harm" && (
                     <p className="rounded-lg bg-clay-50 px-3 py-2 text-sm text-clay-800">
-                      <strong>Possible student in distress.</strong> Contact their parent/guardian today. If there’s immediate danger, call 911. The 988
+                      <strong>Possible person in distress.</strong> Review the conversation and contact the appropriate adult today. If there’s immediate danger, call 911. The 988
                       Suicide & Crisis Lifeline takes calls and texts at 988.
                     </p>
                   )}
@@ -87,6 +92,11 @@ export default async function SafetyPage({ searchParams }: PageProps<"/admin/saf
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-t border-line bg-paper/60 px-4 py-2.5">
                   <FlagActions id={f.id} status={f.status} />
+                  {staffThreadByFlag.has(f.id) && (
+                    <Link href={`/admin/communications/${staffThreadByFlag.get(f.id)}`} className="rounded-full px-3 py-1.5 text-[13px] text-pine-700 ring-1 ring-line hover:bg-card">
+                      Open staff conversation
+                    </Link>
+                  )}
                   {f.thread_id && (
                     <Link href={`/admin/messages/${f.thread_id}`} className="rounded-full px-3 py-1.5 text-[13px] text-pine-700 ring-1 ring-line hover:bg-card">
                       Open conversation

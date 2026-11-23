@@ -11,11 +11,13 @@ import { cn } from "@/lib/cn";
 /** Search appears once there are enough conversations to need it. */
 const SEARCH_FROM = 5;
 
-export function ThreadList({ threads, selfManaged = [], studentAccount = false }: { threads: MyThread[]; selfManaged?: string[]; studentAccount?: boolean }) {
+type StaffThread = { thread_id: string; student_name: string; last_message_at: string; last_body: string; unread: boolean };
+
+export function ThreadList({ threads, communications = [], selfManaged = [], studentAccount = false }: { threads: MyThread[]; communications?: StaffThread[]; selfManaged?: string[]; studentAccount?: boolean }) {
   const pathname = usePathname();
   const inThread = pathname !== "/dashboard/messages";
   const [q, setQ] = useState("");
-  const unread = threads.filter((t) => t.unread).length;
+  const unread = threads.filter((t) => t.unread).length + communications.filter((t) => t.unread).length;
 
   const rows = threads.map((t) => {
     const self = selfManaged.includes(t.student_id);
@@ -36,7 +38,7 @@ export function ThreadList({ threads, selfManaged = [], studentAccount = false }
           {unread > 0 && <span className="rounded-full bg-brass-100 px-2 py-0.5 text-[11px] font-semibold text-brass-800">{unread} new</span>}
         </div>
         <p className="mt-0.5 text-xs text-muted">{studentAccount ? "Your parent can read every message." : "Every conversation is visible to the parent."}</p>
-        {threads.length >= SEARCH_FROM && (
+        {threads.length + communications.length >= SEARCH_FROM && (
           <label className="relative mt-3 block">
             <span className="sr-only">Search conversations</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
@@ -51,7 +53,20 @@ export function ThreadList({ threads, selfManaged = [], studentAccount = false }
         )}
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto">
-        {threads.length === 0 && (
+        {communications.filter((t) => !term || `teach for a cause ${t.student_name} ${t.last_body}`.toLowerCase().includes(term)).map((t) => (
+          <li key={t.thread_id}>
+            <Link href={`/dashboard/messages/staff/${t.thread_id}`} aria-current={pathname === `/dashboard/messages/staff/${t.thread_id}` ? "page" : undefined} className="flex gap-3 border-b border-line px-4 py-3.5 hover:bg-paper/70 sm:px-5">
+              <Avatar name="Teach for a Cause" size={44} />
+              <div className="min-w-0 flex-1">
+                <p className={cn("truncate text-[14.5px]", t.unread ? "font-semibold" : "font-medium")}>Teach for a Cause {t.unread && <span className="text-brass-800">· New</span>}</p>
+                <p className="truncate text-xs text-muted">About {t.student_name}</p>
+                <p className="mt-1 truncate text-[13px] text-muted">{t.last_body}</p>
+              </div>
+              <span className="shrink-0 text-[11px] text-faint">{formatRelative(t.last_message_at)}</span>
+            </Link>
+          </li>
+        ))}
+        {threads.length === 0 && communications.length === 0 && (
           <li className="flex flex-col items-center px-6 py-12 text-center">
             <span className="flex size-11 items-center justify-center rounded-full bg-paper-2 text-pine-700">
               <MessageCircle className="size-5" aria-hidden />
@@ -67,7 +82,7 @@ export function ThreadList({ threads, selfManaged = [], studentAccount = false }
             )}
           </li>
         )}
-        {threads.length > 0 && shown.length === 0 && <li className="px-5 py-8 text-center text-sm text-muted">No conversations match “{q}”.</li>}
+        {term && shown.length === 0 && !communications.some((t) => `teach for a cause ${t.student_name} ${t.last_body}`.toLowerCase().includes(term)) && <li className="px-5 py-8 text-center text-sm text-muted">No conversations match “{q}”.</li>}
         {shown.map(({ t, title, sub }) => {
           const active = pathname === `/dashboard/messages/${t.id}`;
           return (

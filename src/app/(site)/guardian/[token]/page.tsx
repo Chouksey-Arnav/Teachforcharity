@@ -67,6 +67,7 @@ export default async function GuardianPage({ params }: PageProps<"/guardian/[tok
 
   const s = d.student;
   const name = s.first_name;
+  const { data: staffMessages } = await supabase.rpc("guardian_comms", { p_token: token });
 
   return (
     <div className="lm-wash"><div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-16">
@@ -210,7 +211,21 @@ export default async function GuardianPage({ params }: PageProps<"/guardian/[tok
               <MessageSquareLock className="size-5 text-pine-700" /> Messages
             </h2>
             <p className="mt-1 text-sm text-muted">Every conversation {name} has on the site, read-only. Messages removed by our safety system aren’t shown.</p>
-            {d.threads.length === 0 ? (
+            {staffMessages && staffMessages.length > 0 && (
+              <details className="mt-3 overflow-hidden rounded-2xl border border-line bg-card">
+                <summary className="cursor-pointer px-4 py-3 font-medium">With Teach for a Cause · {staffMessages.length} messages</summary>
+                <ol className="max-h-[28rem] space-y-2 overflow-y-auto border-t border-line bg-paper/60 p-4">
+                  {staffMessages.map((m) => (
+                    <li key={m.id} className={cn("max-w-[85%] rounded-2xl px-3.5 py-2 text-sm", m.sender_side === "family" ? "ml-auto bg-pine-700 text-white" : "bg-card ring-1 ring-line")}>
+                      <span className="mb-0.5 block text-[11px] opacity-70">{m.sender_side === "family" ? name : "Teach for a Cause"}</span>
+                      <span className="whitespace-pre-wrap break-words">{m.body}</span>
+                      <span className="mt-0.5 block text-[10px] opacity-60">{formatDate(m.created_at)} · {formatTime(m.created_at)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
+            {d.threads.length === 0 && !staffMessages?.length ? (
               <p className="mt-3 rounded-2xl border border-dashed border-line-2 px-5 py-6 text-sm text-muted">No conversations yet.</p>
             ) : (
               <div className="mt-3 space-y-4">
