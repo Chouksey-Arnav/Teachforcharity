@@ -27,16 +27,22 @@ const GROUPS: { label: string; items: Item[] }[] = [
     items: [
       { href: "/admin/checks", label: "Account checks", icon: BadgeCheck, hint: "Automated tutor checks: exceptions only" },
       { href: "/admin/reports", label: "Reports", icon: Siren, badge: "reports", hint: "Concerns people have reported" },
-      { href: "/admin/inbox", label: "Inbox", icon: Inbox, badge: "inbox", hint: "Contact form, including concerns from people without an account" },
       { href: "/admin/safety", label: "Safety scan", icon: ShieldAlert, badge: "flags", hint: "Messages the scanner flagged" },
-      { href: "/admin/messages", label: "Messages", icon: MessagesSquare, hint: "Read any conversation" },
+    ],
+  },
+  {
+    label: "Communications",
+    items: [
+      { href: "/admin/communications", label: "Students & messaging", icon: Users, hint: "Student directory and program messages" },
+      { href: "/admin/messages", label: "Tutor conversations", icon: MessagesSquare, hint: "Review tutor and family conversations" },
+      { href: "/admin/inbox", label: "Contact form inbox", icon: Inbox, badge: "inbox", hint: "Public form submissions, not a mailbox" },
+      { href: "/admin/emails", label: "Email delivery", icon: Mail, hint: "Outgoing queue, failures and retries" },
     ],
   },
   {
     label: "System",
     items: [
       { href: "/admin/activity", label: "Activity log", icon: Activity, hint: "Everything that happened, in order" },
-      { href: "/admin/emails", label: "Emails", icon: Mail, hint: "Outbox, failures, retries" },
       { href: "/admin/settings", label: "Settings & health", icon: Settings, hint: "Partner, alerts, scheduled jobs" },
     ],
   },

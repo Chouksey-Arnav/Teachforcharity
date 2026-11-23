@@ -13,6 +13,7 @@ const noIndex = [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }]
 const PRIVATE_SOURCES = ["/dashboard/:path*", "/admin/:path*", "/onboarding/:path*", "/api/:path*", "/auth/:path*", "/invite/:path*", "/confirm/:path*", "/verify/:path*", "/guardian/:path*"];
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["*.fixa.run"],
   poweredByHeader: false,
   async headers() {
     return [

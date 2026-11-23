@@ -4,6 +4,7 @@ import { createServiceClient } from "../supabase/admin";
 import { drainOutbox } from "../email/worker";
 import { flagsForConversation, flagsForMessage, flagsForText, SEVERITY_RANK, type Flag, type ScanMessage } from "./analyze";
 import { MODEL_REVIEW_VERSION, modelReviewEnabled, reviewWithModel, type ModelFinding, type ReviewItem } from "./model-review";
+import { flagsForStaffMessage, type StaffScanMessage } from "./staff";
 
 export interface ScanResult {
   ok: boolean;
@@ -116,6 +117,24 @@ export async function runSafetyScan(source: "cron" | "manual" | "realtime"): Pro
         p_run: run,
         p_flags: flags as unknown as never,
         p_scanned: messages.map((m) => m.id),
+      });
+      if (applyErr) throw new Error(applyErr.message);
+      scanned += messages.length;
+      flagged += n ?? 0;
+      if (batch.length < BATCH) break;
+    }
+
+    // Staff/family communications are a separate private channel. Scan each
+    // delivered message with local rules only: no tutor conversation heuristics,
+    // automatic tutor actions, or external model disclosure of this channel.
+    for (let i = 0; i < MAX_BATCHES; i++) {
+      const { data: batch, error } = await db.rpc("moderation_staff_batch", { p_limit: BATCH });
+      if (error) throw new Error(error.message);
+      if (!batch?.length) break;
+      const messages: StaffScanMessage[] = batch.map((m) => ({ ...m, sender_side: m.sender_side === "admin" ? "admin" : "family" }));
+      const flags = messages.flatMap(flagsForStaffMessage);
+      const { data: n, error: applyErr } = await db.rpc("moderation_staff_apply", {
+        p_run: run, p_flags: flags as unknown as never, p_scanned: messages.map((m) => m.id),
       });
       if (applyErr) throw new Error(applyErr.message);
       scanned += messages.length;

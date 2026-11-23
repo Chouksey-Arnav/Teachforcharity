@@ -86,6 +86,27 @@ export default async function AdminOverview() {
         <Stat label="Safety flags" value={Object.values(flagCount).reduce((a, b) => a + b, 0)} hint={`${urgent} high or critical`} tone={urgent ? "danger" : "neutral"} href="/admin/safety" />
       </div>
 
+      <Panel title="Communications" className="mt-6" flush>
+        <ul className="divide-y divide-line sm:grid sm:grid-cols-2 sm:divide-y-0">
+          {[
+            { href: "/admin/communications", title: "Student directory & messaging", description: "Find students and send program messages." },
+            { href: "/admin/messages", title: "Tutor conversations", description: "Review conversations between tutors and students or families." },
+            { href: "/admin/inbox", title: "Contact form inbox", description: "Review public contact submissions; this is not a connected mailbox." },
+            { href: "/admin/emails", title: "Email delivery", description: "Check the program’s outgoing email queue, failures and retries." },
+          ].map((item) => (
+            <li key={item.href} className="border-line sm:border-b sm:odd:border-r sm:[&:nth-last-child(-n+2)]:border-b-0">
+              <Link href={item.href} className="flex h-full items-center justify-between gap-3 px-4 py-3 hover:bg-paper">
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-ink">{item.title}</span>
+                  <span className="mt-1 block text-xs text-muted">{item.description}</span>
+                </span>
+                <ArrowRight className="size-4 shrink-0 text-muted" aria-hidden="true" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <Panel title="Last 12 weeks">
           <div className="grid gap-6 sm:grid-cols-2">

@@ -2185,6 +2185,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_comms_students: {
+        Args: { p_search?: string; p_limit?: number; p_offset?: number }
+        Returns: { student_id: string; student_name: string; family_id: string; family_name: string; family_email: string; grade: number; school: string | null; is_active: boolean; consent_ok: boolean; total_count: number }[]
+      }
+      admin_comms_threads: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: { thread_id: string; student_id: string; student_name: string; family_name: string; last_message_at: string; last_body: string; unread_admin: boolean; total_count: number }[]
+      }
+      admin_comms_student_threads: {
+        Args: { p_students: string[] }
+        Returns: { thread_id: string; student_id: string; family_name: string }[]
+      }
+      admin_comms_thread: {
+        Args: { p_thread: string }
+        Returns: { thread_id: string; student_id: string; student_name: string; family_name: string; last_message_at: string; last_body: string; unread_admin: boolean; can_reply: boolean }[]
+      }
+      guardian_comms: {
+        Args: { p_token: string }
+        Returns: { id: string; sender_side: string; body: string; created_at: string }[]
+      }
+      admin_comms_messages: {
+        Args: { p_thread: string }
+        Returns: { id: string; sender_name: string; sender_side: string; body: string; created_at: string }[]
+      }
+      admin_comms_send: { Args: { p_student: string | null; p_all: boolean; p_body: string }; Returns: number }
+      admin_comms_reply: { Args: { p_thread: string; p_body: string }; Returns: number }
+      admin_comms_mark_read: { Args: { p_thread: string }; Returns: undefined }
+      family_comms_threads: {
+        Args: Record<PropertyKey, never>
+        Returns: { thread_id: string; student_name: string; last_message_at: string; last_body: string; unread: boolean }[]
+      }
+      family_comms_messages: {
+        Args: { p_thread: string }
+        Returns: { id: string; sender_name: string; sender_side: string; body: string; created_at: string }[]
+      }
+      family_comms_send: { Args: { p_thread: string; p_body: string }; Returns: string | null }
+      family_comms_mark_read: { Args: { p_thread: string }; Returns: undefined }
       answer_move: {
         Args: { p_accept: boolean; p_session: string }
         Returns: string
@@ -2740,6 +2777,18 @@ export type Database = {
       mark_thread_read: { Args: { p_thread: string }; Returns: undefined }
       mark_updates_read: {
         Args: { p_area?: string; p_ids?: number[] }
+        Returns: number
+      }
+      admin_staff_flag_threads: {
+        Args: { p_flag_ids: number[] }
+        Returns: { flag_id: number; staff_thread_id: string }[]
+      }
+      moderation_staff_batch: {
+        Args: { p_limit?: number }
+        Returns: { id: string; thread_id: string; sender_id: string | null; sender_side: string; body: string; created_at: string }[]
+      }
+      moderation_staff_apply: {
+        Args: { p_run: number; p_flags: Json; p_scanned: string[] }
         Returns: number
       }
       moderation_apply: {
